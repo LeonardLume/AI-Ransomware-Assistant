@@ -5,6 +5,7 @@ import type {
   ProviderStatusResponse,
   SessionSummary,
 } from "../types/api";
+import type { UiLanguage } from "../utils/i18n";
 import Sidebar from "./Sidebar";
 import { Button } from "./ui";
 
@@ -25,8 +26,10 @@ export default function Layout({
   sessions,
   activeSessionId,
   activeView,
+  language,
   pages,
   onViewChange,
+  onLanguageChange,
   onToggleSidebar,
   onCloseSidebar,
   onNewSession,
@@ -41,8 +44,10 @@ export default function Layout({
   sessions: SessionSummary[];
   activeSessionId?: string | null;
   activeView: AppView;
+  language: UiLanguage;
   pages: Record<AppView, ReactNode>;
   onViewChange: (view: AppView) => void;
+  onLanguageChange: (language: UiLanguage) => void;
   onToggleSidebar: () => void;
   onCloseSidebar: () => void;
   onNewSession: () => void;
@@ -57,12 +62,14 @@ export default function Layout({
           sessions={sessions}
           activeSessionId={activeSessionId}
           activeView={activeView}
+          language={language}
           backendOnline={backendOnline}
           providerStatus={providerStatus}
           lastResponse={lastResponse}
           open={sidebarOpen}
           onClose={onCloseSidebar}
           onViewChange={onViewChange}
+          onLanguageChange={onLanguageChange}
           onNewSession={onNewSession}
           onLoadDemo={onLoadDemo}
           onSelectSession={onSelectSession}

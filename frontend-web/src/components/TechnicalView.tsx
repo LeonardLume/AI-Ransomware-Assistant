@@ -8,6 +8,7 @@ import type {
   SessionStateResponse,
   TechnicalFlowResponse,
 } from "../types/api";
+import { t, valueLabel, type UiLanguage } from "../utils/i18n";
 import PrivacySafetyCard from "./PrivacySafetyCard";
 import TechnicalJsonView from "./TechnicalJsonView";
 import { Accordion, Badge, Card } from "./ui";
@@ -28,6 +29,7 @@ export default function TechnicalView({
   report,
   questions,
   flow,
+  language = "et",
 }: {
   backendOnline: boolean;
   providerStatus?: ProviderStatusResponse | null;
@@ -37,6 +39,7 @@ export default function TechnicalView({
   report?: ReportResponse | null;
   questions: Question[];
   flow?: TechnicalFlowResponse | null;
+  language?: UiLanguage;
 }) {
   const provider = lastResponse?.provider || providerStatus?.provider || "unknown";
   const fallbackUsed =
@@ -53,21 +56,21 @@ export default function TechnicalView({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-slate-950">Technical</h2>
+        <h2 className="text-xl font-semibold text-slate-950">{t(language, "technical")}</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Provider status, structured backend state, and debug payloads.
+          {t(language, "technicalDescription")}
         </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-4">
           <Card className="p-4">
-            <h3 className="text-sm font-semibold text-slate-950">Provider and guardrails</h3>
+            <h3 className="text-sm font-semibold text-slate-950">{t(language, "providerAndGuardrails")}</h3>
             <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
               <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-                <span>Backend</span>
+                <span>{t(language, "backend")}</span>
                 <Badge tone={backendOnline ? "success" : "danger"}>
-                  {backendOnline ? "online" : "offline"}
+                  {backendOnline ? t(language, "online") : t(language, "offline")}
                 </Badge>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
@@ -75,29 +78,29 @@ export default function TechnicalView({
                 <Badge tone={provider === "fallback" ? "warning" : "info"}>{provider}</Badge>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-                <span>Fallback</span>
+                <span>{t(language, "fallbackMode")}</span>
                 <Badge tone={fallbackUsed ? "warning" : "success"}>
-                  {String(Boolean(fallbackUsed))}
+                  {booleanLabel(language, Boolean(fallbackUsed))}
                 </Badge>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-                <span>Redaction</span>
+                <span>{t(language, "redaction")}</span>
                 <Badge tone={redactionCount ? "success" : "neutral"}>
                   {lastResponse?.redactions_applied === undefined
-                    ? "not reported"
+                    ? t(language, "notReported")
                     : redactionCount
-                      ? `${redactionCount} applied`
-                      : "not applied"}
+                      ? `${redactionCount} ${t(language, "applied")}`
+                      : t(language, "notApplied")}
                 </Badge>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-2">
-                <span>Prompt injection</span>
+                <span>{t(language, "promptInjection")}</span>
                 <Badge tone={lastResponse?.prompt_injection_blocked ? "danger" : "neutral"}>
                   {lastResponse?.prompt_injection_blocked === undefined
-                    ? "not reported"
+                    ? t(language, "notReported")
                     : lastResponse.prompt_injection_blocked
-                      ? "blocked"
-                      : "not triggered"}
+                      ? t(language, "blocked")
+                      : t(language, "notTriggered")}
                 </Badge>
               </div>
             </div>
@@ -112,7 +115,7 @@ export default function TechnicalView({
               title={
                 <span className="inline-flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  Structured answers
+                  {t(language, "structuredAnswers")}
                   <Badge tone="neutral">{answers.length}</Badge>
                 </span>
               }
@@ -127,9 +130,9 @@ export default function TechnicalView({
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Badge tone="neutral">id: {questionId}</Badge>
-                        <Badge tone="info">answer: {valueOrDash(record.answer)}</Badge>
+                        <Badge tone="info">{answerLabel(language)}: {valueLabel(language, record.answer)}</Badge>
                         {record.confidence !== undefined ? (
-                          <Badge tone="neutral">confidence: {record.confidence}</Badge>
+                          <Badge tone="neutral">{t(language, "confidence")}: {valueOrDash(record.confidence)}</Badge>
                         ) : null}
                       </div>
                       {record.details ? (
@@ -139,7 +142,7 @@ export default function TechnicalView({
                   ))
                 ) : (
                   <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                    No validated structured answers yet.
+                    {t(language, "noValidatedAnswers")}
                   </div>
                 )}
               </div>
@@ -153,6 +156,7 @@ export default function TechnicalView({
             lastResponse={lastResponse}
             providerStatus={providerStatus}
             flow={flow}
+            language={language}
           />
         </div>
 
@@ -161,22 +165,19 @@ export default function TechnicalView({
             <div className="flex items-start gap-2">
               <ShieldCheck className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
               <div>
-                <h3 className="font-semibold text-slate-950">Backend source of truth</h3>
-                <p className="mt-1">
-                  The React app displays backend state only. FastAPI owns questions, structured
-                  answers, scoring, reports, skills, evidence, and simulations.
-                </p>
+                <h3 className="font-semibold text-slate-950">{t(language, "backendSourceOfTruth")}</h3>
+                <p className="mt-1">{t(language, "backendSourceText")}</p>
               </div>
             </div>
           </Card>
-          <PrivacySafetyCard lastResponse={lastResponse} />
+          <PrivacySafetyCard lastResponse={lastResponse} language={language} />
           {flow?.workflow?.length ? (
             <Card className="p-4">
-              <h3 className="text-sm font-semibold text-slate-950">Technical trace</h3>
+              <h3 className="text-sm font-semibold text-slate-950">{t(language, "technicalTrace")}</h3>
               <ol className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                 {flow.workflow.map((step, index) => (
                   <li key={`${step}-${index}`} className="rounded-xl bg-slate-50 p-3">
-                    {step}
+                    {localizedFlowStep(language, step)}
                   </li>
                 ))}
               </ol>
@@ -186,4 +187,33 @@ export default function TechnicalView({
       </div>
     </section>
   );
+}
+
+function booleanLabel(language: UiLanguage, value: boolean): string {
+  if (language === "en") return value ? "true" : "false";
+  if (language === "ru") return value ? "да" : "нет";
+  return value ? "jah" : "ei";
+}
+
+function answerLabel(language: UiLanguage): string {
+  if (language === "en") return "answer";
+  if (language === "ru") return "ответ";
+  return "vastus";
+}
+
+function localizedFlowStep(language: UiLanguage, step: string): string {
+  const normalized = step.toLowerCase();
+  if (normalized.includes("prompt firewall")) {
+    return language === "ru" ? "Prompt firewall блокирует попытки изменить системные инструкции" : language === "en" ? "Prompt firewall blocks attempts to change system instructions" : "Prompt firewall blokeerib juhiste muutmise katsed";
+  }
+  if (normalized.includes("redaction")) {
+    return language === "ru" ? "Чувствительные данные редактируются перед LLM" : language === "en" ? "Sensitive data is redacted before LLM calls" : "Tundlikud andmed redigeeritakse enne LLM-i";
+  }
+  if (normalized.includes("confidence")) {
+    return language === "ru" ? "Confidence показывается отдельно от score" : language === "en" ? "Confidence is shown separately from score" : "Usaldusväärsus kuvatakse skoorist eraldi";
+  }
+  if (normalized.includes("external")) {
+    return language === "ru" ? "External exposure self-check основан на самооценке, без сканирования" : language === "en" ? "External exposure self-check is self-reported, with no scanning" : "Välise nähtavuse enesekontroll on self-report, ilma skaneerimiseta";
+  }
+  return step;
 }

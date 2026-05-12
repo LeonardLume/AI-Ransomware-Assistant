@@ -16,29 +16,32 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ChatResponse, ProviderStatusResponse, SessionSummary } from "../types/api";
+import { languageOptions, t, type TranslationKey, type UiLanguage } from "../utils/i18n";
 import type { AppView } from "./Layout";
 import { Badge, Button, cn } from "./ui";
 
-const navItems: Array<{ id: AppView; label: string; icon: typeof Home }> = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "interview", label: "AI Interview", icon: Bot },
-  { id: "report", label: "Report", icon: FileText },
-  { id: "action-plan", label: "Action Plan", icon: ClipboardList },
-  { id: "evidence", label: "Evidence Binder", icon: Database },
-  { id: "skills", label: "Skills", icon: BookOpenCheck },
-  { id: "technical", label: "Technical Transparency", icon: Layers3 },
+const navItems: Array<{ id: AppView; label: TranslationKey; icon: typeof Home }> = [
+  { id: "home", label: "home", icon: Home },
+  { id: "interview", label: "interview", icon: Bot },
+  { id: "report", label: "report", icon: FileText },
+  { id: "action-plan", label: "actionPlan", icon: ClipboardList },
+  { id: "evidence", label: "evidenceBinder", icon: Database },
+  { id: "skills", label: "skills", icon: BookOpenCheck },
+  { id: "technical", label: "technicalTransparency", icon: Layers3 },
 ];
 
 export default function Sidebar({
   sessions,
   activeSessionId,
   activeView,
+  language,
   backendOnline,
   providerStatus,
   lastResponse,
   open,
   onClose,
   onViewChange,
+  onLanguageChange,
   onNewSession,
   onLoadDemo,
   onSelectSession,
@@ -47,12 +50,14 @@ export default function Sidebar({
   sessions: SessionSummary[];
   activeSessionId?: string | null;
   activeView: AppView;
+  language: UiLanguage;
   backendOnline: boolean;
   providerStatus?: ProviderStatusResponse | null;
   lastResponse?: ChatResponse | null;
   open: boolean;
   onClose: () => void;
   onViewChange: (view: AppView) => void;
+  onLanguageChange: (language: UiLanguage) => void;
   onNewSession: () => void;
   onLoadDemo: (profileId: "weak_sme" | "better_sme") => void;
   onSelectSession: (sessionId: string) => void;
@@ -112,16 +117,39 @@ export default function Sidebar({
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.label}
+                {t(language, item.label)}
               </button>
             );
           })}
         </nav>
 
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.055] p-3">
+          <div className="mb-2 text-xs font-semibold uppercase text-slate-500">
+            {t(language, "language")}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {languageOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onLanguageChange(option.id)}
+                className={cn(
+                  "rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors",
+                  option.id === language
+                    ? "border-sky-400 bg-sky-500/20 text-white"
+                    : "border-white/10 bg-black/20 text-slate-400 hover:text-white",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Button type="button" variant="primary" onClick={onNewSession} className="col-span-2">
             <Plus className="h-4 w-4" />
-            New assessment
+            {t(language, "newAssessment")}
           </Button>
           <Button
             type="button"
@@ -145,7 +173,7 @@ export default function Sidebar({
 
         <div className="mt-5 shrink-0">
           <div className="mb-2 px-1 text-xs font-semibold uppercase text-slate-500">
-            Recent sessions
+            {t(language, "recentSessions")}
           </div>
           <div className="scrollbar-slim min-h-[112px] max-h-56 space-y-1.5 overflow-y-auto pr-1">
             {sessions.length ? (
@@ -191,7 +219,11 @@ export default function Sidebar({
               })
             ) : (
               <div className="rounded-xl border border-dashed border-white/10 p-3 text-xs text-slate-500">
-                No local sessions yet.
+                {language === "ru"
+                  ? "Локальных сессий пока нет."
+                  : language === "en"
+                    ? "No local sessions yet."
+                    : "Kohalikke sessioone veel ei ole."}
               </div>
             )}
           </div>
@@ -200,14 +232,14 @@ export default function Sidebar({
         <div className="mt-5 space-y-2">
           <StatusCard
             icon={Activity}
-            label="Backend status"
-            value={backendOnline ? "online" : "offline"}
+            label={t(language, "backendStatus")}
+            value={backendOnline ? t(language, "online") : t(language, "offline")}
             tone={backendOnline ? "success" : "danger"}
           />
-          <StatusCard icon={RadioTower} label="Provider status" value={provider} tone="info" />
+          <StatusCard icon={RadioTower} label={t(language, "providerStatus")} value={provider} tone="info" />
           <StatusCard
             icon={Sparkles}
-            label="Fallback mode"
+            label={t(language, "fallbackMode")}
             value={String(Boolean(fallbackUsed))}
             tone={fallbackUsed ? "warning" : "success"}
           />

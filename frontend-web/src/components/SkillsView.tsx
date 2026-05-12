@@ -1,22 +1,35 @@
 import { BookOpenCheck } from "lucide-react";
 import type { ReportResponse } from "../types/api";
+import {
+  domainLabel,
+  skillTitle,
+  t,
+  valueLabel,
+  type UiLanguage,
+} from "../utils/i18n";
 import { Badge, Card, EmptyState } from "./ui";
 
-export default function SkillsView({ report }: { report?: ReportResponse | null }) {
+export default function SkillsView({
+  report,
+  language = "et",
+}: {
+  report?: ReportResponse | null;
+  language?: UiLanguage;
+}) {
   const skills = report?.skill_references || [];
 
   if (!skills.length) {
     return (
       <div className="space-y-5">
         <div>
-          <h2 className="text-2xl font-semibold text-white">Skills</h2>
+          <h2 className="text-2xl font-semibold text-white">{t(language, "skills")}</h2>
           <p className="mt-2 text-sm text-slate-400">
-            Defensive skills and playbooks support explanations and action plans.
+            {t(language, "skillsDescription")}
           </p>
         </div>
         <EmptyState
-          title="Skills layer not loaded yet"
-          description="Skills support explanations, action plans, and evidence suggestions. They do not calculate the numeric score."
+          title={t(language, "skillsNotLoaded")}
+          description={t(language, "skillsNotLoadedDescription")}
           icon={<BookOpenCheck className="h-5 w-5" />}
         />
       </div>
@@ -26,9 +39,9 @@ export default function SkillsView({ report }: { report?: ReportResponse | null 
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-semibold text-white">Skills</h2>
+        <h2 className="text-2xl font-semibold text-white">{t(language, "skills")}</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Matched defensive skills returned by the backend report.
+          {t(language, "skillsMatchedDescription")}
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -40,10 +53,10 @@ export default function SkillsView({ report }: { report?: ReportResponse | null 
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.08] text-sky-300">
               <BookOpenCheck className="h-5 w-5" />
             </div>
-            <h3 className="mt-4 text-base font-semibold text-white">{skill.title || skill.id}</h3>
+            <h3 className="mt-4 text-base font-semibold text-white">{skillTitle(language, skill)}</h3>
             <div className="mt-3 flex flex-wrap gap-2">
-              {skill.domain ? <Badge tone="info">{skill.domain}</Badge> : null}
-              {skill.safe_use ? <Badge tone="success">{skill.safe_use}</Badge> : null}
+              {skill.domain ? <Badge tone="info">{domainLabel(language, skill.domain)}</Badge> : null}
+              {skill.safe_use ? <Badge tone="success">{valueLabel(language, skill.safe_use)}</Badge> : null}
             </div>
             {skill.nist_csf?.length ? (
               <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -54,7 +67,7 @@ export default function SkillsView({ report }: { report?: ReportResponse | null 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {skill.tags.map((tag) => (
                   <Badge key={tag} tone="neutral">
-                    {tag}
+                    {valueLabel(language, tag)}
                   </Badge>
                 ))}
               </div>

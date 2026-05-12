@@ -27,6 +27,7 @@ import {
   buildTechnicalDetails,
   sanitizeAssistantMessage,
 } from "./utils/assessmentUi";
+import type { UiLanguage } from "./utils/i18n";
 import {
   getSessions,
   makeSessionSummary,
@@ -142,6 +143,10 @@ export default function App() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [activeArtifact, setActiveArtifact] = useState<ArtifactId>("readiness-report");
   const [activeView, setActiveView] = useState<AppView>("home");
+  const [language, setLanguage] = useState<UiLanguage>(() => {
+    const saved = window.localStorage.getItem("ransomware-readiness.language");
+    return saved === "en" || saved === "ru" || saved === "et" ? saved : "et";
+  });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -167,6 +172,11 @@ export default function App() {
     setLastUserMessage(null);
     setActiveArtifact("readiness-report");
     setActiveView("interview");
+  }
+
+  function changeLanguage(nextLanguage: UiLanguage) {
+    setLanguage(nextLanguage);
+    window.localStorage.setItem("ransomware-readiness.language", nextLanguage);
   }
 
   const refreshSessionMetadata = useCallback(
@@ -589,10 +599,12 @@ export default function App() {
       providerStatus={providerStatus}
       lastResponse={lastResponse}
       activeView={activeView}
+      language={language}
       sidebarOpen={sidebarOpen}
       sessions={sessions}
       activeSessionId={activeSessionId}
       onViewChange={setActiveView}
+      onLanguageChange={changeLanguage}
       onToggleSidebar={() => setSidebarOpen((open) => !open)}
       onCloseSidebar={() => setSidebarOpen(false)}
       onNewSession={startAssessment}
@@ -648,14 +660,19 @@ export default function App() {
             canGenerate={Boolean(activeSessionId)}
             loading={artifactLoading || sending}
             onGenerate={generateReport}
+            language={language}
           />
         ),
-        "action-plan": <ActionPlanView report={report} />,
-        evidence: <EvidenceBinderView report={report} />,
-        skills: <SkillsView report={report} />,
+        "action-plan": <ActionPlanView report={report} language={language} />,
+        evidence: <EvidenceBinderView report={report} language={language} />,
+        skills: <SkillsView report={report} language={language} />,
         technical: (
           <div className="space-y-6">
-            <TechnicalTransparencyView flow={technicalFlow} providerStatus={providerStatus} />
+            <TechnicalTransparencyView
+              flow={technicalFlow}
+              providerStatus={providerStatus}
+              language={language}
+            />
             <TechnicalView
               backendOnline={backendOnline}
               providerStatus={providerStatus}
@@ -665,6 +682,7 @@ export default function App() {
               report={report}
               questions={questions}
               flow={technicalFlow}
+              language={language}
             />
           </div>
         ),

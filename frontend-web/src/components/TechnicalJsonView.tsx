@@ -7,6 +7,7 @@ import type {
   SessionStateResponse,
   TechnicalFlowResponse,
 } from "../types/api";
+import { t, type UiLanguage } from "../utils/i18n";
 import { Accordion, Card, EmptyState } from "./ui";
 
 export default function TechnicalJsonView({
@@ -16,6 +17,7 @@ export default function TechnicalJsonView({
   lastResponse,
   providerStatus,
   flow,
+  language = "et",
 }: {
   session?: SessionStateResponse | null;
   score?: ScoreResponse | null;
@@ -23,6 +25,7 @@ export default function TechnicalJsonView({
   lastResponse?: ChatResponse | null;
   providerStatus?: ProviderStatusResponse | null;
   flow?: TechnicalFlowResponse | null;
+  language?: UiLanguage;
 }) {
   const payload = { session, score, report, lastResponse, providerStatus, flow };
   const hasPayload = Object.values(payload).some(Boolean);
@@ -30,8 +33,8 @@ export default function TechnicalJsonView({
   if (!hasPayload) {
     return (
       <EmptyState
-        title="No technical trace yet"
-        description="Debug payloads appear here after the UI talks to the backend. Raw JSON stays out of the main chat and opens only inside the debug accordion."
+        title={t(language, "noTechnicalTrace")}
+        description={t(language, "noTechnicalTraceDescription")}
         icon={<FileJson className="h-5 w-5" />}
       />
     );
@@ -40,13 +43,12 @@ export default function TechnicalJsonView({
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <h3 className="text-lg font-semibold text-slate-950">Technical Trace</h3>
+        <h3 className="text-lg font-semibold text-slate-950">{t(language, "rawTraceTitle")}</h3>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Raw technical payloads are kept out of the normal chat thread. Open the debug accordion
-          only when you need integration details.
+          {t(language, "rawTraceText")}
         </p>
       </Card>
-      <Accordion title="Debug JSON">
+      <Accordion title={t(language, "debugJson")}>
         <pre className="scrollbar-slim max-h-[620px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
           {JSON.stringify(payload, null, 2)}
         </pre>
