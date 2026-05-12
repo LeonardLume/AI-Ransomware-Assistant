@@ -1,0 +1,200 @@
+[
+  {
+    "id": "org_critical_systems_known",
+    "domain": "incident_response",
+    "question": "Kas organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad?",
+    "help": "Näiteks raamatupidamine, kliendiandmed, failiserver, e-post, tootmissüsteemid.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CISA StopRansomware"]
+  },
+  {
+    "id": "backups_exist",
+    "domain": "backups",
+    "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
+    "help": "Hinnake ainult ärikriitilisi andmeid ja süsteeme.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CISA StopRansomware", "NCSC ransomware guidance"]
+  },
+  {
+    "id": "backup_frequency_defined",
+    "domain": "backups",
+    "question": "Kas varukoopiate tegemise sagedus on selgelt määratud ja jälgitav?",
+    "help": "Näiteks iga päev / iga nädal ning keegi kontrollib, kas tööd õnnestusid.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CIS Controls v8"]
+  },
+  {
+    "id": "restore_tested",
+    "domain": "backups",
+    "question": "Kas varukoopiatest taastamist on viimase 6 kuu jooksul testitud?",
+    "help": "Ainult backupi olemasolust ei piisa; ransomware olukorras loeb taastamine.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CISA StopRansomware", "NCSC ransomware guidance"]
+  },
+  {
+    "id": "backup_isolated",
+    "domain": "backups",
+    "question": "Kas vähemalt üks varukoopia on ransomware'i eest kaitstud: offline, immutable või eraldatud õigustega?",
+    "help": "Kui ründaja saab backupi kustutada või krüpteerida, ei ole see lunavara puhul usaldusväärne.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CISA StopRansomware", "NCSC ransomware guidance"]
+  },
+  {
+    "id": "rto_rpo_known",
+    "domain": "backups",
+    "question": "Kas on teada, kui kiiresti tuleb kriitilised süsteemid taastada ja kui palju andmekadu on lubatav?",
+    "help": "See on lihtsustatud RTO/RPO küsimus.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0"]
+  },
+  {
+    "id": "mfa_admin",
+    "domain": "mfa_access",
+    "question": "Kas MFA on kohustuslik administraatori- ja privilegeeritud kontodel?",
+    "help": "Admin-kontod on ransomware ründaja jaoks eriti väärtuslikud.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC ransomware guidance", "CIS Controls v8"]
+  },
+  {
+    "id": "mfa_remote_access",
+    "domain": "mfa_access",
+    "question": "Kas MFA on kasutusel VPN-i, RDP, pilvekonsoolide või muu kaugligipääsu puhul?",
+    "help": "Kaugligipääs ilma MFA-ta on tavaline ransomware sisenemiskoht.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC ransomware guidance", "CISA StopRansomware"]
+  },
+  {
+    "id": "mfa_email_cloud",
+    "domain": "mfa_access",
+    "question": "Kas MFA on kasutusel e-posti ja oluliste pilveteenuste puhul?",
+    "help": "E-post ja pilveteenused on tihti esimene ligipääs või andmelekke koht.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+  },
+  {
+    "id": "unused_accounts_removed",
+    "domain": "mfa_access",
+    "question": "Kas vanad, kasutamata või lahkunud töötajate kontod eemaldatakse regulaarselt?",
+    "help": "Ründajad kasutavad sageli unustatud kontosid.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC cyber threat heightened guidance", "CIS Controls v8"]
+  },
+  {
+    "id": "patching_process_exists",
+    "domain": "patching",
+    "question": "Kas organisatsioonil on selge protsess turvauuenduste paigaldamiseks?",
+    "help": "Näiteks kes vastutab, kuidas prioriteete määratakse ja millal uuendatakse.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC cyber threat heightened guidance", "CIS Controls v8"]
+  },
+  {
+    "id": "critical_patches_30_days",
+    "domain": "patching",
+    "question": "Kas kriitilised turvauuendused paigaldatakse tavaliselt 30 päeva jooksul või kiiremini?",
+    "help": "Internetist ligipääsetavad süsteemid peaksid saama kriitilised parandused kiiremini.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC cyber threat heightened guidance", "CIS Controls v8"]
+  },
+  {
+    "id": "internet_facing_known",
+    "domain": "patching",
+    "question": "Kas on teada, millised teenused on internetist ligipääsetavad ja kas need on uuendatud?",
+    "help": "Näiteks VPN, RDP gateway, veebiserverid, tulemüüri portaalid.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC cyber threat heightened guidance", "CISA StopRansomware"]
+  },
+  {
+    "id": "unsupported_systems_known",
+    "domain": "patching",
+    "question": "Kas vananenud või tootjatoeta süsteemid on teada ja eraldi riskina märgitud?",
+    "help": "Unsupported süsteemid võivad jääda parandamata haavatavustega tööle.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CIS Controls v8", "NIST CSF 2.0"]
+  },
+  {
+    "id": "least_privilege",
+    "domain": "admin_rights",
+    "question": "Kas administraatoriõigused on antud ainult neile, kellel neid päriselt vaja on?",
+    "help": "Least privilege vähendab ründaja liikumisruumi.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CIS Controls v8", "NCSC cyber threat heightened guidance"]
+  },
+  {
+    "id": "separate_admin_accounts",
+    "domain": "admin_rights",
+    "question": "Kas administreerimiseks kasutatakse eraldi admin-kontosid, mitte igapäevase töö kontosid?",
+    "help": "Igapäevane töö admin-kontoga suurendab kompromiteerimise mõju.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC ransomware guidance", "CIS Controls v8"]
+  },
+  {
+    "id": "admin_rights_reviewed",
+    "domain": "admin_rights",
+    "question": "Kas privilegeeritud õigusi vaadatakse regulaarselt üle?",
+    "help": "Näiteks kord kvartalis või pärast rollimuudatusi.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CIS Controls v8"]
+  },
+  {
+    "id": "third_party_access_controlled",
+    "domain": "admin_rights",
+    "question": "Kas IT-teenusepakkujate või väliste partnerite ligipääs on piiratud ja kontrollitud?",
+    "help": "Välistel partneritel ei tohiks olla piiramatut ja jälgimata püsiligipääsu.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CISA StopRansomware", "NCSC cyber threat heightened guidance"]
+  },
+  {
+    "id": "ir_plan_exists",
+    "domain": "incident_response",
+    "question": "Kas organisatsioonil on dokumenteeritud incident response plan ransomware olukorra jaoks?",
+    "help": "Plaan võib olla lühike, aga peab ütlema, kes mida teeb.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CISA StopRansomware", "NIST CSF 2.0"]
+  },
+  {
+    "id": "ir_roles_contacts",
+    "domain": "incident_response",
+    "question": "Kas rünnaku korral on teada otsustajad, kontaktid ja eskalatsioonitee?",
+    "help": "Kontaktid peaksid olema kättesaadavad ka siis, kui e-post või Teams ei tööta.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NCSC cyber threat heightened guidance", "CISA StopRansomware"]
+  },
+  {
+    "id": "ir_plan_tested",
+    "domain": "incident_response",
+    "question": "Kas incident response plaani on kunagi läbi harjutatud või testitud?",
+    "help": "Testimata plaan võib kriisi ajal mitte töötada.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CISA StopRansomware"]
+  },
+  {
+    "id": "external_reporting_known",
+    "domain": "incident_response",
+    "question": "Kas on teada, millal kaasata CERT-EE, õiguskaitse, jurist või kindlustuspartner?",
+    "help": "Ransomware võib tähendada ka andmeleket ja õiguslikke kohustusi.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["CISA StopRansomware", "NIST CSF 2.0"]
+  }
+]

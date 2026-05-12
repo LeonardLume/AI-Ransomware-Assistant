@@ -1,0 +1,27 @@
+[
+  {
+    "name": "NIST Cybersecurity Framework 2.0",
+    "url": "https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf",
+    "used_for": "Üldine riskijuhtimise raamistik ja domeenide loogika."
+  },
+  {
+    "name": "NIST IR 8374r1 draft — Ransomware Risk Management",
+    "url": "https://csrc.nist.gov/pubs/ir/8374/r1/ipd",
+    "used_for": "Ransomware riskijuhtimise profiili mõistmine."
+  },
+  {
+    "name": "CISA StopRansomware Guide",
+    "url": "https://www.cisa.gov/resources-tools/resources/stopransomware-guide",
+    "used_for": "Ransomware prevention/response küsimused ja raporti soovitused."
+  },
+  {
+    "name": "NCSC UK — Mitigating malware and ransomware attacks",
+    "url": "https://www.ncsc.gov.uk/guidance/mitigating-malware-and-ransomware-attacks",
+    "used_for": "Backup, MFA, remote access ja incident-response küsimuste sisend."
+  },
+  {
+    "name": "CIS Critical Security Controls v8",
+    "url": "https://www.cisecurity.org/controls/v8",
+    "used_for": "Kontrollitavad turvameetmed: kontod, haavatavused, ligipääsud, varukoopiad."
+  }
+]

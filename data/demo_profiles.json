@@ -1,0 +1,68 @@
+{
+  "weak_sme": {
+    "name": "Väike raamatupidamisfirma — nõrk valmisolek",
+    "org_info": {
+      "organization_name": "Näidis Raamatupidamine OÜ",
+      "organization_size": "15 töötajat",
+      "it_model": "Väline IT-teenusepakkuja",
+      "critical_systems": "E-post, failiserver, raamatupidamistarkvara, kliendiandmed"
+    },
+    "answers": {
+      "org_critical_systems_known": {"answer": "partial", "details": "Peamised süsteemid on teada, aga taastamise prioriteete pole kirja pandud."},
+      "backups_exist": {"answer": "yes", "details": "Backup tehakse NAS-i peale kord nädalas."},
+      "backup_frequency_defined": {"answer": "partial", "details": "Sagedus on teada, aga keegi ei kontrolli regulaarselt õnnestumist."},
+      "restore_tested": {"answer": "no", "details": "Taastamist pole päriselt testitud."},
+      "backup_isolated": {"answer": "no", "details": "NAS on samas võrgus ja domeenis."},
+      "rto_rpo_known": {"answer": "no", "details": "Ei ole kokku lepitud."},
+      "mfa_admin": {"answer": "partial", "details": "Osadel admin-kontodel on MFA, teenusepakkuja kontodel pole kindel."},
+      "mfa_remote_access": {"answer": "no", "details": "VPN kasutab ainult parooli."},
+      "mfa_email_cloud": {"answer": "partial", "details": "E-postil on MFA juhtkonnal, aga mitte kõigil töötajatel."},
+      "unused_accounts_removed": {"answer": "partial", "details": "Lahkunud töötaja kontosid eemaldatakse käsitsi."},
+      "patching_process_exists": {"answer": "partial", "details": "Teenusepakkuja teeb uuendusi, aga kindlat SLA-d pole."},
+      "critical_patches_30_days": {"answer": "unsure", "details": "Ei ole teada."},
+      "internet_facing_known": {"answer": "partial", "details": "VPN ja üks veebirakendus on teada, muud pole kontrollitud."},
+      "unsupported_systems_known": {"answer": "unsure", "details": "Võib olla vanu Windowsi masinaid."},
+      "least_privilege": {"answer": "partial", "details": "Mõnel töötajal on lokaalne admin-õigus mugavuse pärast."},
+      "separate_admin_accounts": {"answer": "no", "details": "Administreerimist tehakse sama kontoga."},
+      "admin_rights_reviewed": {"answer": "no", "details": "Õiguste regulaarset ülevaatust ei ole."},
+      "third_party_access_controlled": {"answer": "partial", "details": "Teenusepakkujal on püsiligipääs, aga seda ei jälgita aktiivselt."},
+      "ir_plan_exists": {"answer": "no", "details": "Kirjalikku plaani ei ole."},
+      "ir_roles_contacts": {"answer": "partial", "details": "Juhi ja IT-partneri kontaktid on olemas, aga eskalatsioonitee pole kirjas."},
+      "ir_plan_tested": {"answer": "no", "details": "Ei ole harjutatud."},
+      "external_reporting_known": {"answer": "unsure", "details": "Pole teada, millal CERT-EE või jurist kaasata."}
+    }
+  },
+  "better_sme": {
+    "name": "Keskmine teenusettevõte — parem valmisolek",
+    "org_info": {
+      "organization_name": "Näidis Teenused AS",
+      "organization_size": "80 töötajat",
+      "it_model": "Oma IT + teenusepakkuja",
+      "critical_systems": "CRM, finants, failiserver, M365, kliendiportaal"
+    },
+    "answers": {
+      "org_critical_systems_known": {"answer": "yes", "details": "Kriitilised süsteemid on dokumenteeritud."},
+      "backups_exist": {"answer": "yes", "details": "Backup iga päev."},
+      "backup_frequency_defined": {"answer": "yes", "details": "Backup job'e jälgitakse."},
+      "restore_tested": {"answer": "partial", "details": "Üksikuid faile on taastatud, tervet süsteemi mitte."},
+      "backup_isolated": {"answer": "yes", "details": "Immutable cloud backup + lokaalne koopia."},
+      "rto_rpo_known": {"answer": "partial", "details": "Kriitiliste süsteemide prioriteet on teada, aga RTO pole kõigile kinnitatud."},
+      "mfa_admin": {"answer": "yes", "details": "Kõik admin-kontod kasutavad MFA-d."},
+      "mfa_remote_access": {"answer": "yes", "details": "VPN ja cloud admin nõuavad MFA-d."},
+      "mfa_email_cloud": {"answer": "yes", "details": "MFA kõigil M365 kasutajatel."},
+      "unused_accounts_removed": {"answer": "partial", "details": "Offboarding on olemas, aga kvartaalne kontroll puudub."},
+      "patching_process_exists": {"answer": "yes", "details": "Patchimise protsess olemas."},
+      "critical_patches_30_days": {"answer": "partial", "details": "Tööjaamad kiirelt, serveritel vahel kauem."},
+      "internet_facing_known": {"answer": "yes", "details": "Internet-facing teenused on nimekirjas."},
+      "unsupported_systems_known": {"answer": "yes", "details": "Üks legacy süsteem eraldi riskina."},
+      "least_privilege": {"answer": "yes", "details": "Kasutajatel pole admin-õigusi."},
+      "separate_admin_accounts": {"answer": "yes", "details": "Eraldi admin-kontod."},
+      "admin_rights_reviewed": {"answer": "partial", "details": "Ülevaatus toimub ebaregulaarselt."},
+      "third_party_access_controlled": {"answer": "partial", "details": "Teenusepakkuja ligipääs on piiratud, aga ajastatud access puudub."},
+      "ir_plan_exists": {"answer": "partial", "details": "Üldine intsidentide plaan olemas, ransomware osa lühike."},
+      "ir_roles_contacts": {"answer": "yes", "details": "Kontaktid ja otsustajad dokumenteeritud."},
+      "ir_plan_tested": {"answer": "no", "details": "Ransomware tabletop'i pole tehtud."},
+      "external_reporting_known": {"answer": "partial", "details": "Jurist ja kindlustus on teada, CERT-EE protsess mitte."}
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "org_critical_systems_known": {"yes": 20, "partial": 10, "no": 0, "unsure": 0},
+
+  "backups_exist": {"yes": 20, "partial": 10, "no": 0, "unsure": 0},
+  "backup_frequency_defined": {"yes": 15, "partial": 8, "no": 0, "unsure": 0},
+  "restore_tested": {"yes": 30, "partial": 15, "no": 0, "unsure": 0},
+  "backup_isolated": {"yes": 25, "partial": 10, "no": 0, "unsure": 0},
+  "rto_rpo_known": {"yes": 10, "partial": 5, "no": 0, "unsure": 0},
+
+  "mfa_admin": {"yes": 30, "partial": 15, "no": 0, "unsure": 0},
+  "mfa_remote_access": {"yes": 30, "partial": 15, "no": 0, "unsure": 0},
+  "mfa_email_cloud": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "unused_accounts_removed": {"yes": 15, "partial": 8, "no": 0, "unsure": 0},
+
+  "patching_process_exists": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "critical_patches_30_days": {"yes": 30, "partial": 15, "no": 0, "unsure": 0},
+  "internet_facing_known": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "unsupported_systems_known": {"yes": 20, "partial": 10, "no": 0, "unsure": 0},
+
+  "least_privilege": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "separate_admin_accounts": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "admin_rights_reviewed": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "third_party_access_controlled": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+
+  "ir_plan_exists": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "ir_roles_contacts": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "ir_plan_tested": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "external_reporting_known": {"yes": 25, "partial": 12, "no": 0, "unsure": 0}
+}

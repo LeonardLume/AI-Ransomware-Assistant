@@ -1,0 +1,171 @@
+import type {
+  AnswerSubmitResponse,
+  ChatResponse,
+  DemoProfileResponse,
+  HealthResponse,
+  ProviderStatusResponse,
+  Question,
+  ReportResponse,
+  ScoreResponse,
+  SessionCreateResponse,
+  SessionStateResponse,
+  TechnicalFlowResponse,
+} from "../types/api";
+
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ||
+  DEFAULT_API_BASE_URL;
+const DEFAULT_TIMEOUT_MS = 25_000;
+
+export class ApiError extends Error {
+  status?: number;
+  payload?: unknown;
+
+  constructor(message: string, status?: number, payload?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
+
+    if (!response.ok) {
+      const detail =
+        typeof payload === "object" && payload && "detail" in payload
+          ? String((payload as { detail?: unknown }).detail)
+          : response.statusText;
+      throw new ApiError(
+        `Backend request failed (${response.status}): ${detail}`,
+        response.status,
+        payload,
+      );
+    }
+
+    return payload as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(`Backend request timed out after ${timeoutMs / 1000}s`);
+    }
+    throw new ApiError(
+      error instanceof Error
+        ? `Backend request failed: ${error.message}`
+        : "Backend request failed",
+    );
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export function getApiBaseUrl(): string {
+  return API_BASE_URL;
+}
+
+export function healthCheck(): Promise<HealthResponse> {
+  return request<HealthResponse>("/");
+}
+
+export function createSession(
+  orgInfo: Record<string, unknown> = {},
+): Promise<SessionCreateResponse> {
+  return request<SessionCreateResponse>("/session", {
+    method: "POST",
+    body: JSON.stringify(orgInfo),
+  });
+}
+
+export function getQuestions(): Promise<Question[]> {
+  return request<Question[]>("/questions");
+}
+
+export function chat(sessionId: string | null, message: string): Promise<ChatResponse> {
+  return request<ChatResponse>(
+    "/chat",
+    {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, message }),
+    },
+    60_000,
+  );
+}
+
+export function getSession(sessionId: string): Promise<SessionStateResponse> {
+  return request<SessionStateResponse>(`/session/${encodeURIComponent(sessionId)}`);
+}
+
+export function getScore(sessionId: string): Promise<ScoreResponse> {
+  return request<ScoreResponse>(`/score/${encodeURIComponent(sessionId)}`);
+}
+
+export function getReport(sessionId: string): Promise<ReportResponse> {
+  return request<ReportResponse>(
+    `/report/${encodeURIComponent(sessionId)}`,
+    {},
+    60_000,
+  );
+}
+
+export function submitAnswer(
+  sessionId: string,
+  questionId: string,
+  answer: string,
+  details = "",
+): Promise<AnswerSubmitResponse> {
+  return request<AnswerSubmitResponse>("/answer", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      question_id: questionId,
+      answer,
+      details,
+    }),
+  });
+}
+
+export async function getProviderStatus(): Promise<ProviderStatusResponse> {
+  try {
+    return await request<ProviderStatusResponse>("/provider/status");
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return request<ProviderStatusResponse>("/llm/status");
+    }
+    throw error;
+  }
+}
+
+export function getTechnicalFlow(): Promise<TechnicalFlowResponse> {
+  return request<TechnicalFlowResponse>("/technical/flow");
+}
+
+export function loadDemoProfile(profileId: string): Promise<DemoProfileResponse> {
+  return request<DemoProfileResponse>("/demo/load-profile", {
+    method: "POST",
+    body: JSON.stringify({ profile_id: profileId }),
+  });
+}

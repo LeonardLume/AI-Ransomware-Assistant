@@ -1,0 +1,32 @@
+{
+  "backups": {
+    "title": "Varukoopiad ja taastamine",
+    "description": "Kas organisatsioon suudab pärast lunavararünnakut kriitilised süsteemid taastada?",
+    "low_score_risk": "Varukoopiad võivad olla puudulikud, testimata või ründajale kättesaadavad.",
+    "default_next_step": "Testida ühe kriitilise süsteemi taastamist ja tagada vähemalt ühe varukoopia eraldatus põhisüsteemidest."
+  },
+  "mfa_access": {
+    "title": "MFA ja ligipääsud",
+    "description": "Kas kriitilised kontod ja kaugligipääs on kaitstud mitmefaktorilise autentimisega?",
+    "low_score_risk": "Ründaja võib pääseda süsteemidesse varastatud parooli või unustatud konto kaudu.",
+    "default_next_step": "Rakendada MFA admin-kontodel, kaugligipääsul ja pilveteenustes; eemaldada kasutamata kontod."
+  },
+  "patching": {
+    "title": "Patchimine ja haavatavused",
+    "description": "Kas turvauuendused ja internetist ligipääsetavad teenused on kontrolli all?",
+    "low_score_risk": "Avalikud või vananenud süsteemid võivad anda ründajale lihtsa sisenemistee.",
+    "default_next_step": "Määrata kriitiliste turvapaikade tähtaeg, kontrollida internet-facing teenused ja kaardistada unsupported süsteemid."
+  },
+  "admin_rights": {
+    "title": "Administraatoriõigused",
+    "description": "Kas privilegeeritud õigused on piiratud ja kontrollitud?",
+    "low_score_risk": "Liiga laiad admin-õigused võimaldavad ründajal kiiresti levida ja kaitsemeetmeid välja lülitada.",
+    "default_next_step": "Rakendada least privilege, eraldi admin-kontod ja regulaarne õiguste ülevaatus."
+  },
+  "incident_response": {
+    "title": "Incident response",
+    "description": "Kas organisatsioon teab, mida teha, kui ransomware rünnak toimub?",
+    "low_score_risk": "Rünnaku korral võib tekkida segadus otsustajate, kontaktide, taastamise ja teavitamise osas.",
+    "default_next_step": "Koostada minimaalne ransomware response playbook, kontaktide nimekiri ja testida seda lühikese tabletop-harjutusega."
+  }
+}
