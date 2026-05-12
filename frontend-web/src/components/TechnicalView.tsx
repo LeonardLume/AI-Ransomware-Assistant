@@ -48,6 +48,7 @@ export default function TechnicalView({
     ([questionId]) => !questionId.startsWith("followup__"),
   );
   const questionLookup = new Map(questions.map((question) => [question.id, question]));
+  const redactionCount = lastResponse?.redactions_applied?.length ?? 0;
 
   return (
     <section className="space-y-4">
@@ -81,11 +82,11 @@ export default function TechnicalView({
               </div>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
                 <span>Redaction</span>
-                <Badge tone={lastResponse?.redactions_applied ? "success" : "neutral"}>
+                <Badge tone={redactionCount ? "success" : "neutral"}>
                   {lastResponse?.redactions_applied === undefined
                     ? "not reported"
-                    : lastResponse.redactions_applied
-                      ? "applied"
+                    : redactionCount
+                      ? `${redactionCount} applied`
                       : "not applied"}
                 </Badge>
               </div>

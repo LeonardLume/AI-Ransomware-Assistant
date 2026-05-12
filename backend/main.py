@@ -12,6 +12,7 @@ from backend.chat_interview import (
     answer_client_question_with_llm,
     answer_smalltalk,
     classify_user_intent,
+    detect_language,
     defensive_refusal,
     extract_answers_with_llm,
     generate_next_question,
@@ -22,6 +23,9 @@ from backend.chat_interview import (
     should_generate_preliminary_report,
 )
 from backend.config import llm_status
+from backend.exposure import build_external_exposure_self_check
+from backend.hygiene import load_employee_hygiene_checklist
+from backend.prompt_firewall import detect_prompt_injection, safe_prompt_injection_response
 from backend.questions import load_demo_profiles, load_questions, load_source_notes, question_map
 from backend.report import generate_report
 from backend.scoring import calculate_scores
@@ -139,9 +143,41 @@ def load_demo_profile(payload: DemoProfileIn):
 def chat(payload: ChatIn):
     state, is_new = _get_or_create_chat_state(payload.session_id)
     message = payload.message.strip()
+    user_message_recorded = False
 
     if is_new and message:
         state.chat_history.append({"role": "user", "content": message})
+        user_message_recorded = True
+
+    if message and not user_message_recorded:
+        state.chat_history.append({"role": "user", "content": message})
+        user_message_recorded = True
+
+    if message:
+        firewall = detect_prompt_injection(message)
+        if firewall["detected"]:
+            state.events.append(
+                {
+                    "type": "prompt_injection_blocked",
+                    "reason": firewall.get("reason", ""),
+                    "current_question_id": state.current_question_id,
+                }
+            )
+            return _chat_response(
+                state,
+                assistant_message=safe_prompt_injection_response(_language_code(message)),
+                extracted_answers={},
+                score=None,
+                report=None,
+                provider="guardrail",
+                used_fallback=True,
+                response_type="prompt_injection_blocked",
+                intent="guardrail",
+                prompt_injection_blocked=True,
+                prompt_injection_reason=str(firewall.get("reason", "")),
+                redactions_applied=[],
+                redacted_for_llm=False,
+            )
 
     if is_new or not message:
         if not _base_answers_only(state.answers):
@@ -152,7 +188,6 @@ def chat(payload: ChatIn):
             )
         return _ask_next_chat_question(state, greeting=False)
 
-    state.chat_history.append({"role": "user", "content": message})
     base_answers = _base_answers_only(state.answers)
 
     qmap = question_map()
@@ -219,6 +254,8 @@ def chat(payload: ChatIn):
             used_fallback=advisory.get("used_fallback", True),
             response_type="client_question",
             intent=intent,
+            redactions_applied=advisory.get("redactions_applied", []),
+            redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
         )
 
     if intent in {"smalltalk", "unknown"}:
@@ -264,6 +301,8 @@ def chat(payload: ChatIn):
             used_fallback=advisory.get("used_fallback", True),
             response_type="client_question",
             intent=extraction_intent,
+            redactions_applied=advisory.get("redactions_applied", []),
+            redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
         )
 
     if extraction_intent in {"smalltalk", "unknown"}:
@@ -328,6 +367,8 @@ def chat(payload: ChatIn):
             provider=extraction.get("provider", "fallback"),
             used_fallback=extraction.get("used_fallback", True),
             intent=extraction.get("intent", intent),
+            redactions_applied=extraction.get("redactions_applied", []),
+            redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
         )
 
     if extraction.get("needs_clarification") and unclear_questions:
@@ -348,6 +389,8 @@ def chat(payload: ChatIn):
             used_fallback=extraction.get("used_fallback", True),
             response_type="clarification",
             intent=extraction.get("intent", intent),
+            redactions_applied=extraction.get("redactions_applied", []),
+            redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
         )
 
     next_q = next_missing_question(base_answers)
@@ -359,6 +402,8 @@ def chat(payload: ChatIn):
             provider=extraction.get("provider", "fallback"),
             used_fallback=extraction.get("used_fallback", True),
             intent=extraction.get("intent", intent),
+            redactions_applied=extraction.get("redactions_applied", []),
+            redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
         )
     state.current_question_id = next_q["id"]
     state.current_domain = next_q["domain"]
@@ -377,6 +422,8 @@ def chat(payload: ChatIn):
         used_fallback=bool(extraction.get("used_fallback", True) or question_result.get("used_fallback", True)),
         response_type="interview_answer",
         intent=extraction.get("intent", intent),
+        redactions_applied=extraction.get("redactions_applied", []),
+        redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
     )
 
 
@@ -469,6 +516,21 @@ def get_report(session_id: str):
     return generate_report(_base_answers_only(state.answers), state.org_info)
 
 
+@app.get("/external-exposure/checklist")
+def get_external_exposure_checklist():
+    return build_external_exposure_self_check()
+
+
+@app.get("/employee-security-hygiene/checklist")
+def get_employee_security_hygiene_checklist():
+    return {
+        "domain": "employee_security_hygiene",
+        "type": "optional_advisory_checklist",
+        "scoring_impact": "none",
+        "items": load_employee_hygiene_checklist(),
+    }
+
+
 @app.get("/session/{session_id}")
 def get_session(session_id: str):
     state = _get_state(session_id)
@@ -493,13 +555,16 @@ def technical_flow():
     return {
         "workflow": [
             "1. Kasutaja loob sessiooni ja sisestab organisatsiooni üldinfo.",
-            "2. /chat valib järgmise puuduva küsimuse failist data/questions.json.",
-            "3. Kui kasutaja küsib selgitust, vastab LLM kliendi küsimusele lihtsas keeles ja intervjuu jääb sama küsimuse juurde.",
-            "4. Kui kasutaja vastab, teisendab LLM või fallback vabateksti question_id -> yes/partial/no/unsure kujule.",
-            "5. Backend valideerib extracted answers vastu questions.json options väärtusi.",
-            "6. Kui vastus on ebaselge, küsitakse üks täpsustav küsimus.",
-            "7. Kui kõik nõutud küsimused on vastatud, arvutab backend score'i data/scoring_rules.json põhjal.",
-            "8. Raport ühendab reeglipõhise score'i, top-riskid ja LLM/fallback sõnastuse.",
+            "2. /chat kontrollib prompt injection mustreid enne intent classification'i ja enne LLM-kutseid.",
+            "3. Kui prompt injection tuvastatakse, LLM-i ei kutsuta, vastust ei salvestata skooritava vastusena ja aktiivne küsimus ei muutu.",
+            "4. /chat valib järgmise puuduva küsimuse failist data/questions.json, sh detection_monitoring domeeni küsimused.",
+            "5. Enne välist LLM-kutset redigeeritakse kasutaja sõnumist e-postid, IP-d, URL-id, domeenid, saladused ja pikad ID-d.",
+            "6. Kui kasutaja küsib selgitust, vastab LLM või fallback kliendi küsimusele lihtsas keeles ja intervjuu jääb sama küsimuse juurde.",
+            "7. Kui kasutaja vastab, teisendab LLM või fallback vabateksti question_id -> yes/partial/no/unsure kujule.",
+            "8. Backend valideerib extracted answers vastu questions.json options väärtusi.",
+            "9. Kui kõik nõutud küsimused on vastatud, arvutab backend score'i data/scoring_rules.json põhjal.",
+            "10. Raport ühendab reeglipõhise score'i, top-riskid, finding cards, confidence'i ja LLM/fallback sõnastuse.",
+            "11. External exposure self-check on ainult self-reported checklist; skaneerimist, OSINT-i ega väliste teenuste päringuid ei tehta.",
         ],
         "ai_parts": [
             "backend/chat_interview.py: answer_client_question_with_llm()",
@@ -515,7 +580,16 @@ def technical_flow():
             "prompts/followup_prompt.txt",
             "prompts/report_prompt.txt",
         ],
-        "rule_based_parts": ["data/questions.json", "backend/scoring.py", "data/scoring_rules.json"],
+        "rule_based_parts": [
+            "data/questions.json",
+            "data/scoring_rules.json",
+            "backend/scoring.py",
+            "backend/prompt_firewall.py",
+            "backend/redaction.py",
+            "backend/findings.py",
+            "backend/confidence.py",
+            "backend/exposure.py",
+        ],
     }
 
 
@@ -604,6 +678,8 @@ def _complete_chat(
     provider: str = "fallback",
     used_fallback: bool = True,
     intent: str = "answer",
+    redactions_applied: list[str] | None = None,
+    redacted_for_llm: bool = False,
 ):
     base_answers = _base_answers_only(state.answers)
     state.interview_complete = True
@@ -627,6 +703,8 @@ def _complete_chat(
         used_fallback=used_fallback,
         response_type="report",
         intent=intent,
+        redactions_applied=redactions_applied or [],
+        redacted_for_llm=redacted_for_llm,
     )
 
 
@@ -640,6 +718,10 @@ def _chat_response(
     used_fallback: bool,
     response_type: str = "interview_question",
     intent: str = "answer",
+    redactions_applied: list[str] | None = None,
+    redacted_for_llm: bool = False,
+    prompt_injection_blocked: bool = False,
+    prompt_injection_reason: str = "",
 ) -> dict[str, Any]:
     state.chat_history.append({"role": "assistant", "content": assistant_message})
     save_session(state)
@@ -665,6 +747,10 @@ def _chat_response(
         "current_question": current_question,
         "current_domain": state.current_domain,
         "completion_mode": state.completion_mode,
+        "redactions_applied": redactions_applied or [],
+        "redacted_for_llm": redacted_for_llm,
+        "prompt_injection_blocked": prompt_injection_blocked,
+        "prompt_injection_reason": prompt_injection_reason,
         "chat_history": state.chat_history,
     }
 
@@ -676,6 +762,11 @@ def _answer_acknowledgement(extracted_answers: dict[str, str] | None) -> str:
     if len(pairs) == 1:
         return f"Selge, märkisin vastuse: {pairs[0]}."
     return "Selge, märkisin vastused: " + "; ".join(pairs) + "."
+
+
+def _language_code(message: str) -> str:
+    language = detect_language(message)
+    return {"Russian": "ru", "English": "en"}.get(language, "et")
 
 
 def _get_state(session_id: str) -> SessionState:

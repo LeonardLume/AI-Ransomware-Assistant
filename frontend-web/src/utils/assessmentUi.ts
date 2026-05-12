@@ -23,6 +23,8 @@ const domainLabels: Record<string, string> = {
   patching: "Patching",
   admin_rights: "Admin rights",
   incident_response: "Incident response",
+  detection_monitoring: "Detection & monitoring",
+  employee_security_hygiene: "Employee hygiene",
 };
 
 const quickActionsByDomain: Record<string, string[]> = {
@@ -61,6 +63,18 @@ const quickActionsByDomain: Record<string, string[]> = {
     "Why run a ransomware tabletop exercise?",
     "When should CERT-EE or legal counsel be involved?",
     "Show the next IR question",
+  ],
+  detection_monitoring: [
+    "What logs matter for ransomware readiness?",
+    "Who should review endpoint alerts?",
+    "What counts as failed login monitoring?",
+    "Show the next detection question",
+  ],
+  employee_security_hygiene: [
+    "Why use a password manager?",
+    "What should employees do with recovery codes?",
+    "How should phishing be reported?",
+    "Show the next question",
   ],
 };
 
@@ -108,7 +122,9 @@ export function buildTechnicalDetails(
     completionRate: response.score?.completion_rate ?? response.completion_rate,
     scoreStatus: response.score?.score_status ?? response.report?.score_status,
     redactionsApplied: response.redactions_applied,
+    redactedForLlm: response.redacted_for_llm,
     promptInjectionBlocked: response.prompt_injection_blocked,
+    promptInjectionReason: response.prompt_injection_reason,
     extractedAnswers,
     missingRequiredQuestions: response.missing_required_questions,
     unclearQuestions: response.unclear_questions,

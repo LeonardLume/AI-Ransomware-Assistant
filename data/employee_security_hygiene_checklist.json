@@ -1,0 +1,32 @@
+[
+  {
+    "id": "password_manager_used",
+    "question": "Kas töötajad kasutavad paroolihaldurit või on paroolide korduvkasutus kontrolli all?",
+    "recommendation": "Leppige kokku paroolihalduri kasutamine või muu kontroll, mis vähendab paroolide korduvkasutust.",
+    "evidence": ["Paroolihalduri kasutuse juhis", "Kinnitav poliitika või kasutuse ülevaade"]
+  },
+  {
+    "id": "employee_mfa_enabled",
+    "question": "Kas töötajatel on MFA kasutusel e-posti ja oluliste tööteenuste puhul?",
+    "recommendation": "Lülitage MFA sisse e-posti ja oluliste tööteenuste jaoks kõigile töötajatele.",
+    "evidence": ["MFA katvuse raport", "E-posti või pilveteenuse MFA seadistuse kuvatõmmis"]
+  },
+  {
+    "id": "phishing_awareness_basic",
+    "question": "Kas töötajad teavad, kuidas kahtlast e-kirja või linki ära tunda ja kuhu sellest teatada?",
+    "recommendation": "Andke töötajatele lühike juhis kahtlaste kirjade tuvastamiseks ja teatamiseks.",
+    "evidence": ["Teavituse või koolituse kuupäev", "Phishingust teatamise kanal"]
+  },
+  {
+    "id": "devices_updated",
+    "question": "Kas tööseadmete operatsioonisüsteemid ja brauserid hoitakse regulaarselt uuendatuna?",
+    "recommendation": "Määrake, kes jälgib tööseadmete operatsioonisüsteemi ja brauserite uuendusi.",
+    "evidence": ["Seadmete uuenduste raport", "Patchimise vastutaja või MSP raport"]
+  },
+  {
+    "id": "recovery_codes_stored_safely",
+    "question": "Kas MFA taastamise koodid on turvaliselt hoiustatud?",
+    "recommendation": "Hoidke MFA taastamise koodid turvalises kohas, mitte tavalises postkastis või jagatud failis.",
+    "evidence": ["Taastamiskoodide hoiustamise juhis", "Ligipääsu omaniku kinnitus"]
+  }
+]

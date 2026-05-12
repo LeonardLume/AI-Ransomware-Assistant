@@ -16,6 +16,9 @@ DOMAIN_SKILL_MAP: dict[str, list[str]] = {
     "patching": ["patch-management"],
     "admin_rights": ["admin-rights-review"],
     "incident_response": ["incident-response-plan", "ransomware-response", "tabletop-exercise"],
+    "detection_monitoring": ["detection-monitoring"],
+    "employee_security_hygiene": ["employee-security-hygiene"],
+    "external_exposure_self_check": ["external-exposure-self-check"],
 }
 
 OWNER_SUGGESTIONS = {
@@ -24,6 +27,9 @@ OWNER_SUGGESTIONS = {
     "patching": "IT / MSP",
     "admin_rights": "IT lead / Management",
     "incident_response": "Management / IT / MSP",
+    "detection_monitoring": "IT / MSP",
+    "employee_security_hygiene": "All employees",
+    "external_exposure_self_check": "IT / MSP",
 }
 
 DEADLINES = {

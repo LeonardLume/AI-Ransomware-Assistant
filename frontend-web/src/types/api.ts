@@ -140,13 +140,52 @@ export interface SkillReference {
   tags?: string[];
 }
 
+export interface FindingCard {
+  id?: string;
+  title?: string;
+  severity?: RiskLevel;
+  domain?: string;
+  evidence?: string;
+  business_impact?: string;
+  recommended_fix?: string;
+  owner?: string;
+  deadline?: string;
+  verification?: string;
+}
+
+export interface AdvisoryChecklistItem {
+  id?: string;
+  question?: string;
+  recommendation?: string;
+  evidence?: string[];
+  answer?: string;
+  details?: string;
+  status?: string;
+}
+
 export interface ReportResponse extends ScoreResponse {
   summary?: string;
   top_risks?: RiskItem[];
+  findings?: FindingCard[];
   next_steps?: string[];
   action_plan?: ActionItem[];
   evidence_checklist?: EvidenceItem[];
   skill_references?: SkillReference[];
+  overall_confidence?: string;
+  domain_confidence?: Record<string, string>;
+  employee_hygiene_checklist?: {
+    domain?: string;
+    type?: string;
+    scoring_impact?: string;
+    items?: AdvisoryChecklistItem[];
+  };
+  external_exposure_self_check?: {
+    type?: string;
+    scanning_performed?: boolean;
+    external_services_queried?: boolean;
+    note?: string;
+    items?: AdvisoryChecklistItem[];
+  };
   llm_report_text?: string;
   llm?: {
     provider?: ProviderName;
@@ -177,8 +216,10 @@ export interface ChatResponse {
   current_domain?: string | null;
   completion_mode?: string | null;
   chat_history?: BackendChatMessage[];
-  redactions_applied?: boolean;
+  redactions_applied?: string[];
+  redacted_for_llm?: boolean;
   prompt_injection_blocked?: boolean;
+  prompt_injection_reason?: string;
 }
 
 export interface SessionCreateResponse {
@@ -232,8 +273,10 @@ export interface ChatTechnicalDetails {
   currentDomain?: string | null;
   completionRate?: number;
   scoreStatus?: ScoreStatus;
-  redactionsApplied?: boolean;
+  redactionsApplied?: string[];
+  redactedForLlm?: boolean;
   promptInjectionBlocked?: boolean;
+  promptInjectionReason?: string;
   extractedAnswers?: ExtractedAnswerItem[];
   missingRequiredQuestions?: string[];
   unclearQuestions?: string[];

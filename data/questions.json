@@ -196,5 +196,95 @@
     "options": ["yes", "partial", "no", "unsure"],
     "required": true,
     "source_refs": ["CISA StopRansomware", "NIST CSF 2.0"]
+  },
+  {
+    "id": "logs_centralized",
+    "domain": "detection_monitoring",
+    "question": "Kas kriitiliste süsteemide logid kogutakse keskelt või on hiljem kättesaadavad?",
+    "help": "Näiteks serverid, identiteediteenus, pilveteenused, tulemüürid ja kriitilised rakendused.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+  },
+  {
+    "id": "endpoint_alerts_monitored",
+    "domain": "detection_monitoring",
+    "question": "Kas endpoint security, antivirus või EDR hoiatusi keegi jälgib ja käsitleb?",
+    "help": "Oluline on, et hoiatusel oleks omanik ja eskalatsioonitee.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+  },
+  {
+    "id": "failed_logins_monitored",
+    "domain": "detection_monitoring",
+    "question": "Kas ebaõnnestunud sisselogimisi või kahtlast ligipääsu jälgitakse?",
+    "help": "Eriti oluline on jälgida admin-kontosid, VPN-i, e-posti ja pilveteenuseid.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+  },
+  {
+    "id": "file_integrity_or_mass_change_alerts",
+    "domain": "detection_monitoring",
+    "question": "Kas kriitiliste failide või kaustade massilisi muutusi on võimalik märgata?",
+    "help": "See võib olla file integrity monitoring, EDR hoiatus või muu massmuudatuste märkamise viis.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+  },
+  {
+    "id": "vulnerability_inventory_known",
+    "domain": "detection_monitoring",
+    "question": "Kas on olemas ülevaade haavatavast või vananenud tarkvarast?",
+    "help": "Piisab praktilisest nimekirjast, raportist või MSP ülevaatest, millel on omanik.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": true,
+    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+  },
+  {
+    "id": "password_manager_used",
+    "domain": "employee_security_hygiene",
+    "question": "Kas töötajad kasutavad paroolihaldurit või on paroolide korduvkasutus kontrolli all?",
+    "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": false,
+    "source_refs": ["Personal security hygiene"]
+  },
+  {
+    "id": "employee_mfa_enabled",
+    "domain": "employee_security_hygiene",
+    "question": "Kas töötajatel on MFA kasutusel e-posti ja oluliste tööteenuste puhul?",
+    "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": false,
+    "source_refs": ["Personal security hygiene"]
+  },
+  {
+    "id": "phishing_awareness_basic",
+    "domain": "employee_security_hygiene",
+    "question": "Kas töötajad teavad, kuidas kahtlast e-kirja või linki ära tunda ja kuhu sellest teatada?",
+    "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": false,
+    "source_refs": ["Personal security hygiene"]
+  },
+  {
+    "id": "devices_updated",
+    "domain": "employee_security_hygiene",
+    "question": "Kas tööseadmete operatsioonisüsteemid ja brauserid hoitakse regulaarselt uuendatuna?",
+    "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": false,
+    "source_refs": ["Personal security hygiene"]
+  },
+  {
+    "id": "recovery_codes_stored_safely",
+    "domain": "employee_security_hygiene",
+    "question": "Kas MFA taastamise koodid on turvaliselt hoiustatud?",
+    "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
+    "options": ["yes", "partial", "no", "unsure"],
+    "required": false,
+    "source_refs": ["Personal security hygiene"]
   }
 ]

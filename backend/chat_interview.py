@@ -8,12 +8,20 @@ from typing import Any
 from backend.config import get_llm_settings
 from backend.llm_client import generate_text, load_prompt, parse_json_from_llm
 from backend.questions import load_domain_metadata, load_questions, load_source_notes, question_map
+from backend.redaction import redact_sensitive_text
 from backend.skills import build_skill_context_for_domain
 
 Intent = str
 VALID_INTENTS = {"answer", "clarification", "report_request", "smalltalk", "unknown"}
 
-PRELIMINARY_DOMAINS = ["backups", "mfa_access", "patching", "admin_rights", "incident_response"]
+PRELIMINARY_DOMAINS = [
+    "backups",
+    "mfa_access",
+    "patching",
+    "admin_rights",
+    "incident_response",
+    "detection_monitoring",
+]
 
 DOMAIN_LABELS = {
     "backups": "varukoopiad ja taastamine",
@@ -21,6 +29,7 @@ DOMAIN_LABELS = {
     "patching": "turvauuendused",
     "admin_rights": "administraatoriõigused",
     "incident_response": "incident response",
+    "detection_monitoring": "tuvastus ja monitooring",
 }
 
 REPORT_HINTS = [
@@ -199,6 +208,16 @@ QUESTION_KEYWORDS = {
     "ir_roles_contacts": ["kontaktid", "otsustajad", "eskalatsioon", "roles", "contacts"],
     "ir_plan_tested": ["tabletop", "harjutatud", "läbi harjutatud", "labi harjutatud", "plaani test"],
     "external_reporting_known": ["cert-ee", "jurist", "kindlustus", "õiguskaitse", "oiguskaitse", "reporting"],
+    "logs_centralized": ["log", "logid", "logging", "siem", "centralized", "keskelt"],
+    "endpoint_alerts_monitored": ["endpoint", "antivirus", "edr", "hoiatus", "alert"],
+    "failed_logins_monitored": ["ebaonnestunud", "ebaõnnestunud", "failed login", "sisselogim"],
+    "file_integrity_or_mass_change_alerts": ["file integrity", "massiline", "failimuudatus", "kaust", "krupteer"],
+    "vulnerability_inventory_known": ["haavatav", "vulnerability", "vananenud", "inventory", "tarkvara"],
+    "password_manager_used": ["paroolihaldur", "password manager", "paroolide korduvkasutus"],
+    "employee_mfa_enabled": ["töötaja mfa", "tootaja mfa", "employee mfa"],
+    "phishing_awareness_basic": ["phishing", "kahtlane kiri", "kahtlane link"],
+    "devices_updated": ["brauser", "browser", "tööseade", "tooseade", "operatsioonisüsteem", "operatsioonisusteem"],
+    "recovery_codes_stored_safely": ["recovery code", "taastamise kood", "taastamiskood"],
 }
 
 RUSSIAN_HINT_RE = re.compile(r"[а-яА-ЯёЁ]")
@@ -285,13 +304,22 @@ def answer_client_question_with_llm(
     if looks_like_offensive_request(user_message):
         return defensive_refusal(user_message, q_context)
 
+    if get_llm_settings()["provider"] == "fallback":
+        fallback = fallback_client_answer(user_message, q_context)
+        fallback["redactions_applied"] = []
+        fallback["redacted_for_llm"] = False
+        return fallback
+
     current_answer = _current_question_answer(q_context, current_answers)
     advisory_focus = _advisory_focus(user_message, q_context)
+    redacted_message, message_redactions = redact_sensitive_text(user_message)
+    redacted_answers, answer_redactions = _redact_answer_records(current_answers)
+    redactions = _merge_redactions(message_redactions, answer_redactions)
     context_payload = build_advisor_context(
-        user_message=user_message,
+        user_message=redacted_message,
         language=language,
         current_question=q_context,
-        current_answers=current_answers,
+        current_answers=redacted_answers,
         org_info=org_info or {},
     )
 
@@ -302,7 +330,10 @@ def answer_client_question_with_llm(
     )
 
     if not result.used_real_llm or not result.text.strip():
-        return fallback_client_answer(user_message, q_context)
+        fallback = fallback_client_answer(user_message, q_context)
+        fallback["redactions_applied"] = redactions
+        fallback["redacted_for_llm"] = bool(redactions)
+        return fallback
 
     message = normalize_assistant_text(result.text.strip(), language, q_context, current_answer)
     if not _is_identity_question(user_message):
@@ -318,6 +349,8 @@ def answer_client_question_with_llm(
         "used_fallback": False,
         "model": result.model,
         "error": result.error,
+        "redactions_applied": redactions,
+        "redacted_for_llm": bool(redactions),
     }
 
 
@@ -500,8 +533,14 @@ def extract_answers_with_llm(
         return _empty_extraction(deterministic_intent)
 
     if get_llm_settings()["provider"] == "fallback":
-        return fallback_extract_answers(user_message, questions, current_question)
+        fallback = fallback_extract_answers(user_message, questions, current_question)
+        fallback["redactions_applied"] = []
+        fallback["redacted_for_llm"] = False
+        return fallback
 
+    redacted_message, message_redactions = redact_sensitive_text(user_message)
+    redacted_answers, answer_redactions = _redact_answer_records(current_answers)
+    redactions = _merge_redactions(message_redactions, answer_redactions)
     compact_questions = [
         {
             "id": q["id"],
@@ -516,8 +555,8 @@ def extract_answers_with_llm(
         "deterministic_intent_hint": deterministic_intent,
         "current_question": current_question,
         "questions": compact_questions,
-        "current_known_answers": current_answers,
-        "user_message": user_message,
+        "current_known_answers": redacted_answers,
+        "user_message": redacted_message,
         "required_json_schema_example": {
             "intent": "answer|clarification|report_request|smalltalk|unknown",
             "extracted_answers": {"question_id": "yes|partial|no|unsure"},
@@ -536,6 +575,8 @@ def extract_answers_with_llm(
     if not result.used_real_llm or not parsed:
         fallback = fallback_extract_answers(user_message, questions, current_question)
         fallback["llm_error"] = result.error or "LLM did not return valid extraction JSON."
+        fallback["redactions_applied"] = redactions
+        fallback["redacted_for_llm"] = bool(redactions)
         return fallback
 
     parsed_intent = _normalize_intent(parsed.get("intent"), deterministic_intent)
@@ -544,12 +585,16 @@ def extract_answers_with_llm(
         guarded["provider"] = result.provider
         guarded["used_fallback"] = False
         guarded["llm_error"] = f"LLM returned intent '{parsed_intent}', but deterministic answer signal was used."
+        guarded["redactions_applied"] = redactions
+        guarded["redacted_for_llm"] = bool(redactions)
         return guarded
 
     validated = validate_extraction(parsed, questions, current_question, deterministic_intent)
     validated["provider"] = result.provider
     validated["used_fallback"] = False
     validated["llm_error"] = result.error
+    validated["redactions_applied"] = redactions
+    validated["redacted_for_llm"] = bool(redactions)
     return validated
 
 
@@ -900,6 +945,10 @@ def _advisory_domain(message: str, current_question: dict[str, Any] | None) -> s
         return "admin_rights"
     if _contains_any(text, ["incident", "intsident", "ir plan", "ir plaan", "tabletop", "cert-ee", "eskalatsioon"]):
         return "incident_response"
+    if _contains_any(text, ["log", "monitor", "edr", "antivirus", "alert", "hoiatus", "failed login", "sisselogim"]):
+        return "detection_monitoring"
+    if _contains_any(text, ["paroolihaldur", "password manager", "phishing", "brauser", "browser", "recovery code"]):
+        return "employee_security_hygiene"
     return (current_question or {}).get("domain", "")
 
 
@@ -954,6 +1003,30 @@ def _topic_question_ids(user_message: str) -> list[str]:
             if qid not in matches:
                 matches.append(qid)
     return matches
+
+
+def _redact_answer_records(
+    answer_records: dict[str, dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    redacted_records: dict[str, dict[str, Any]] = {}
+    redactions: list[str] = []
+    for qid, record in answer_records.items():
+        copied = dict(record)
+        details = copied.get("details")
+        if isinstance(details, str):
+            copied["details"], applied = redact_sensitive_text(details)
+            redactions = _merge_redactions(redactions, applied)
+        redacted_records[qid] = copied
+    return redacted_records, redactions
+
+
+def _merge_redactions(*groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    for group in groups:
+        for item in group:
+            if item not in merged:
+                merged.append(item)
+    return merged
 
 
 def _empty_extraction(intent: Intent, provider: str = "fallback", used_fallback: bool = True) -> dict[str, Any]:

@@ -328,20 +328,12 @@ export function EmptyState({
   );
 }
 
-export function LoadingSteps({ steps }: { steps: string[] }) {
+export function LoadingSteps() {
   return (
     <Card className="max-w-md p-4">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
         <Loader2 className="h-4 w-4 animate-spin text-sky-600" />
         Processing assessment turn
-      </div>
-      <div className="grid gap-2">
-        {steps.map((step, index) => (
-          <div key={step} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <span className={cn("h-2 w-2 rounded-full", index === 0 ? "bg-sky-500" : "bg-slate-300")} />
-            {step}
-          </div>
-        ))}
       </div>
     </Card>
   );

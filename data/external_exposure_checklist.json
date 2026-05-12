@@ -1,0 +1,38 @@
+[
+  {
+    "id": "public_domains_known",
+    "question": "Kas organisatsioon teab, millised domeenid ja alamdomeenid on avalikult kasutusel?",
+    "recommendation": "Hoidke lihtsat nimekirja avalikest domeenidest ja omanikust.",
+    "evidence": ["Avalike domeenide ja alamdomeenide register", "Määratud teenuse omanik"]
+  },
+  {
+    "id": "remote_access_exposure_reviewed",
+    "question": "Kas internetist ligipääsetavad kaugligipääsu teenused, näiteks VPN või RDP gateway, on üle vaadatud?",
+    "recommendation": "Kontrollige käsitsi, millised kaugligipääsu teenused on lubatud ja kas nende omanik on teada.",
+    "evidence": ["VPN/RDP gateway nimekiri", "MFA ja patchimise kontrolli märge"]
+  },
+  {
+    "id": "email_security_records_known",
+    "question": "Kas SPF, DKIM ja DMARC seadistused on kontrollitud?",
+    "recommendation": "Kinnitage e-posti turvakirjete olemasolu oma DNS või e-posti teenuse haldusvaates.",
+    "evidence": ["SPF/DKIM/DMARC seadistuse kuvatõmmis", "Viimase kontrolli kuupäev"]
+  },
+  {
+    "id": "public_repositories_reviewed",
+    "question": "Kas avalikud GitHubi või muud koodirepod on saladuste ja tundliku info osas üle vaadatud?",
+    "recommendation": "Vaadake avalikud repod käsitsi üle ning eemaldage võtmed, paroolid ja kliendiinfo.",
+    "evidence": ["Avalike repode nimekiri", "Käsitsi ülevaatuse märge"]
+  },
+  {
+    "id": "cloud_storage_exposure_reviewed",
+    "question": "Kas avalikud pilvesalvestuse asukohad või bucket’id on üle vaadatud?",
+    "recommendation": "Kontrollige pilvehalduse vaates, kas avalikud bucket’id või jagamislingid on põhjendatud.",
+    "evidence": ["Pilvesalvestuse avalike ressursside ülevaade", "Eemaldatud või kinnitatud avalikud jagamised"]
+  },
+  {
+    "id": "breach_exposure_checked_manually",
+    "question": "Kas organisatsiooni e-posti aadresside võimalikku lekkeajalugu kontrollitakse lubatud ja seaduslike kanalite kaudu?",
+    "recommendation": "Kasutage ainult lubatud ja seaduslikke kanaleid ning ärge sisestage paroole kolmandatesse teenustesse.",
+    "evidence": ["Lubatud kontrollikanali nimi", "Kokkuvõte leitud riskidest ja paroolivahetuse tegevustest"]
+  }
+]

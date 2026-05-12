@@ -71,7 +71,7 @@ export default function ReportView({
         </Button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         <MetricCard
           label="Overall score"
           value={
@@ -101,6 +101,12 @@ export default function ReportView({
           value={`${completionRate}%`}
           progress={completionRate}
           tone={report.score_status === "final" ? "success" : "warning"}
+        />
+        <MetricCard
+          label="Confidence"
+          value={report.overall_confidence || scoreConfidenceLabel(completionRate).replace("Confidence ", "")}
+          caption="Separate from score"
+          tone={report.overall_confidence === "High" ? "success" : report.overall_confidence === "Low" ? "warning" : "info"}
         />
       </div>
 
@@ -133,7 +139,10 @@ export default function ReportView({
               <div key={domain}>
                 <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                   <span className="font-medium text-slate-800">{detail?.title || domain}</span>
-                  <span className="text-slate-500">{score}/100</span>
+                  <span className="text-slate-500">
+                    {score}/100
+                    {report.domain_confidence?.[domain] ? ` · ${report.domain_confidence[domain]} confidence` : ""}
+                  </span>
                 </div>
                 <Progress
                   value={score}
@@ -144,6 +153,35 @@ export default function ReportView({
           })}
         </div>
       </Card>
+
+      {report.findings?.length ? (
+        <Card className="p-4">
+          <h4 className="text-sm font-semibold text-slate-950">Findings</h4>
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            {report.findings.map((finding) => (
+              <article key={finding.id || finding.title} className="rounded-xl border border-slate-200 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-slate-900">{finding.title}</span>
+                  <Badge tone={riskToneForCompletion(finding.severity, 100)}>
+                    {finding.severity || "Finding"}
+                  </Badge>
+                  {finding.domain ? <Badge tone="neutral">{finding.domain}</Badge> : null}
+                </div>
+                {finding.business_impact ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{finding.business_impact}</p>
+                ) : null}
+                {finding.recommended_fix ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{finding.recommended_fix}</p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                  {finding.owner ? <Badge tone="neutral">Owner: {finding.owner}</Badge> : null}
+                  {finding.deadline ? <Badge tone="warning">Deadline: {finding.deadline}</Badge> : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card className="p-4">
@@ -194,6 +232,28 @@ export default function ReportView({
           </div>
         </Card>
       </div>
+
+      {report.external_exposure_self_check?.items?.length ? (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-sm font-semibold text-slate-950">External exposure self-check</h4>
+            <Badge tone="neutral">advisory only</Badge>
+            <Badge tone="success">no scanning</Badge>
+          </div>
+          {report.external_exposure_self_check.note ? (
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {report.external_exposure_self_check.note}
+            </p>
+          ) : null}
+          <ul className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+            {report.external_exposure_self_check.items.slice(0, 6).map((item) => (
+              <li key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                {item.question || item.id}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
     </div>
   );
 }

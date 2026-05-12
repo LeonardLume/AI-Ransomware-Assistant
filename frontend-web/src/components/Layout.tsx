@@ -15,8 +15,7 @@ export type AppView =
   | "action-plan"
   | "evidence"
   | "skills"
-  | "technical"
-  | "demo";
+  | "technical";
 
 export default function Layout({
   backendOnline,
@@ -83,7 +82,7 @@ export default function Layout({
 
           <section className="main-workspace relative min-h-[calc(100vh-1rem)] overflow-hidden rounded-[30px] border border-white/10 bg-slate-950 shadow-[0_30px_90px_rgba(0,0,0,0.42)] sm:min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2rem)]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.10),transparent_34%)]" />
-            <div className="relative z-10 h-full p-4 sm:p-6 lg:p-8">
+            <div key={activeView} className="view-transition relative z-10 h-full p-4 sm:p-6 lg:p-8">
               {pages[activeView]}
             </div>
           </section>

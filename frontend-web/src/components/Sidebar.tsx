@@ -5,7 +5,6 @@ import {
   ClipboardList,
   Database,
   FileText,
-  FlaskConical,
   Home,
   Layers3,
   PanelLeftClose,
@@ -28,7 +27,6 @@ const navItems: Array<{ id: AppView; label: string; icon: typeof Home }> = [
   { id: "evidence", label: "Evidence Binder", icon: Database },
   { id: "skills", label: "Skills", icon: BookOpenCheck },
   { id: "technical", label: "Technical Transparency", icon: Layers3 },
-  { id: "demo", label: "Demo", icon: FlaskConical },
 ];
 
 export default function Sidebar({
@@ -145,11 +143,11 @@ export default function Sidebar({
           </Button>
         </div>
 
-        <div className="mt-5 min-h-0 flex-1 overflow-hidden">
+        <div className="mt-5 shrink-0">
           <div className="mb-2 px-1 text-xs font-semibold uppercase text-slate-500">
             Recent sessions
           </div>
-          <div className="scrollbar-slim max-h-[24vh] space-y-1.5 overflow-y-auto pr-1">
+          <div className="scrollbar-slim min-h-[112px] max-h-56 space-y-1.5 overflow-y-auto pr-1">
             {sessions.length ? (
               sessions.slice(0, 5).map((session) => {
                 const active = session.id === activeSessionId;

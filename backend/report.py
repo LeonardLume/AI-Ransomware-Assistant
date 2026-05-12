@@ -3,8 +3,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from backend.confidence import calculate_domain_confidence, calculate_overall_confidence
+from backend.exposure import build_external_exposure_self_check
+from backend.findings import build_findings
+from backend.hygiene import build_employee_hygiene_actions, build_employee_hygiene_checklist
 from backend.llm_client import generate_text, load_prompt
 from backend.questions import load_domain_metadata, load_questions, load_source_notes
+from backend.redaction import redact_sensitive_text
 from backend.scoring import calculate_scores
 from backend.skills import (
     build_action_plan_from_skills,
@@ -67,8 +72,14 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
     scores = calculate_scores(answer_records)
     risks, next_steps = build_risks_and_steps(scores, answer_records)
     action_plan = build_action_plan_from_skills(scores, answer_records)
+    action_plan.extend(build_employee_hygiene_actions(answer_records))
     evidence_checklist = build_evidence_checklist_from_skills(scores, answer_records)
     skill_references = build_skill_references(scores, answer_records)
+    findings = build_findings(scores, answer_records)
+    overall_confidence = calculate_overall_confidence(answer_records)
+    domain_confidence = calculate_domain_confidence(answer_records)
+    employee_hygiene_checklist = build_employee_hygiene_checklist(answer_records)
+    external_exposure_self_check = build_external_exposure_self_check()
 
     question_lookup = {q["id"]: q for q in load_questions()}
     answer_summary = []
@@ -82,7 +93,7 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
                 "domain": q.get("domain"),
                 "question": q.get("question"),
                 "answer": record.get("answer"),
-                "details": record.get("details", ""),
+                "details": redact_sensitive_text(str(record.get("details", "")))[0],
             }
         )
 
@@ -105,6 +116,11 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         "action_plan": action_plan,
         "evidence_checklist": evidence_checklist,
         "skill_references": skill_references,
+        "findings": findings,
+        "overall_confidence": overall_confidence,
+        "domain_confidence": domain_confidence,
+        "employee_hygiene_checklist": employee_hygiene_checklist,
+        "external_exposure_self_check": external_exposure_self_check,
         "answers": answer_summary,
         "scoring_guardrail": "Numeric score comes only from data/scoring_rules.json; skills add explanation and recommendations only.",
     }
@@ -119,10 +135,15 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         **scores,
         "summary": base_summary,
         "top_risks": risks,
+        "findings": findings,
         "next_steps": next_steps,
         "action_plan": action_plan,
         "evidence_checklist": evidence_checklist,
         "skill_references": skill_references,
+        "overall_confidence": overall_confidence,
+        "domain_confidence": domain_confidence,
+        "employee_hygiene_checklist": employee_hygiene_checklist,
+        "external_exposure_self_check": external_exposure_self_check,
         "llm_report_text": llm_result.text,
         "llm": {
             "provider": llm_result.provider,

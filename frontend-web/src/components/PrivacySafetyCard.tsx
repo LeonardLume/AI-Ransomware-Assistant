@@ -3,6 +3,7 @@ import type { ChatResponse } from "../types/api";
 import { Badge, Card } from "./ui";
 
 export default function PrivacySafetyCard({ lastResponse }: { lastResponse?: ChatResponse | null }) {
+  const redactionCount = lastResponse?.redactions_applied?.length ?? 0;
   return (
     <Card className="!border-white/10 !bg-white/10 p-4 text-sm leading-6 !text-white shadow-[0_18px_48px_rgba(0,0,0,0.26)] backdrop-blur-xl">
       <div className="flex items-center gap-2 font-semibold text-white">
@@ -19,11 +20,11 @@ export default function PrivacySafetyCard({ lastResponse }: { lastResponse?: Cha
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-white">Redaction status</span>
-          <Badge tone={lastResponse?.redactions_applied ? "success" : "neutral"}>
+          <Badge tone={redactionCount ? "success" : "neutral"}>
             {lastResponse?.redactions_applied === undefined
               ? "not reported"
-              : lastResponse.redactions_applied
-                ? "applied"
+              : redactionCount
+                ? `${redactionCount} applied`
                 : "not applied"}
           </Badge>
         </div>

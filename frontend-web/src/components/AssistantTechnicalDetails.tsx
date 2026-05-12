@@ -16,9 +16,10 @@ function buildTimeline(details: ChatTechnicalDetails) {
     steps.push({ label: "intent detected", detail: details.intent });
   }
   if (details.redactionsApplied !== undefined) {
+    const count = details.redactionsApplied.length;
     steps.push({
       label: "redaction status",
-      detail: details.redactionsApplied ? "applied" : "not applied",
+      detail: count ? `${count} applied` : "not applied",
     });
   }
   if (details.provider) {
@@ -47,7 +48,9 @@ function buildTimeline(details: ChatTechnicalDetails) {
   if (details.promptInjectionBlocked !== undefined) {
     steps.push({
       label: "prompt injection status",
-      detail: details.promptInjectionBlocked ? "blocked" : "not triggered",
+      detail: details.promptInjectionBlocked
+        ? `blocked${details.promptInjectionReason ? `: ${details.promptInjectionReason}` : ""}`
+        : "not triggered",
     });
   }
   return steps;
@@ -160,6 +163,14 @@ export default function AssistantTechnicalDetails({
               <Badge tone="neutral">question_id: {details.currentQuestionId}</Badge>
             ) : null}
             {details?.responseType ? <Badge tone="neutral">type: {details.responseType}</Badge> : null}
+            {details?.redactedForLlm !== undefined ? (
+              <Badge tone={details.redactedForLlm ? "success" : "neutral"}>
+                redacted for LLM: {String(details.redactedForLlm)}
+              </Badge>
+            ) : null}
+            {details?.redactionsApplied?.length ? (
+              <Badge tone="success">redactions: {details.redactionsApplied.join(", ")}</Badge>
+            ) : null}
             {details?.missingRequiredQuestions?.length ? (
               <Badge tone="warning">
                 missing: {details.missingRequiredQuestions.length}

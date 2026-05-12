@@ -29,7 +29,12 @@
       "ir_plan_exists": {"answer": "no", "details": "Kirjalikku plaani ei ole."},
       "ir_roles_contacts": {"answer": "partial", "details": "Juhi ja IT-partneri kontaktid on olemas, aga eskalatsioonitee pole kirjas."},
       "ir_plan_tested": {"answer": "no", "details": "Ei ole harjutatud."},
-      "external_reporting_known": {"answer": "unsure", "details": "Pole teada, millal CERT-EE või jurist kaasata."}
+      "external_reporting_known": {"answer": "unsure", "details": "Pole teada, millal CERT-EE või jurist kaasata."},
+      "logs_centralized": {"answer": "no", "details": "Logisid ei koguta keskelt."},
+      "endpoint_alerts_monitored": {"answer": "partial", "details": "Antivirus on olemas, aga hoiatusi vaadatakse juhuslikult."},
+      "failed_logins_monitored": {"answer": "unsure", "details": "Ei ole teada, kas ebaõnnestunud sisselogimisi jälgitakse."},
+      "file_integrity_or_mass_change_alerts": {"answer": "no", "details": "Massiliste failimuudatuste hoiatusi ei ole."},
+      "vulnerability_inventory_known": {"answer": "unsure", "details": "Vananenud tarkvara ülevaadet pole."}
     }
   },
   "better_sme": {
@@ -62,7 +67,12 @@
       "ir_plan_exists": {"answer": "partial", "details": "Üldine intsidentide plaan olemas, ransomware osa lühike."},
       "ir_roles_contacts": {"answer": "yes", "details": "Kontaktid ja otsustajad dokumenteeritud."},
       "ir_plan_tested": {"answer": "no", "details": "Ransomware tabletop'i pole tehtud."},
-      "external_reporting_known": {"answer": "partial", "details": "Jurist ja kindlustus on teada, CERT-EE protsess mitte."}
+      "external_reporting_known": {"answer": "partial", "details": "Jurist ja kindlustus on teada, CERT-EE protsess mitte."},
+      "logs_centralized": {"answer": "partial", "details": "Serverite ja M365 logid on kättesaadavad, aga kõiki rakendusi ei koguta keskelt."},
+      "endpoint_alerts_monitored": {"answer": "yes", "details": "Endpoint security hoiatused lähevad IT partnerile ja kuuraportisse."},
+      "failed_logins_monitored": {"answer": "partial", "details": "M365 ebaõnnestunud logimisi vaadatakse, VPN-i puhul mitte alati."},
+      "file_integrity_or_mass_change_alerts": {"answer": "partial", "details": "EDR võib massilisi muutusi märgata, aga reegleid pole testitud."},
+      "vulnerability_inventory_known": {"answer": "partial", "details": "MSP annab patch report'i kord kuus, kuid vananenud tarkvara nimekiri pole täielik."}
     }
   }
 }

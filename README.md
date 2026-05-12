@@ -15,6 +15,21 @@ The app keeps the assessment controlled and explainable:
 
 The LLM helps understand free text, explain concepts, and word the report. The readiness score is always rule-based.
 
+## Phase 1 defensive upgrades
+
+This branch adds safe defensive-readiness improvements only:
+
+- employee / personal security hygiene checklist
+- detection & monitoring readiness domain
+- external exposure self-check as self-reported advisory content
+- prompt injection firewall for `/chat`
+- privacy redaction before LLM calls
+- finding-style report cards
+- confidence indicator separate from score
+- additional defensive skills for detection, employee hygiene, and exposure self-check
+
+No scanning, pentesting, exploitation, PoC generation, password cracking, malware analysis, attack-chain discovery, OSINT enumeration, or external cyber-tool integration is added.
+
 ## Defensive skills layer
 
 The project now includes a local `skills/` directory with defensive ransomware-readiness playbooks. These files are inspired by structured AI-agent skill formats such as YAML frontmatter, `When to Use`, `What to Ask`, workflow-style guidance, evidence checklists, and NIST CSF mappings.
@@ -34,6 +49,9 @@ Skills are mapped to assessment domains:
 - `patching` -> `patch-management`
 - `admin_rights` -> `admin-rights-review`
 - `incident_response` -> `incident-response-plan`, `ransomware-response`, `tabletop-exercise`
+- `detection_monitoring` -> `detection-monitoring`
+- `employee_security_hygiene` -> `employee-security-hygiene`
+- `external_exposure_self_check` -> `external-exposure-self-check`
 
 Important: skills do **not** calculate or modify the numeric score. Scoring still comes only from `data/scoring_rules.json`; skills add explanation, recommendations, action plan items, evidence requirements, and NIST CSF references.
 

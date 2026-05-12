@@ -35,11 +35,11 @@ export default function ChatPanel({
   }, [messages.length, sending]);
 
   return (
-    <section className="flex min-h-[640px] flex-col overflow-hidden rounded-xl border border-white/10 !bg-[#101113] shadow-[0_28px_70px_rgba(0,0,0,0.42)]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 !bg-[#151617] px-4 py-3">
+    <section className="flex min-h-[640px] flex-col overflow-hidden rounded-xl border border-white/10 bg-black/35 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-black/25 px-4 py-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-950">Interview</h2>
-          <p className="mt-0.5 text-xs text-slate-500">{currentDomain || "standard assessment"}</p>
+          <h2 className="text-base font-semibold text-white">Interview</h2>
+          <p className="mt-0.5 text-xs text-white/55">{currentDomain || "standard assessment"}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" onClick={onStart} disabled={sending}>
@@ -49,7 +49,7 @@ export default function ChatPanel({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-white/10 !bg-[#121315] px-4 py-3">
+      <div className="flex flex-wrap gap-2 border-b border-white/10 bg-black/20 px-4 py-3">
         {quickActions.slice(0, 3).map((action) => (
           <Button
             type="button"
@@ -71,7 +71,7 @@ export default function ChatPanel({
         ))}
       </div>
 
-      <div className="scrollbar-slim min-h-0 flex-1 space-y-4 overflow-y-auto !bg-[#0d0e10] p-4">
+      <div className="scrollbar-slim min-h-0 flex-1 space-y-4 overflow-y-auto bg-black/20 p-4">
         {!messages.length ? (
           <div className="flex h-full min-h-[360px] items-center justify-center">
             <EmptyState
@@ -98,14 +98,7 @@ export default function ChatPanel({
 
         {sending ? (
           <div className="flex justify-start">
-            <LoadingSteps
-              steps={[
-                "Analysing message",
-                "Detecting intent",
-                "Extracting answer",
-                "Updating assessment",
-              ]}
-            />
+            <LoadingSteps />
           </div>
         ) : null}
 

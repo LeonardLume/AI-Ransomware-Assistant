@@ -31,6 +31,8 @@ def calculate_scores(answer_records: dict[str, dict[str, Any]]) -> dict[str, Any
     required_question_ids: list[str] = []
     for q in questions:
         qid = q["id"]
+        if qid not in rules:
+            continue
         domain_question_ids.setdefault(q["domain"], []).append(qid)
         if q.get("required", True):
             required_question_ids.append(qid)
@@ -46,9 +48,7 @@ def calculate_scores(answer_records: dict[str, dict[str, Any]]) -> dict[str, Any
         critical_negatives: list[str] = []
 
         for qid in qids:
-            rule = rules.get(qid, {})
-            if not rule:
-                continue
+            rule = rules[qid]
             max_possible += max(rule.values())
             record = answer_records.get(qid)
             if record is None:

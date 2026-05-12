@@ -25,5 +25,11 @@
   "ir_plan_exists": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
   "ir_roles_contacts": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
   "ir_plan_tested": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
-  "external_reporting_known": {"yes": 25, "partial": 12, "no": 0, "unsure": 0}
+  "external_reporting_known": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+
+  "logs_centralized": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "endpoint_alerts_monitored": {"yes": 25, "partial": 12, "no": 0, "unsure": 0},
+  "failed_logins_monitored": {"yes": 20, "partial": 10, "no": 0, "unsure": 0},
+  "file_integrity_or_mass_change_alerts": {"yes": 15, "partial": 8, "no": 0, "unsure": 0},
+  "vulnerability_inventory_known": {"yes": 15, "partial": 8, "no": 0, "unsure": 0}
 }

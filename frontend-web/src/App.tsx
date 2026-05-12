@@ -13,7 +13,6 @@ import {
 } from "./api/client";
 import ActionPlanView from "./components/ActionPlanView";
 import ChatPanel from "./components/ChatPanel";
-import DemoPanel from "./components/DemoPanel";
 import EvidenceBinderView from "./components/EvidenceBinderView";
 import HeroDashboard from "./components/HeroDashboard";
 import Layout, { type AppView } from "./components/Layout";
@@ -424,6 +423,35 @@ export default function App() {
     }
   }
 
+  async function startHomeChat(message: string) {
+    const trimmed = message.trim();
+    if (!trimmed) {
+      await startAssessment();
+      return;
+    }
+
+    setSending(true);
+    setError(null);
+    setReport(null);
+    setLastUserMessage(trimmed);
+    setActiveArtifact("readiness-report");
+    setActiveView("interview");
+    setSidebarOpen(false);
+
+    try {
+      const startResponse = await chat(null, "");
+      await applyChatResponse(startResponse);
+      setMessages((current) => [...current, makeLocalMessage("user", trimmed)]);
+      const response = await chat(startResponse.session_id, trimmed);
+      await applyChatResponse(response);
+    } catch (sendError) {
+      setBackendOnline(false);
+      setError(messageFromError(sendError));
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function retryLastMessage() {
     if (lastUserMessage) {
       await sendMessage(lastUserMessage);
@@ -579,7 +607,7 @@ export default function App() {
             sending={sending}
             canGenerateReport={Boolean(activeSessionId)}
             reportLoading={artifactLoading}
-            onPrompt={sendMessage}
+            onPrompt={startHomeChat}
             onStart={startAssessment}
             onLoadDemo={handleLoadDemo}
             onGenerateReport={generateReport}
@@ -588,29 +616,31 @@ export default function App() {
           />
         ),
         interview: (
-          <div className="grid min-w-0 gap-5 rounded-[28px] border border-white/10 bg-[#0b0c0e] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.34)] xl:grid-cols-[minmax(0,1fr)_360px]">
-            <ChatPanel
-              messages={messages}
-              quickActions={quickActions}
-              currentDomain={currentDomain}
-              sending={sending}
-              error={error}
-              onStart={startAssessment}
-              onSend={sendMessage}
-              onRetry={retryLastMessage}
-              onOpenArtifact={(artifact) => {
-                setActiveArtifact(artifact);
-                setActiveView(artifact === "technical-json" ? "technical" : "report");
-              }}
-              onCreateReport={generateReport}
-            />
-            <StatusPanel
-              session={sessionState}
-              score={score}
-              lastResponse={lastResponse}
-              questions={questions}
-            />
-          </div>
+          <section className="assessment-wallpaper relative isolate -m-4 min-h-[calc(100vh-1rem)] overflow-hidden rounded-[30px] p-4 sm:-m-6 sm:min-h-[calc(100vh-1.5rem)] sm:p-6 lg:-m-8 lg:min-h-[calc(100vh-2rem)] lg:p-8">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <ChatPanel
+                messages={messages}
+                quickActions={quickActions}
+                currentDomain={currentDomain}
+                sending={sending}
+                error={error}
+                onStart={startAssessment}
+                onSend={sendMessage}
+                onRetry={retryLastMessage}
+                onOpenArtifact={(artifact) => {
+                  setActiveArtifact(artifact);
+                  setActiveView(artifact === "technical-json" ? "technical" : "report");
+                }}
+                onCreateReport={generateReport}
+              />
+              <StatusPanel
+                session={sessionState}
+                score={score}
+                lastResponse={lastResponse}
+                questions={questions}
+              />
+            </div>
+          </section>
         ),
         report: (
           <ReportView
@@ -637,15 +667,6 @@ export default function App() {
               flow={technicalFlow}
             />
           </div>
-        ),
-        demo: (
-          <DemoPanel
-            onLoadDemo={handleLoadDemo}
-            onAsk={sendMessage}
-            onGenerateReport={generateReport}
-            canGenerateReport={Boolean(activeSessionId)}
-            loading={sending || artifactLoading}
-          />
         ),
       }}
     />

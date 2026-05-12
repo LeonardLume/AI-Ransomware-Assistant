@@ -28,5 +28,17 @@
     "description": "Kas organisatsioon teab, mida teha, kui ransomware rünnak toimub?",
     "low_score_risk": "Rünnaku korral võib tekkida segadus otsustajate, kontaktide, taastamise ja teavitamise osas.",
     "default_next_step": "Koostada minimaalne ransomware response playbook, kontaktide nimekiri ja testida seda lühikese tabletop-harjutusega."
+  },
+  "detection_monitoring": {
+    "title": "Tuvastus ja monitooring",
+    "description": "Kas organisatsioon märkab ransomware rünnaku varajasi märke ja turvahoiatusi?",
+    "low_score_risk": "Rünnak võib jääda liiga kauaks märkamatuks ning kahju kasvab enne reageerimist.",
+    "default_next_step": "Määrata, milliseid logisid ja endpoint-hoiatusi jälgitakse ning kes neile reageerib."
+  },
+  "employee_security_hygiene": {
+    "title": "Töötajate turvahügieen",
+    "description": "Kas töötajate paroolid, MFA, uuendused ja phishingu teadlikkus vähendavad lunavara riski?",
+    "low_score_risk": "Nõrk isiklik turvahügieen võib suurendada varastatud paroolide, phishingu ja seadmete kompromiteerimise riski.",
+    "default_next_step": "Läbida töötajate turvahügieeni kontrollnimekiri ja määrata lihtsad parandusomanikud."
   }
 }
