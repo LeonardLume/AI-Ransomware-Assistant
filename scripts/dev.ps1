@@ -121,6 +121,7 @@ try {
   Start-Sleep -Seconds 1
   Push-Location $FrontendDir
   try {
+    $env:VITE_API_BASE_URL = ""
     $env:VITE_API_PORT = "$BackendPort"
     npm run dev -- --host 0.0.0.0 --port $FrontendPort
   } finally {

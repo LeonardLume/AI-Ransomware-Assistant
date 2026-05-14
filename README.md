@@ -92,6 +92,7 @@ The launcher:
 - starts FastAPI on `0.0.0.0:8000`
 - starts React/Vite on `0.0.0.0:5173`
 - automatically moves to the next free port if `8000` or `5173` is busy
+- passes the resolved backend port to Vite and ignores stale local `VITE_API_BASE_URL` values during quick start
 
 Open:
 
@@ -106,6 +107,14 @@ http://192.168.1.20:5173
 ```
 
 The React app automatically calls the backend on the same hostname and port `8000`. If Windows Firewall asks, allow Python/Node for private networks.
+
+If a custom backend port is used, start with `scripts/dev.ps1` or `scripts/dev.sh`; the launcher passes that port to the frontend automatically. Avoid hardcoding `127.0.0.1` in `frontend-web/.env.local` for LAN demos, because another device treats `127.0.0.1` as itself, not as this computer. Prefer:
+
+```env
+VITE_API_PORT=8000
+```
+
+Use `VITE_API_BASE_URL` only when the backend is on a separate fixed host. If it accidentally points to `localhost` or `127.0.0.1`, the React app rewrites that hostname to the current LAN hostname when opened from another device.
 
 Custom ports:
 
@@ -131,6 +140,8 @@ Manual backend/frontend commands are still available:
 ./run_frontend.sh
 ```
 
+These manual launchers also bind the backend to `0.0.0.0` and pass `BACKEND_PORT`/`VITE_API_PORT` to the frontend.
+
 ## Enable OpenAI
 
 Create a local `.env` from `.env.example` and paste your key:
@@ -155,10 +166,10 @@ OPENAI_BASE_URL=https://openrouter.ai/api/v1
 REQUEST_TIMEOUT_SECONDS=120
 ```
 
-For the React frontend, create `frontend-web/.env` from `frontend-web/.env.example` if the backend URL differs:
+For the React frontend, create `frontend-web/.env` from `frontend-web/.env.example` if the backend port differs:
 
 ```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_PORT=8000
 ```
 
 ## Enable Ollama
