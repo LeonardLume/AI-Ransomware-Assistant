@@ -86,6 +86,13 @@ button,
 textarea,
 input {
   font: inherit;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
 }
 
 button {
@@ -105,7 +112,7 @@ textarea {
 
 .assessment-wallpaper::before {
   position: absolute;
-  inset: 0;
+  inset: -1px;
   z-index: -2;
   pointer-events: none;
   content: "";
@@ -121,7 +128,7 @@ textarea {
 
 .assessment-wallpaper::after {
   position: absolute;
-  inset: 0;
+  inset: -1px;
   z-index: -1;
   pointer-events: none;
   content: "";
@@ -132,6 +139,14 @@ textarea {
 
 .view-transition {
   animation: view-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.artifact-overlay-enter {
+  animation: artifact-overlay-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.artifact-content-enter {
+  animation: artifact-content-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 details > summary {
@@ -259,6 +274,21 @@ html.dark .text-slate-400 {
   animation-delay: 0.28s;
 }
 
+.typing-cursor {
+  animation: cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes cursor-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes typing-pulse {
   0%,
   80%,
@@ -298,10 +328,34 @@ html.dark .text-slate-400 {
   }
 }
 
+@keyframes artifact-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes artifact-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.dark body::before,
   .assessment-wallpaper::before,
-  .view-transition {
+  .view-transition,
+  .artifact-overlay-enter,
+  .artifact-content-enter {
     animation: none;
   }
 }

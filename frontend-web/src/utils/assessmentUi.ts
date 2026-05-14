@@ -137,7 +137,7 @@ export function artifactsForResponse(response: ChatResponse): ArtifactId[] {
       "readiness-report",
       "action-plan",
       "evidence-binder",
-      "ransomware-playbook",
+      "skills",
       "technical-json",
     ];
   }
