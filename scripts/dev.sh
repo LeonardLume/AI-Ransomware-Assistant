@@ -84,4 +84,4 @@ trap cleanup EXIT INT TERM
 
 sleep 1
 cd "$FRONTEND_DIR"
-VITE_API_BASE_URL="" VITE_API_PORT="$BACKEND_PORT" npm run dev -- --host 0.0.0.0 --port "$FRONTEND_PORT"
+VITE_API_BASE_URL="" VITE_API_PORT="$BACKEND_PORT" node "$FRONTEND_DIR/node_modules/vite/bin/vite.js" --host 0.0.0.0 --port "$FRONTEND_PORT"
