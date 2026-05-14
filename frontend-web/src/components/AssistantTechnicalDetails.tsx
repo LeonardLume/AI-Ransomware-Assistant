@@ -6,6 +6,7 @@ const artifactLabels: Record<ArtifactId, string> = {
   "readiness-report": "Readiness Report",
   "action-plan": "Action Plan",
   "evidence-binder": "Evidence Binder",
+  skills: "Skills",
   "ransomware-playbook": "Ransomware Playbook",
   "technical-json": "Technical JSON",
 };

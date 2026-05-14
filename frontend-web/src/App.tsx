@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BookOpenCheck,
+  ClipboardList,
+  FileText,
+  ListChecks,
+  MessageSquare,
+  Settings2,
+} from "lucide-react";
+import {
   ApiError,
   chat,
   getProviderStatus,
@@ -11,23 +19,20 @@ import {
   healthCheck,
   loadDemoProfile,
 } from "./api/client";
-import ActionPlanView from "./components/ActionPlanView";
+import AssessmentStatusFooter from "./components/AssessmentStatusFooter";
 import ChatPanel from "./components/ChatPanel";
-import EvidenceBinderView from "./components/EvidenceBinderView";
 import HeroDashboard from "./components/HeroDashboard";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 import Layout, { type AppView } from "./components/Layout";
-import ReportView from "./components/ReportView";
-import SkillsView from "./components/SkillsView";
-import StatusPanel from "./components/StatusPanel";
-import TechnicalTransparencyView from "./components/TechnicalTransparencyView";
-import TechnicalView from "./components/TechnicalView";
+import SessionArtifactOverlay from "./components/SessionArtifactOverlay";
+import { cn } from "./components/ui";
 import {
   artifactsForResponse,
   buildReadableSessionTitle,
   buildTechnicalDetails,
   sanitizeAssistantMessage,
 } from "./utils/assessmentUi";
-import type { UiLanguage } from "./utils/i18n";
+import { t, type UiLanguage } from "./utils/i18n";
 import {
   getSessions,
   makeSessionSummary,
@@ -142,6 +147,7 @@ export default function App() {
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [activeArtifact, setActiveArtifact] = useState<ArtifactId>("readiness-report");
+  const [artifactOverlayOpen, setArtifactOverlayOpen] = useState(false);
   const [activeView, setActiveView] = useState<AppView>("home");
   const [language, setLanguage] = useState<UiLanguage>(() => {
     const saved = window.localStorage.getItem("ransomware-readiness.language");
@@ -149,6 +155,7 @@ export default function App() {
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sending, setSending] = useState(false);
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +178,8 @@ export default function App() {
     setMessages([]);
     setLastUserMessage(null);
     setActiveArtifact("readiness-report");
-    setActiveView("interview");
+    setArtifactOverlayOpen(false);
+    setActiveView("home");
   }
 
   function changeLanguage(nextLanguage: UiLanguage) {
@@ -281,7 +289,8 @@ export default function App() {
       if (response.report) {
         setReport(response.report);
         setActiveArtifact("readiness-report");
-        setActiveView("report");
+        setArtifactOverlayOpen(true);
+        setActiveView("interview");
       }
 
       refreshSessionMetadata(response.session_id, {
@@ -333,6 +342,7 @@ export default function App() {
       setReport(null);
       setMessages([]);
       setActiveSessionId(sessionId);
+      setActiveView("interview");
       setSidebarOpen(false);
       try {
         await refreshBackendState(sessionId, { includeReport: false });
@@ -373,6 +383,7 @@ export default function App() {
     setSending(true);
     setError(null);
     setReport(null);
+    setArtifactOverlayOpen(false);
     setActiveView("interview");
     setSidebarOpen(false);
     try {
@@ -395,6 +406,7 @@ export default function App() {
     setSending(true);
     setError(null);
     setLastUserMessage(message);
+    setArtifactOverlayOpen(false);
     setActiveView("interview");
 
     try {
@@ -433,35 +445,6 @@ export default function App() {
     }
   }
 
-  async function startHomeChat(message: string) {
-    const trimmed = message.trim();
-    if (!trimmed) {
-      await startAssessment();
-      return;
-    }
-
-    setSending(true);
-    setError(null);
-    setReport(null);
-    setLastUserMessage(trimmed);
-    setActiveArtifact("readiness-report");
-    setActiveView("interview");
-    setSidebarOpen(false);
-
-    try {
-      const startResponse = await chat(null, "");
-      await applyChatResponse(startResponse);
-      setMessages((current) => [...current, makeLocalMessage("user", trimmed)]);
-      const response = await chat(startResponse.session_id, trimmed);
-      await applyChatResponse(response);
-    } catch (sendError) {
-      setBackendOnline(false);
-      setError(messageFromError(sendError));
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function retryLastMessage() {
     if (lastUserMessage) {
       await sendMessage(lastUserMessage);
@@ -470,16 +453,12 @@ export default function App() {
     }
   }
 
-  function clearLocalChat() {
-    setMessages([]);
-    setLastResponse(null);
-    setError(null);
-  }
-
   async function handleLoadDemo(profileId: "weak_sme" | "better_sme") {
     setSending(true);
     setError(null);
     setReport(null);
+    setArtifactOverlayOpen(false);
+    setActiveView("interview");
     setSidebarOpen(false);
     try {
       const demo = await loadDemoProfile(profileId);
@@ -500,9 +479,9 @@ export default function App() {
       if (reportResult.status === "fulfilled") {
         setReport(reportResult.value);
         setActiveArtifact("readiness-report");
-        setActiveView("report");
+        setActiveView("interview");
       }
-      const assistantMessage = `Demo profile "${demo.profile_name || profileId}" is loaded. The report is ready in Results.`;
+      const assistantMessage = `Demo profile "${demo.profile_name || profileId}" is loaded. The report is ready in Session artifacts.`;
       const demoResponse: ChatResponse = {
         session_id: sessionId,
         assistant_message: assistantMessage,
@@ -569,7 +548,8 @@ export default function App() {
       setReport(nextReport);
       setScore(nextReport);
       setActiveArtifact("readiness-report");
-      setActiveView("report");
+      setArtifactOverlayOpen(true);
+      setActiveView("interview");
       refreshSessionMetadata(activeSessionId, {
         score: nextReport,
         completionRate: nextReport.completion_rate,
@@ -601,13 +581,13 @@ export default function App() {
       activeView={activeView}
       language={language}
       sidebarOpen={sidebarOpen}
+      sidebarCollapsed={sidebarCollapsed}
       sessions={sessions}
       activeSessionId={activeSessionId}
       onViewChange={setActiveView}
-      onLanguageChange={changeLanguage}
       onToggleSidebar={() => setSidebarOpen((open) => !open)}
+      onToggleSidebarCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
       onCloseSidebar={() => setSidebarOpen(false)}
-      onNewSession={startAssessment}
       onLoadDemo={handleLoadDemo}
       onSelectSession={selectSession}
       onDeleteSession={deleteLocalSession}
@@ -619,17 +599,31 @@ export default function App() {
             sending={sending}
             canGenerateReport={Boolean(activeSessionId)}
             reportLoading={artifactLoading}
-            onPrompt={startHomeChat}
+            onPrompt={sendMessage}
             onStart={startAssessment}
             onLoadDemo={handleLoadDemo}
             onGenerateReport={generateReport}
-            onOpenTechnical={() => setActiveView("technical")}
+            onOpenTechnical={() => {
+              setActiveArtifact("technical-json");
+              setActiveView("interview");
+            }}
             onOpenInterview={() => setActiveView("interview")}
           />
         ),
         interview: (
-          <section className="assessment-wallpaper relative isolate -m-4 min-h-[calc(100vh-1rem)] overflow-hidden rounded-[30px] p-4 sm:-m-6 sm:min-h-[calc(100vh-1.5rem)] sm:p-6 lg:-m-8 lg:min-h-[calc(100vh-2rem)] lg:p-8">
-            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="assessment-wallpaper relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col overflow-hidden rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6">
+            <ArtifactTopTabs
+              activeArtifact={activeArtifact}
+              artifactOverlayOpen={artifactOverlayOpen}
+              language={language}
+              onLanguageChange={changeLanguage}
+              onChat={() => setArtifactOverlayOpen(false)}
+              onChange={(artifact) => {
+                setActiveArtifact(artifact);
+                setArtifactOverlayOpen(true);
+              }}
+            />
+            <div className="relative min-h-0 min-w-0 flex-1">
               <ChatPanel
                 messages={messages}
                 quickActions={quickActions}
@@ -640,53 +634,117 @@ export default function App() {
                 onSend={sendMessage}
                 onRetry={retryLastMessage}
                 onOpenArtifact={(artifact) => {
-                  setActiveArtifact(artifact);
-                  setActiveView(artifact === "technical-json" ? "technical" : "report");
+                  setActiveArtifact(artifact === "ransomware-playbook" ? "skills" : artifact);
+                  setArtifactOverlayOpen(true);
+                  setActiveView("interview");
                 }}
                 onCreateReport={generateReport}
               />
-              <StatusPanel
+              <SessionArtifactOverlay
+                open={artifactOverlayOpen}
+                activeArtifact={activeArtifact}
+                activeSessionId={activeSessionId}
+                report={report}
                 session={sessionState}
                 score={score}
                 lastResponse={lastResponse}
+                flow={technicalFlow}
+                providerStatus={providerStatus}
+                backendOnline={backendOnline}
                 questions={questions}
+                canGenerateReport={Boolean(activeSessionId)}
+                loading={artifactLoading || sending}
+                language={language}
+                onGenerateReport={generateReport}
+                onClose={() => setArtifactOverlayOpen(false)}
               />
             </div>
-          </section>
-        ),
-        report: (
-          <ReportView
-            report={report}
-            canGenerate={Boolean(activeSessionId)}
-            loading={artifactLoading || sending}
-            onGenerate={generateReport}
-            language={language}
-          />
-        ),
-        "action-plan": <ActionPlanView report={report} language={language} />,
-        evidence: <EvidenceBinderView report={report} language={language} />,
-        skills: <SkillsView report={report} language={language} />,
-        technical: (
-          <div className="space-y-6">
-            <TechnicalTransparencyView
-              flow={technicalFlow}
-              providerStatus={providerStatus}
-              language={language}
-            />
-            <TechnicalView
-              backendOnline={backendOnline}
-              providerStatus={providerStatus}
-              lastResponse={lastResponse}
+            <AssessmentStatusFooter
               session={sessionState}
               score={score}
-              report={report}
+              lastResponse={lastResponse}
               questions={questions}
-              flow={technicalFlow}
               language={language}
             />
-          </div>
+          </section>
         ),
       }}
     />
+  );
+}
+
+const artifactTabs: Array<{
+  id: ArtifactId;
+  labelKey?: "report" | "actionPlan" | "evidenceBinder" | "skills";
+  label?: string;
+  icon: JSX.Element;
+}> = [
+  { id: "readiness-report", labelKey: "report", icon: <FileText className="h-4 w-4" /> },
+  { id: "action-plan", labelKey: "actionPlan", icon: <ClipboardList className="h-4 w-4" /> },
+  { id: "evidence-binder", labelKey: "evidenceBinder", icon: <ListChecks className="h-4 w-4" /> },
+  { id: "skills", labelKey: "skills", icon: <BookOpenCheck className="h-4 w-4" /> },
+  { id: "technical-json", label: "Technical", icon: <Settings2 className="h-4 w-4" /> },
+];
+
+function ArtifactTopTabs({
+  activeArtifact,
+  artifactOverlayOpen,
+  language,
+  onLanguageChange,
+  onChat,
+  onChange,
+}: {
+  activeArtifact: ArtifactId;
+  artifactOverlayOpen: boolean;
+  language: UiLanguage;
+  onLanguageChange: (language: UiLanguage) => void;
+  onChat: () => void;
+  onChange: (artifact: ArtifactId) => void;
+}) {
+  const selectedArtifact = activeArtifact === "ransomware-playbook" ? "skills" : activeArtifact;
+
+  return (
+    <div className="mb-4 rounded-2xl border border-white/10 bg-black/25 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-xl transition-all duration-300 ease-out hover:border-white/20">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="scrollbar-slim flex min-w-0 flex-1 gap-1 overflow-x-auto">
+          <button
+            type="button"
+            onClick={onChat}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ease-out hover:-translate-y-0.5",
+              !artifactOverlayOpen
+                ? "bg-sky-500 text-white shadow-[0_12px_28px_rgba(14,165,233,0.22)]"
+                : "text-slate-400 hover:bg-white/10 hover:text-white",
+            )}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat
+          </button>
+          {artifactTabs.map((tab) => {
+            const active = artifactOverlayOpen && selectedArtifact === tab.id;
+            const label = tab.labelKey ? t(language, tab.labelKey) : tab.label || tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onChange(tab.id)}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ease-out hover:-translate-y-0.5",
+                  active
+                    ? "bg-sky-500 text-white shadow-[0_12px_28px_rgba(14,165,233,0.22)]"
+                    : "text-slate-400 hover:bg-white/10 hover:text-white",
+                )}
+              >
+                {tab.icon}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="ml-auto shrink-0">
+          <LanguageSwitcher language={language} onChange={onLanguageChange} />
+        </div>
+      </div>
+    </div>
   );
 }

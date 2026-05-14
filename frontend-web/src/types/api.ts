@@ -5,6 +5,7 @@ export type ArtifactId =
   | "readiness-report"
   | "action-plan"
   | "evidence-binder"
+  | "skills"
   | "ransomware-playbook"
   | "technical-json";
 

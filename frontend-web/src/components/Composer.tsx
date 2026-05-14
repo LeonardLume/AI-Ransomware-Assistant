@@ -48,10 +48,6 @@ export default function Composer({
           <SendHorizontal className="h-4 w-4" />
         </button>
       </div>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-500">
-        <span>Enter sends - Shift+Enter adds a new line</span>
-        <span>Do not enter passwords, tokens, IP addresses, or secrets.</span>
-      </div>
     </div>
   );
 }
