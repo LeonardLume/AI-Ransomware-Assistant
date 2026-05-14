@@ -1,14 +1,27 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 from backend.config import BASE_DIR
 
-DB_PATH = BASE_DIR / "sessions.db"
+def _resolve_db_path() -> Path:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url.startswith("sqlite:///"):
+        parsed = urlparse(database_url)
+        raw_path = unquote(parsed.path)
+        if database_url.startswith("sqlite:////"):
+            return Path(raw_path)
+        return BASE_DIR / raw_path.lstrip("/")
+    return BASE_DIR / "sessions.db"
+
+
+DB_PATH = _resolve_db_path()
 
 # In-memory cache so we don't hit SQLite on every attribute access
 SESSIONS: dict[str, "SessionState"] = {}
@@ -30,6 +43,7 @@ class SessionState:
 
 
 def _get_conn() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         """

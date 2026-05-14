@@ -116,6 +116,38 @@ VITE_API_PORT=8000
 
 Use `VITE_API_BASE_URL` only when the backend is on a separate fixed host. If it accidentally points to `localhost` or `127.0.0.1`, the React app rewrites that hostname to the current LAN hostname when opened from another device.
 
+### Public demo from any network
+
+For a temporary public link that works outside your Wi-Fi/LAN, run:
+
+```powershell
+.\start_public.bat
+```
+
+Or directly:
+
+```powershell
+.\scripts\dev.ps1 -PublicTunnel
+```
+
+macOS / Linux:
+
+```bash
+./start_public.sh
+# or
+./scripts/dev.sh --public
+```
+
+The public launcher:
+
+- starts the backend locally
+- starts Vite locally
+- makes the frontend call the backend through `/api`
+- exposes only the frontend with a Cloudflare Quick Tunnel
+- prints a temporary `https://...trycloudflare.com` URL that can be opened from any network
+
+No router port forwarding is needed. The public link works only while the launcher is running. The first run may download `cloudflared` into `.tools/`.
+
 Custom ports:
 
 ```powershell
@@ -141,6 +173,54 @@ Manual backend/frontend commands are still available:
 ```
 
 These manual launchers also bind the backend to `0.0.0.0` and pass `BACKEND_PORT`/`VITE_API_PORT` to the frontend.
+
+## Production deployment with Docker Compose
+
+Requirements:
+
+- Docker Desktop on Windows or Docker Engine on Linux
+- Git
+
+Clone and start on Windows:
+
+```powershell
+git clone https://github.com/LeonardLume/AI-Ransomware-Assistant.git
+cd AI-Ransomware-Assistant
+copy .env.production.example .env
+docker compose up -d --build
+```
+
+Clone and start on macOS / Linux:
+
+```bash
+git clone https://github.com/LeonardLume/AI-Ransomware-Assistant.git
+cd AI-Ransomware-Assistant
+cp .env.production.example .env
+docker compose up -d --build
+```
+
+Open:
+
+```text
+http://localhost
+```
+
+Useful commands:
+
+```bash
+docker compose logs -f
+docker compose down
+git pull
+docker compose up -d --build
+```
+
+Production mode uses a built React bundle from `frontend-web/dist`; it does not use the Vite development server. Caddy serves the React static files, handles client-side routes with an `index.html` fallback, and reverse-proxies `/api/*` to the FastAPI backend container. The backend runs uvicorn without `--reload`.
+
+The frontend calls the backend through same-origin `/api` in production. Caddy strips the `/api` prefix before forwarding requests, so `/api/chat` reaches the backend as `/chat`.
+
+The `.env` file contains runtime configuration and secrets. Do not commit `.env`. The included `.env.production.example` uses `LLM_PROVIDER=fallback` and stores SQLite sessions in the Docker volume mounted at `/app/data_runtime`.
+
+This is a basic single-machine production/demo deployment. For real public production, configure a real domain, HTTPS, a persistent database with backups, authentication, rate limiting, monitoring, and operational security controls.
 
 ## Enable OpenAI
 

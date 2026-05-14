@@ -13,6 +13,7 @@ import type {
 } from "../types/api";
 
 const DEFAULT_API_PORT = (import.meta.env.VITE_API_PORT as string | undefined) || "8000";
+const DEFAULT_API_BASE_URL = import.meta.env.PROD ? "/api" : "";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]);
 
 function isLoopbackHost(hostname: string): boolean {
@@ -21,9 +22,10 @@ function isLoopbackHost(hostname: string): boolean {
 
 function resolveApiBaseUrl(): string {
   const fallbackBaseUrl =
-    typeof window === "undefined"
+    DEFAULT_API_BASE_URL ||
+    (typeof window === "undefined"
       ? `http://127.0.0.1:${DEFAULT_API_PORT}`
-      : `${window.location.protocol === "https:" ? "https:" : "http:"}//${window.location.hostname || "127.0.0.1"}:${DEFAULT_API_PORT}`;
+      : `${window.location.protocol === "https:" ? "https:" : "http:"}//${window.location.hostname || "127.0.0.1"}:${DEFAULT_API_PORT}`);
 
   const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)
     ?.trim()
