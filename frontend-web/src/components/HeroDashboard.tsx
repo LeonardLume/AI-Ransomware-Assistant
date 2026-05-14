@@ -1,4 +1,5 @@
 import type { ScoreResponse, SessionStateResponse } from "../types/api";
+import HomeParticles from "./HomeParticles";
 import PromptCard from "./PromptCard";
 
 export default function HeroDashboard({
@@ -20,7 +21,8 @@ export default function HeroDashboard({
 }) {
   return (
     <section className="assessment-wallpaper relative isolate -m-4 flex min-h-[calc(100vh-1rem)] items-center justify-center overflow-hidden rounded-[30px] px-4 py-20 text-center sm:-m-6 sm:min-h-[calc(100vh-1.5rem)] sm:px-6 lg:-m-8 lg:min-h-[calc(100vh-2rem)] lg:px-8">
-      <div className="w-full">
+      <HomeParticles />
+      <div className="relative z-10 w-full">
         <h1 className="mx-auto max-w-4xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
           What should we assess today?
         </h1>
