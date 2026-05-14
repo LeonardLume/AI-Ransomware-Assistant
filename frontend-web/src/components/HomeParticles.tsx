@@ -77,8 +77,11 @@ export default function HomeParticles() {
         },
       },
       particles: {
+        collisions: {
+          enable: false,
+        },
         color: {
-          value: ["#f8ffff", "#a7f3d0", "#67e8f9"],
+          value: ["#ffffff", "#f0ffff", "#c8fbff"],
         },
         links: {
           enable: false,
@@ -90,27 +93,27 @@ export default function HomeParticles() {
             default: "out",
           },
           random: true,
-          speed: 0.18,
+          speed: 0.34,
           straight: false,
         },
         number: {
           density: {
             enable: true,
-            area: 900,
+            area: 780,
           },
-          value: 58,
+          value: 68,
         },
         opacity: {
           value: {
-            min: 0.08,
-            max: 0.32,
+            min: 0.22,
+            max: 0.58,
           },
           animation: {
             enable: !reducedMotion,
-            speed: 0.28,
+            speed: 0.42,
             sync: false,
             startValue: "random",
-            minimumValue: 0.05,
+            minimumValue: 0.16,
           },
         },
         shape: {
@@ -118,8 +121,8 @@ export default function HomeParticles() {
         },
         size: {
           value: {
-            min: 0.6,
-            max: 1.8,
+            min: 0.9,
+            max: 2.2,
           },
           animation: {
             enable: false,
@@ -137,8 +140,21 @@ export default function HomeParticles() {
   }
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 opacity-80">
-      <Particles className="h-full w-full" id="home-particles" options={options} />
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-90 [filter:drop-shadow(0_0_3px_rgba(255,255,255,0.38))]"
+    >
+      <Particles
+        className="absolute inset-0 h-full w-full"
+        id="home-particles"
+        options={options}
+        style={{
+          height: "100%",
+          inset: 0,
+          position: "absolute",
+          width: "100%",
+        }}
+      />
     </div>
   );
 }
