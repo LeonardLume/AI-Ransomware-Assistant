@@ -10,6 +10,7 @@ import requests
 from backend.config import (
     PROMPTS_DIR,
     get_llm_settings,
+    has_real_openai_key,
 )
 
 
@@ -69,7 +70,7 @@ def generate_text(prompt: str, system_prompt: str = "", temperature: float = 0.2
                 error=str(exc),
             )
 
-    if provider == "openai" and openai_api_key:
+    if provider == "openai" and has_real_openai_key(openai_api_key):
         try:
             from openai import OpenAI  # optional dependency
 
@@ -98,14 +99,14 @@ def generate_text(prompt: str, system_prompt: str = "", temperature: float = 0.2
                 error=str(exc),
             )
 
-    if provider == "openai" and not openai_api_key:
+    if provider == "openai" and not has_real_openai_key(openai_api_key):
         fallback = fallback_text(prompt)
         return LLMResult(
             text=fallback,
             provider="fallback_after_openai_missing_key",
             model="deterministic-template",
             used_real_llm=False,
-            error="OPENAI_API_KEY is empty; insert your key in .env.",
+            error="OPENAI_API_KEY is empty or still a placeholder; insert your key in .env.",
         )
 
     return LLMResult(

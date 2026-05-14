@@ -47,12 +47,10 @@ export default function Sidebar({
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
 }) {
-  const provider = lastResponse?.provider || providerStatus?.provider || "unknown";
-  const fallbackUsed =
-    lastResponse?.used_fallback ??
-    providerStatus?.used_fallback ??
-    providerStatus?.fallback_used ??
-    provider === "fallback";
+  const provider = providerStatus?.provider || lastResponse?.provider || "unknown";
+  const fallbackUsed = providerStatus
+    ? providerStatus.provider === "fallback"
+    : (lastResponse?.used_fallback ?? provider === "fallback");
 
   return (
     <>

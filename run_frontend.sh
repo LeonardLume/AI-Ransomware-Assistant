@@ -1,2 +1,7 @@
 #!/usr/bin/env bash
-streamlit run frontend/app.py
+set -e
+cd "$(dirname "$0")/frontend-web"
+if [ ! -d "node_modules" ]; then
+  npm install
+fi
+exec npm run dev

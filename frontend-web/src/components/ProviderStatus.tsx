@@ -10,12 +10,10 @@ export default function ProviderStatus({
   providerStatus?: ProviderStatusResponse | null;
   lastResponse?: ChatResponse | null;
 }) {
-  const provider = lastResponse?.provider || providerStatus?.provider || "unknown";
-  const fallbackUsed =
-    lastResponse?.used_fallback ??
-    providerStatus?.used_fallback ??
-    providerStatus?.fallback_used ??
-    provider === "fallback";
+  const provider = providerStatus?.provider || lastResponse?.provider || "unknown";
+  const fallbackUsed = providerStatus
+    ? providerStatus.provider === "fallback"
+    : (lastResponse?.used_fallback ?? provider === "fallback");
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs">

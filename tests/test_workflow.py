@@ -223,6 +223,7 @@ def test_chat_answers_client_question_without_advancing_interview():
 def test_chat_restore_question_uses_skill_evidence_hint():
     start = client.post("/chat", json={"message": ""}).json()
     sid = start["session_id"]
+    current_q = start["current_question_id"]
 
     response = client.post(
         "/chat",
@@ -230,10 +231,114 @@ def test_chat_restore_question_uses_skill_evidence_hint():
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["intent"] == "clarification"
+    assert data["intent"] == "general_advisory_chat"
+    assert data["response_type"] == "general_advisory_chat"
     assert "restore" in data["assistant_message"].lower() or "taast" in data["assistant_message"].lower()
     assert "tõend" in data["assistant_message"].lower()
     assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+    assert data["completion_rate"] == 0
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+    assert session["current_question_id"] == current_q
+
+
+def test_broad_backup_question_is_general_advisory_chat():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post(
+        "/chat",
+        json={"session_id": sid, "message": "What is the best backup strategy for a small company?"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "general_advisory_chat"
+    assert data["response_type"] == "general_advisory_chat"
+    assert data["extracted_answers"] == {}
+    assert data["score"] is None
+    assert data["report"] is None
+    assert data["current_question_id"] == current_q
+    assert data["completion_rate"] == 0
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+    assert session["current_question_id"] == current_q
+
+
+def test_broad_mfa_question_is_general_advisory_chat():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post(
+        "/chat",
+        json={"session_id": sid, "message": "Is MFA enough to stop ransomware?"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "general_advisory_chat"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+
+
+def test_broad_incident_response_question_is_general_advisory_chat():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post(
+        "/chat",
+        json={"session_id": sid, "message": "Kas väike firma vajab incident response plaani?"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "general_advisory_chat"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+
+
+def test_current_question_meaning_phrase_is_clarification():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "mida see tähendab?"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "clarification"
+    assert data["response_type"] == "client_question"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+    assert data["completion_rate"] == 0
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+
+
+def test_current_question_importance_phrase_is_clarification():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "miks see oluline on?"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "clarification"
+    assert data["response_type"] == "client_question"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
 
 
 def test_offensive_request_is_safely_redirected():

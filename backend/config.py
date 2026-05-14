@@ -4,6 +4,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 PROMPTS_DIR = BASE_DIR / "prompts"
+OPENAI_KEY_PLACEHOLDERS = {"your-api-key-here", "your-openrouter-key-here"}
 
 
 def load_dotenv(path: Path) -> dict[str, str]:
@@ -46,6 +47,11 @@ def get_llm_settings() -> dict[str, object]:
     }
 
 
+def has_real_openai_key(value: str) -> bool:
+    key = value.strip()
+    return bool(key) and key.lower() not in OPENAI_KEY_PLACEHOLDERS
+
+
 _SETTINGS = get_llm_settings()
 LLM_PROVIDER = str(_SETTINGS["provider"])  # fallback, ollama, openai
 OLLAMA_URL = str(_SETTINGS["ollama_url"])
@@ -63,11 +69,11 @@ def llm_status() -> dict[str, object]:
     provider_ready = (
         provider == "fallback"
         or provider == "ollama"
-        or (provider == "openai" and bool(openai_api_key))
+        or (provider == "openai" and has_real_openai_key(openai_api_key))
     )
     reason = "ready"
-    if provider == "openai" and not openai_api_key:
-        reason = "OPENAI_API_KEY is empty; insert your key in .env."
+    if provider == "openai" and not has_real_openai_key(openai_api_key):
+        reason = "OPENAI_API_KEY is empty or still a placeholder; insert your key in .env."
     elif provider not in {"fallback", "ollama", "openai"}:
         reason = f"Unsupported LLM_PROVIDER: {provider}"
 
@@ -75,7 +81,7 @@ def llm_status() -> dict[str, object]:
         "provider": provider,
         "provider_ready": provider_ready,
         "reason": reason,
-        "openai_api_key_present": bool(openai_api_key),
+        "openai_api_key_present": has_real_openai_key(openai_api_key),
         "openai_model": settings["openai_model"],
         "openai_base_url": settings["openai_base_url"],
         "ollama_model": settings["ollama_model"],

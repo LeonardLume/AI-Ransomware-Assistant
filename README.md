@@ -57,43 +57,79 @@ Important: skills do **not** calculate or modify the numeric score. Scoring stil
 
 All local skills are marked `safe_use: defensive_only`. The assistant refuses requests for offensive hacking, exploitation, malware creation or analysis instructions, MFA bypass, credential theft, persistence, evasion, or red-team execution, and redirects to defensive readiness advice.
 
-## Run
+## Fast start
 
-Install dependencies:
+Prerequisites:
 
-```powershell
-cd ransomware-readiness-mvp
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+- Python 3.10+
+- Node.js 18+
+- npm
 
-Backend:
+One-command React + FastAPI launch:
 
 ```powershell
-python -m uvicorn backend.main:app --reload
+.\start.bat
 ```
 
-Old Streamlit frontend:
+Or directly from PowerShell:
 
 ```powershell
-streamlit run frontend/app.py
+.\scripts\dev.ps1
 ```
 
-New React frontend:
+macOS / Linux:
 
-```powershell
-cd frontend-web
-npm install
-npm run dev
+```bash
+chmod +x start.sh scripts/dev.sh
+./start.sh
 ```
+
+The launcher:
+
+- creates `.venv` if missing
+- installs only the lightweight backend dependencies from `requirements.txt`
+- installs frontend packages only when `frontend-web/node_modules` is missing
+- starts FastAPI on `0.0.0.0:8000`
+- starts React/Vite on `0.0.0.0:5173`
+- automatically moves to the next free port if `8000` or `5173` is busy
 
 Open:
 
-- New React frontend: http://localhost:5173
-- Old Streamlit frontend: http://localhost:8501
+- React frontend: http://localhost:5173
 - Backend docs: http://127.0.0.1:8000/docs
-- LLM status: http://127.0.0.1:8000/llm/status
+- LLM status: http://127.0.0.1:8000/provider/status
+
+To open from another device on the same Wi-Fi/LAN, use the Network URL printed by Vite, for example:
+
+```text
+http://192.168.1.20:5173
+```
+
+The React app automatically calls the backend on the same hostname and port `8000`. If Windows Firewall asks, allow Python/Node for private networks.
+
+Custom ports:
+
+```powershell
+$env:BACKEND_PORT=8001
+$env:FRONTEND_PORT=5174
+.\scripts\dev.ps1
+```
+
+```bash
+BACKEND_PORT=8001 FRONTEND_PORT=5174 ./scripts/dev.sh
+```
+
+Manual backend/frontend commands are still available:
+
+```powershell
+.\run_backend.bat
+.\run_frontend.bat
+```
+
+```bash
+./run_backend.sh
+./run_frontend.sh
+```
 
 ## Enable OpenAI
 
@@ -108,6 +144,16 @@ REQUEST_TIMEOUT_SECONDS=120
 ```
 
 Do not commit `.env`. It is ignored by `.gitignore`.
+
+OpenRouter or another OpenAI-compatible provider also works:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openrouter-key-here
+OPENAI_MODEL=openai/gpt-4o-mini
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+REQUEST_TIMEOUT_SECONDS=120
+```
 
 For the React frontend, create `frontend-web/.env` from `frontend-web/.env.example` if the backend URL differs:
 
@@ -136,6 +182,22 @@ REQUEST_TIMEOUT_SECONDS=120
 ```
 
 Fallback keeps demos reliable. It uses deterministic explanations and keyword-based extraction for common answer words such as `jah`, `ei`, `osaliselt`, `ei tea`, `yes`, `no`, `partial`, and `unsure`.
+
+## Optional installs
+
+For tests:
+
+```powershell
+pip install -r requirements-dev.txt
+pytest
+```
+
+For the old Streamlit fallback UI:
+
+```powershell
+pip install -r requirements-legacy.txt
+streamlit run frontend/app.py
+```
 
 ## Frontend migration
 

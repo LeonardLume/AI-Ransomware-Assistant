@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.adaptive import decide_followup, get_next_required_question, make_followup_question
 from backend.chat_interview import (
+    answer_general_advisory_with_llm,
     answer_client_question_with_llm,
     answer_smalltalk,
     classify_user_intent,
@@ -42,9 +43,12 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
         "http://localhost:8501",
         "http://127.0.0.1:8501",
     ],
+    allow_origin_regex=r"https?://([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\]):(5173|4173|8501)",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -226,6 +230,35 @@ def chat(payload: ChatIn):
 
     if current_question is None:
         return _complete_chat(state, completion_mode="full", intent=intent)
+
+    if intent == "general_advisory_chat":
+        advisory = answer_general_advisory_with_llm(
+            user_message=message,
+            current_question=current_question,
+            current_answers=base_answers,
+            org_info=state.org_info,
+        )
+        state.events.append(
+            {
+                "type": "general_advisory_chat",
+                "current_question_id": state.current_question_id,
+                "provider": advisory.get("provider", "fallback"),
+                "used_fallback": advisory.get("used_fallback", True),
+            }
+        )
+        return _chat_response(
+            state,
+            assistant_message=advisory["message"],
+            extracted_answers={},
+            score=None,
+            report=None,
+            provider=advisory.get("provider", "fallback"),
+            used_fallback=advisory.get("used_fallback", True),
+            response_type="general_advisory_chat",
+            intent="general_advisory_chat",
+            redactions_applied=advisory.get("redactions_applied", []),
+            redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
+        )
 
     if intent == "clarification":
         state.current_question_id = current_question["id"]
@@ -568,6 +601,7 @@ def technical_flow():
         ],
         "ai_parts": [
             "backend/chat_interview.py: answer_client_question_with_llm()",
+            "backend/chat_interview.py: answer_general_advisory_with_llm()",
             "backend/chat_interview.py: extract_answers_with_llm()",
             "backend/chat_interview.py: generate_next_question()",
             "backend/adaptive.py: decide_followup()",
@@ -577,6 +611,7 @@ def technical_flow():
             "prompts/interview_system_prompt.txt",
             "prompts/extraction_prompt.txt",
             "prompts/advisor_prompt.txt",
+            "prompts/general_advisory_prompt.txt",
             "prompts/followup_prompt.txt",
             "prompts/report_prompt.txt",
         ],

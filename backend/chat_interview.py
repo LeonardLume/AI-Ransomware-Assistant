@@ -12,7 +12,7 @@ from backend.redaction import redact_sensitive_text
 from backend.skills import build_skill_context_for_domain
 
 Intent = str
-VALID_INTENTS = {"answer", "clarification", "report_request", "smalltalk", "unknown"}
+VALID_INTENTS = {"answer", "clarification", "general_advisory_chat", "report_request", "smalltalk", "unknown"}
 
 PRELIMINARY_DOMAINS = [
     "backups",
@@ -87,6 +87,117 @@ CLARIFICATION_HINTS = [
     "что значит",
     "насколько",
     "зачем",
+]
+
+CURRENT_QUESTION_REFERENCE_HINTS = [
+    "see",
+    "seda",
+    "selle",
+    "praegune",
+    "kusimus",
+    "mida see",
+    "miks see",
+    "sellele vastata",
+    "this",
+    "this question",
+    "current question",
+    "how should i answer",
+    "how do i answer",
+    "этот вопрос",
+    "это",
+    "как ответить",
+]
+
+CURRENT_QUESTION_CLARIFICATION_HINTS = [
+    "mida see tahendab",
+    "mida tahendab",
+    "miks see oluline",
+    "miks see tahtis",
+    "too naide",
+    "too naidised",
+    "naide",
+    "selgita lihtsamalt",
+    "seleta lihtsamalt",
+    "kuidas sellele vastata",
+    "what does this mean",
+    "what does this question mean",
+    "why is this important",
+    "give example",
+    "give examples",
+    "explain this",
+    "explain simpler",
+    "how should i answer",
+    "how do i answer",
+    "объясни проще",
+    "почему это важно",
+    "пример",
+    "как ответить",
+]
+
+GENERAL_ADVISORY_HINTS = [
+    "best",
+    "strategy",
+    "best practice",
+    "should",
+    "safer",
+    "enough",
+    "survive",
+    "business impact",
+    "management",
+    "executive",
+    "risk",
+    "compare",
+    "what should",
+    "how often should",
+    "small company",
+    "sme",
+    "cloud backup",
+    "local backup",
+    "pilves",
+    "kohapeal",
+    "vaike firma",
+    "vaike ettevote",
+    "kas vaike",
+    "kui suur probleem",
+    "mis on olulisem",
+    "что важнее",
+    "обычной фирме",
+    "малой фирме",
+    "нужен план",
+    "лучше",
+    "достаточно",
+    "насколько серьезно",
+]
+
+GENERAL_ADVISORY_TOPICS = [
+    "ransomware",
+    "lunavara",
+    "backup",
+    "varukoop",
+    "restore",
+    "taast",
+    "mfa",
+    "2fa",
+    "patch",
+    "uuendus",
+    "admin",
+    "privilege",
+    "incident",
+    "intsident",
+    "response",
+    "monitor",
+    "logging",
+    "logid",
+    "evidence",
+    "toend",
+    "risk",
+    "business",
+    "juhtkond",
+    "management",
+    "отчет",
+    "резерв",
+    "реагирован",
+    "рис",
 ]
 
 QUESTION_WORDS = [
@@ -262,10 +373,10 @@ def looks_like_finish_request(message: str) -> bool:
 
 
 def looks_like_advisory_question(message: str) -> bool:
-    return classify_user_intent(message) == "clarification"
+    return classify_user_intent(message) in {"clarification", "general_advisory_chat"}
 
 
-def classify_user_intent(message: str, current_question: dict[str, Any] | None = None) -> Intent:
+def _legacy_classify_user_intent(message: str, current_question: dict[str, Any] | None = None) -> Intent:
     text = _normalize(message)
     raw = message.strip()
     if not text:
@@ -354,6 +465,96 @@ def answer_client_question_with_llm(
     }
 
 
+def answer_general_advisory_with_llm(
+    user_message: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]],
+    org_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    language = detect_language(user_message)
+    q_context = current_question or next_missing_question(current_answers)
+    if looks_like_offensive_request(user_message):
+        return defensive_refusal(user_message, q_context)
+
+    if get_llm_settings()["provider"] == "fallback":
+        fallback = fallback_general_advisory_answer(user_message, q_context, current_answers)
+        fallback["redactions_applied"] = []
+        fallback["redacted_for_llm"] = False
+        return fallback
+
+    redacted_message, message_redactions = redact_sensitive_text(user_message)
+    redacted_answers, answer_redactions = _redact_answer_records(current_answers)
+    redactions = _merge_redactions(message_redactions, answer_redactions)
+    context_payload = build_general_advisory_context(
+        user_message=redacted_message,
+        language=language,
+        current_question=q_context,
+        current_answers=redacted_answers,
+        org_info=org_info or {},
+    )
+
+    result = generate_text(
+        prompt=json.dumps(context_payload, ensure_ascii=False, indent=2),
+        system_prompt=load_prompt("general_advisory_prompt.txt"),
+        temperature=0.3,
+    )
+
+    if not result.used_real_llm or not result.text.strip():
+        fallback = fallback_general_advisory_answer(user_message, q_context, current_answers)
+        fallback["redactions_applied"] = redactions
+        fallback["redacted_for_llm"] = bool(redactions)
+        fallback["error"] = result.error
+        return fallback
+
+    message = normalize_general_advisory_text(result.text.strip())
+    if not _is_identity_question(user_message):
+        message = _strip_unrequested_identity(message)
+
+    return {
+        "message": message,
+        "provider": result.provider,
+        "used_fallback": False,
+        "model": result.model,
+        "error": result.error,
+        "redactions_applied": redactions,
+        "redacted_for_llm": bool(redactions),
+    }
+
+
+def build_general_advisory_context(
+    user_message: str,
+    language: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]],
+    org_info: dict[str, Any],
+) -> dict[str, Any]:
+    advisory_domain = _advisory_domain(user_message, current_question)
+    return {
+        "user_question": user_message,
+        "response_language": language,
+        "current_interview_question": current_question,
+        "current_question_text": get_current_question_text(current_question),
+        "current_question_answer": _current_question_answer(current_question, current_answers),
+        "current_domain_summary": get_domain_summary(current_question),
+        "advisory_domain": advisory_domain,
+        "defensive_skill_context": build_skill_context_for_domain(advisory_domain, current_answers),
+        "answered_question_ids": list(current_answers.keys()),
+        "organization_info": org_info,
+        "domain_metadata": load_domain_metadata(),
+        "trusted_sources_used_for_project": load_source_notes(),
+        "conversation_rules": [
+            "Answer the user's general advisory question directly.",
+            "Do not treat this as a questionnaire answer.",
+            "Do not infer or save assessment answers.",
+            "Do not move the interview forward.",
+            "Do not calculate or estimate the official score.",
+            "Keep guidance defensive-only and practical.",
+            "Do not invent organization facts.",
+            "If useful, include one short bridge back to the assessment context, but do not repeat the full active question.",
+        ],
+    }
+
+
 def build_advisor_context(
     user_message: str,
     language: str,
@@ -423,6 +624,111 @@ def normalize_assistant_text(
     if current_question and _return_to_question_line(language, current_question) not in cleaned:
         cleaned = f"{cleaned}\n\n{_return_to_question_line(language, current_question)}"
     return cleaned.strip()
+
+
+def normalize_general_advisory_text(text: str) -> str:
+    cleaned = text.strip().replace("```", "").strip()
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r"Let's return to the current question:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Tuleme nÃ¼Ã¼d tagasi praeguse kÃ¼simuse juurde:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Верн[её]мся к текущему вопросу:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Kas soovite liikuda jÃ¤rgmise kÃ¼simuse juurde\?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Do you want to continue\?\s*", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
+def fallback_general_advisory_answer(
+    user_message: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    text = _normalize(user_message)
+    language = detect_language(user_message)
+
+    if looks_like_offensive_request(user_message):
+        return defensive_refusal(user_message, current_question)
+
+    if _contains_any(text, ["backup", "varukoop", "restore", "taast", "rpo", "rto", "cloud backup", "local backup"]):
+        if language == "English":
+            answer = (
+                "For a small company, a good backup strategy is simple but layered: regular automatic backups, at least one copy that ransomware cannot easily delete or encrypt, and periodic restore tests.\n\n"
+                "Cloud backup can be safer than local-only backup if access is protected with MFA, separate admin rights, retention, and immutability. Local backup can still be useful for fast recovery, but it should not be the only copy.\n\n"
+                "The business goal is not just having backups; it is knowing how quickly critical work can be restored and how much data loss is acceptable."
+            )
+        else:
+            answer = (
+                "VÃ¤ikesele organisatsioonile on hea backup-strateegia lihtne, aga kihiline: automaatsed regulaarsed varukoopiad, vÃ¤hemalt Ã¼ks koopia mida lunavara ei saa lihtsalt kustutada vÃµi krÃ¼pteerida, ning perioodilised taastamistestid.\n\n"
+                "Pilvebackup vÃµib olla turvalisem kui ainult kohalik backup, kui ligipÃ¤Ã¤s on kaitstud MFA, eraldi admin-Ãµiguste, retention'i ja immutable seadistusega. Kohalik koopia on kasulik kiireks taastamiseks, aga see ei tohiks olla ainus koopia.\n\n"
+                "Ã„riline eesmÃ¤rk ei ole lihtsalt backupi olemasolu, vaid teadmine, kui kiiresti tÃ¶Ã¶ taastub ja kui palju andmekadu on lubatav.\n\n"
+                "Hea tõend on viimase restore testi kuupäev, tulemus ja taastamiseks kulunud aeg."
+            )
+    elif _contains_any(text, ["mfa", "2fa", "mitmefaktor", "vpn", "rdp", "remote access"]):
+        if language == "English":
+            answer = (
+                "MFA is one of the highest-impact controls, but it is not enough by itself to stop ransomware.\n\n"
+                "It reduces the chance that a stolen password gives immediate access, especially for email, VPN, cloud admin portals, and privileged accounts. It still needs patching, least privilege, backups, monitoring, and an incident-response plan around it.\n\n"
+                "For management, the practical question is coverage: where MFA is mandatory, where exceptions exist, and who reviews those exceptions."
+            )
+        else:
+            answer = (
+                "MFA on Ã¼ks mÃµjusamaid kaitsemeetmeid, kuid Ã¼ksi see lunavara ei peata.\n\n"
+                "See vÃ¤hendab riski, et varastatud parool annab kohe ligipÃ¤Ã¤su e-postile, VPN-ile, pilve admin-portaalidele vÃµi privilegeeritud kontodele. Selle kÃµrvale on vaja patchimist, least privilege'i, varukoopiaid, monitooringut ja incident response plaani.\n\n"
+                "Juhtkonna jaoks on praktiline kÃ¼simus katvus: kus MFA on kohustuslik, kus on erandid ja kes neid erandeid Ã¼le vaatab."
+            )
+    elif _contains_any(text, ["incident", "intsident", "ir plan", "ir plaan", "response", "tabletop", "management", "juhtkond"]):
+        if language == "English":
+            answer = (
+                "Yes, a small company still benefits from an incident-response plan. It does not need to be a huge document.\n\n"
+                "The useful version says who makes decisions, who contacts the IT provider, how affected systems are isolated, where offline contacts are stored, and when legal, insurance, or national CERT support should be involved.\n\n"
+                "During ransomware, the first management job is to slow the damage, preserve evidence, keep communications clear, and avoid improvised decisions under pressure."
+            )
+        else:
+            answer = (
+                "Jah, ka vÃ¤ike firma vajab incident response plaani. See ei pea olema suur dokument.\n\n"
+                "Kasulik plaan Ã¼tleb, kes otsustab, kes helistab IT-partnerile, kuidas mÃµjutatud sÃ¼steemid eraldatakse, kus on offline kontaktid ning millal kaasata jurist, kindlustus vÃµi CERT.\n\n"
+                "Lunavara ajal on juhtkonna esimene roll kahju piirata, tÃµendeid sÃ¤ilitada, suhtlus selge hoida ja vÃ¤ltida paanikas improviseeritud otsuseid."
+            )
+    elif _contains_any(text, ["patch", "uuendus", "vulnerability", "haavatav", "unsupported", "internet-facing"]):
+        answer = (
+            "Patchimise eesmÃ¤rk on sulgeda teadaolevad haavatavused enne, kui neid kasutatakse sisenemiseks vÃµi levimiseks.\n\n"
+            "Praktiline lÃ¤henemine on hoida nimekirja internetist ligipÃ¤Ã¤setavatest sÃ¼steemidest, paigaldada kriitilised parandused kiiresti ning eraldi mÃ¤rkida tootjatoeta sÃ¼steemid.\n\n"
+            "Hea tÃµend on patch report, riskinimekiri ja omanik iga erandi jaoks."
+        )
+    elif _contains_any(text, ["admin", "privilege", "least privilege", "oigus", "õigus", "third party"]):
+        answer = (
+            "Admin-Ãµigused mÃ¤Ã¤ravad, kui suureks rÃ¼nnaku mÃµju kasvada saab.\n\n"
+            "Hea tava on anda admin-Ãµigus ainult neile, kellel seda pÃ¤riselt vaja on, kasutada eraldi admin-kontosid ja vaadata Ãµiguseid regulaarselt Ã¼le.\n\n"
+            "Kolmandate osapoolte ligipÃ¤Ã¤s peaks olema piiratud, jÃ¤lgitav ja eemaldatav."
+        )
+    elif _contains_any(text, ["log", "monitor", "edr", "alert", "hoiatus", "failed login", "sisselogim"]):
+        answer = (
+            "Kui logisid ei koguta ega vaadata, on lunavara puhul probleem selles, et organisatsioon ei pruugi mÃ¤rgata varajasi hoiatusmÃ¤rke ega hiljem aru saada, mis juhtus.\n\n"
+            "VÃ¤ikese firma jaoks piisab alguses praktilisest vaatest: identiteedilogid, VPN/RDP ligipÃ¤Ã¤s, endpoint security hoiatused ja kriitiliste serverite sÃ¼ndmused.\n\n"
+            "Oluline on omanik: keegi peab teadma, milline hoiatus vajab tegutsemist."
+        )
+    elif _contains_any(text, ["evidence", "toend", "tõend", "prove", "audit", "report", "raport"]):
+        answer = (
+            "Valmisoleku tÃµend peaks olema midagi kontrollitavat, mitte ainult suuline kinnitus.\n\n"
+            "NÃ¤iteks backupi puhul sobib taastamistesti kuupÃ¤ev ja tulemus, MFA puhul katvuse raport, patchimise puhul viimase uuendusringi raport ning IR puhul plaan ja harjutuse mÃ¤rkmed.\n\n"
+            "See ei tee hindamisest tÃ¤ielikku auditit, aga muudab enesehindamise usaldusvÃ¤Ã¤rsemaks."
+        )
+    elif _contains_any(text, ["business", "impact", "risk", "juht", "executive", "survive"]):
+        answer = (
+            "Lunavara on Ã¤ririsk, mitte ainult IT-probleem. MÃµju vÃµib olla seisak, tellimuste viivitus, andmekadu, mainekahju ja lisakulud partneritele vÃµi klientidele selgitamiseks.\n\n"
+            "Juhtkonnale tasub seda selgitada kolme kÃ¼simusega: kui kaua saame tÃ¶Ã¶ta ilma kriitilise sÃ¼steemita, kui palju andmeid vÃµime kaotada ja kes otsustab kriisi ajal.\n\n"
+            "Head kaitsemeetmed muudavad kriisi lÃ¼hemaks ja otsused rahulikumaks."
+        )
+    else:
+        answer = (
+            "Hea lunavara-valmisolek on kombinatsioon ennetusest, taastamisest ja otsustamisest.\n\n"
+            "Praktiliselt tÃ¤hendab see MFA-d olulistel kontodel, testitud varukoopiaid, kiiret patchimist, piiratud admin-Ãµiguseid, monitooringut ja lÃ¼hikest incident response plaani.\n\n"
+            "See vestlus ei ole tÃ¤ielik audit; see aitab leida esmased nÃµrgad kohad ja tÃµendid, mida kontrollida."
+        )
+
+    bridge = _general_advisory_bridge(language, current_question)
+    if bridge:
+        answer = f"{answer}\n\n{bridge}"
+    return {"message": answer, "provider": "fallback", "used_fallback": True, "model": "deterministic-template", "error": None}
 
 
 def fallback_client_answer(user_message: str, current_question: dict[str, Any] | None) -> dict[str, Any]:
@@ -558,7 +864,7 @@ def extract_answers_with_llm(
         "current_known_answers": redacted_answers,
         "user_message": redacted_message,
         "required_json_schema_example": {
-            "intent": "answer|clarification|report_request|smalltalk|unknown",
+            "intent": "answer|clarification|general_advisory_chat|report_request|smalltalk|unknown",
             "extracted_answers": {"question_id": "yes|partial|no|unsure"},
             "unclear_questions": ["question_id"],
             "confidence": {"question_id": 0.0},
@@ -1027,6 +1333,132 @@ def _merge_redactions(*groups: list[str]) -> list[str]:
             if item not in merged:
                 merged.append(item)
     return merged
+
+
+def looks_like_current_question_clarification(
+    message: str,
+    current_question: dict[str, Any] | None,
+) -> bool:
+    if not current_question:
+        return False
+
+    text = _normalize(message)
+    words = text.split()
+    has_question_mark = "?" in message or "ï¼Ÿ" in message
+    has_question_word = any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
+    short = len(words) <= 10
+
+    if _contains_any(text, CURRENT_QUESTION_CLARIFICATION_HINTS):
+        if short or _contains_any(text, CURRENT_QUESTION_REFERENCE_HINTS):
+            return True
+
+    if _contains_any(text, CURRENT_QUESTION_REFERENCE_HINTS) and (has_question_mark or has_question_word or _is_example_request(text)):
+        return True
+
+    if _contains_any(text, ["how should i answer", "how do i answer", "kuidas sellele vastata", "kas vastus", "как ответить"]):
+        return True
+
+    current_topic = current_question.get("id", "") in _topic_question_ids(message)
+    if current_topic and _contains_any(text, CURRENT_QUESTION_CLARIFICATION_HINTS):
+        return True
+
+    if current_topic and (has_question_mark or has_question_word) and not _contains_any(text, GENERAL_ADVISORY_HINTS):
+        return True
+
+    return False
+
+
+def classify_user_intent(message: str, current_question: dict[str, Any] | None = None) -> Intent:
+    text = _normalize(message)
+    raw = message.strip()
+    if not text:
+        return "smalltalk"
+    if _contains_any(text, REPORT_HINTS):
+        return "report_request"
+    if _is_short_yes(text):
+        return "answer"
+    if _is_smalltalk(text):
+        return "smalltalk"
+    if _is_identity_question(message):
+        return "clarification"
+
+    has_question_mark = "?" in raw or "ï¼Ÿ" in raw
+    has_question_word = any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
+    has_answer_signal = _has_answer_signal(text)
+
+    if has_answer_signal and _looks_like_direct_answer(text, current_question):
+        return "answer"
+    if _looks_like_operational_answer(text, current_question):
+        return "answer"
+    if looks_like_current_question_clarification(message, current_question):
+        return "clarification"
+    if _looks_like_general_advisory_question(text, has_question_mark, has_question_word):
+        return "general_advisory_chat"
+    if has_question_mark or has_question_word:
+        return "general_advisory_chat"
+    if has_answer_signal:
+        return "answer"
+    return "unknown"
+
+
+def _looks_like_general_advisory_question(text: str, has_question_mark: bool, has_question_word: bool) -> bool:
+    has_topic = _contains_any(text, GENERAL_ADVISORY_TOPICS)
+    has_general_hint = _contains_any(text, GENERAL_ADVISORY_HINTS)
+    if has_topic and (has_question_mark or has_question_word or has_general_hint):
+        return True
+    if has_general_hint and (has_question_mark or has_question_word):
+        return True
+    return False
+
+
+def _looks_like_operational_answer(text: str, current_question: dict[str, Any] | None) -> bool:
+    if "?" in text:
+        return False
+    topic_ids = _topic_question_ids(text)
+    if current_question and topic_ids and current_question.get("id") not in topic_ids:
+        # It can still be a clear factual answer to another known assessment item.
+        pass
+    evidence_terms = [
+        "meil",
+        "we ",
+        "we have",
+        "we use",
+        "we patch",
+        "we test",
+        "kasutame",
+        "teeme",
+        "paigaldame",
+        "kogume",
+        "jalgime",
+        "monitored",
+        "enabled",
+        "required",
+        "documented",
+        "within 30 days",
+        "30 days",
+        "iga paev",
+        "iga nadal",
+        "daily",
+        "weekly",
+        "last",
+        "viimase",
+        "tested",
+        "testitud",
+        "not tested",
+        "pole test",
+        "ei ole test",
+    ]
+    return bool(topic_ids) and _contains_any(text, evidence_terms)
+
+
+def _general_advisory_bridge(language: str, current_question: dict[str, Any] | None) -> str:
+    if not current_question:
+        return ""
+    if language == "English":
+        return "This does not change your assessment answers; the active interview question stays where it is."
+    if language == "Russian":
+        return "Это не меняет ответы в оценке; активный вопрос интервью остаётся тем же."
+    return "See ei muuda hindamise vastuseid; aktiivne intervjuuküsimus jääb samaks."
 
 
 def _empty_extraction(intent: Intent, provider: str = "fallback", used_fallback: bool = True) -> dict[str, Any]:
