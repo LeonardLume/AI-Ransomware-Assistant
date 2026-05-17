@@ -78,7 +78,10 @@ export default function Layout({
         />
 
         <main className="relative min-w-0 p-2 transition-all duration-300 ease-out sm:p-3 lg:p-4">
-          <section className="main-workspace relative flex min-h-[calc(100vh-1rem)] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-transparent shadow-[0_30px_90px_rgba(0,0,0,0.42)] transition-all duration-300 ease-out sm:min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2rem)]">
+          <section
+            data-view={activeView}
+            className="main-workspace relative isolate flex min-h-[calc(100vh-1rem)] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-transparent shadow-[0_30px_90px_rgba(0,0,0,0.42)] transition-all duration-300 ease-out sm:min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2rem)]"
+          >
             <Button
               type="button"
               variant="secondary"

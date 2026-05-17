@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.chat_interview import fallback_client_answer
 from backend.redaction import has_sensitive_data, redact_sensitive_text
 from backend.report import generate_report
 from backend.scoring import calculate_scores
@@ -364,6 +365,41 @@ def test_current_question_meaning_phrase_is_clarification():
     assert session["answers"] == {}
 
 
+def test_current_question_term_question_is_clarification():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "mis on organisatsioon"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "clarification"
+    assert data["response_type"] == "client_question"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+    assert "organisatsioon" in data["assistant_message"].lower()
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+
+
+def test_fallback_clarification_explains_vpn_and_rdp_terms():
+    reply = fallback_client_answer(
+        "mis on vpn ja rdp",
+        {
+            "id": "mfa_remote_access",
+            "question": "Kas MFA on kasutusel VPN-i, RDP, pilvekonsoolide või muu kaugligipääsu puhul?",
+            "domain": "mfa_access",
+            "options": ["yes", "partial", "no", "unsure"],
+        },
+    )
+    message = reply["message"].lower()
+    assert "vpn" in message
+    assert "rdp" in message
+    assert "mfa" in message
+    assert "tuleme nüüd tagasi praeguse küsimuse juurde" in message
+
+
 def test_current_question_importance_phrase_is_clarification():
     start = client.post("/chat", json={"message": ""}).json()
     sid = start["session_id"]
@@ -570,6 +606,32 @@ def test_singular_example_request_is_clarification():
     assert data["extracted_answers"] == {}
     assert "Näited" in data["assistant_message"]
     assert data["current_question_id"] == "backups_exist"
+
+
+def test_acknowledgement_after_clarification_does_not_become_yes_answer():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    client.post("/chat", json={"session_id": sid, "message": "jah"})
+
+    clarification = client.post(
+        "/chat",
+        json={"session_id": sid, "message": "too naidis"},
+    )
+    assert clarification.status_code == 200
+    clarification_data = clarification.json()
+    assert clarification_data["intent"] == "clarification"
+    assert clarification_data["current_question_id"] == "backups_exist"
+
+    response = client.post("/chat", json={"session_id": sid, "message": "ok"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] in {"smalltalk", "unknown"}
+    assert data["response_type"] in {"smalltalk", "unknown"}
+    assert data["current_question_id"] == "backups_exist"
+    assert data["extracted_answers"] == {}
+
+    session = client.get(f"/session/{sid}").json()
+    assert set(session["answers"]) == {"org_critical_systems_known"}
 
 
 def test_chat_can_extract_backup_facts_without_saving_wrong_current_question():

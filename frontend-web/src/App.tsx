@@ -610,7 +610,7 @@ export default function App() {
           />
         ),
         interview: (
-          <section className="assessment-wallpaper relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col overflow-hidden rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6">
+          <section className="relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col overflow-hidden rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6">
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}

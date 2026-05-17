@@ -110,12 +110,22 @@ textarea {
   resize: none;
 }
 
-.assessment-wallpaper::before {
+.main-workspace::before,
+.main-workspace::after {
   position: absolute;
   inset: -1px;
-  z-index: -2;
-  pointer-events: none;
   content: "";
+  pointer-events: none;
+  transition:
+    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.main-workspace::before {
+  z-index: 0;
+  opacity: 1;
+  transform: scale(1);
   background:
     radial-gradient(ellipse at 50% 0%, rgba(8, 10, 12, 0.98) 0%, rgba(11, 18, 22, 0.94) 22%, transparent 42%),
     radial-gradient(ellipse at 45% 34%, rgba(20, 184, 166, 0.72) 0%, rgba(5, 150, 105, 0.52) 25%, transparent 56%),
@@ -126,19 +136,160 @@ textarea {
   animation: ambient-wallpaper 28s ease-in-out infinite alternate;
 }
 
-.assessment-wallpaper::after {
+.main-workspace::after {
+  z-index: 0;
+  opacity: 0;
+  transform: scale(1.035);
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% -6%, rgba(10, 14, 22, 0.96) 0%, rgba(10, 14, 22, 0.78) 22%, transparent 48%),
+    radial-gradient(circle at 16% 34%, rgba(72, 108, 196, 0.42) 0%, rgba(72, 108, 196, 0.22) 22%, transparent 50%),
+    radial-gradient(circle at 84% 34%, rgba(72, 108, 196, 0.4) 0%, rgba(72, 108, 196, 0.2) 22%, transparent 50%),
+    radial-gradient(circle at 22% 88%, rgba(133, 62, 168, 0.3) 0%, rgba(133, 62, 168, 0.14) 24%, transparent 50%),
+    radial-gradient(circle at 80% 88%, rgba(168, 52, 106, 0.34) 0%, rgba(168, 52, 106, 0.16) 24%, transparent 52%),
+    radial-gradient(circle at 50% 82%, rgba(66, 94, 190, 0.24) 0%, rgba(66, 94, 190, 0.12) 22%, transparent 48%),
+    linear-gradient(180deg, #070b12 0%, #0d1320 28%, #12182b 54%, #171126 76%, #160b16 100%);
+  background-size: 100% 100%, 138% 138%, 138% 138%, 132% 132%, 132% 132%, 128% 128%, 100% 100%;
+  animation: ambient-wallpaper 28s ease-in-out infinite alternate;
+  filter: saturate(108%) contrast(110%);
+}
+
+.main-workspace[data-view="interview"]::before {
+  opacity: 0.08;
+  transform: scale(1.03);
+  filter: blur(10px) saturate(72%);
+}
+
+.main-workspace[data-view="interview"]::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.main-workspace > * {
+  position: relative;
+  z-index: 1;
+}
+
+.chat-panel-shell::before {
   position: absolute;
-  inset: -1px;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   content: "";
   background:
-    radial-gradient(ellipse at 50% 34%, rgba(255, 255, 255, 0.1), transparent 32%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.34));
+    radial-gradient(circle at 50% 0%, rgba(196, 214, 255, 0.05) 0%, transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 14%),
+    linear-gradient(180deg, rgba(9, 12, 18, 0.14), rgba(4, 4, 8, 0.38));
+  opacity: 0.96;
 }
 
 .view-transition {
   animation: view-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.report-scene .report-fade-up {
+  animation: report-fade-up 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.report-scene .report-fade-up-delay-1 {
+  animation-delay: 40ms;
+}
+
+.report-scene .report-fade-up-delay-2 {
+  animation-delay: 110ms;
+}
+
+.report-scene .report-fade-up-delay-3 {
+  animation-delay: 180ms;
+}
+
+.report-scene .report-fade-up-delay-4 {
+  animation-delay: 250ms;
+}
+
+.report-scene .report-fade-up-delay-5 {
+  animation-delay: 320ms;
+}
+
+.report-scene {
+  --report-border: rgba(255, 255, 255, 0.08);
+  --report-border-soft: rgba(255, 255, 255, 0.06);
+  --report-glass: rgba(255, 255, 255, 0.055);
+  --report-glass-soft: rgba(255, 255, 255, 0.028);
+  --report-glow: rgba(255, 255, 255, 0.06);
+  --report-shadow: 0 24px 70px rgba(5, 8, 18, 0.16);
+  --report-shadow-soft: 0 12px 34px rgba(5, 8, 18, 0.1);
+}
+
+.report-scene .report-panel {
+  border: 1px solid var(--report-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.026)),
+    rgba(9, 12, 20, 0.18);
+  box-shadow: var(--report-shadow);
+  backdrop-filter: blur(26px);
+}
+
+.report-scene .report-panel-soft {
+  border: 1px solid var(--report-border-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(9, 12, 20, 0.12);
+  box-shadow: var(--report-shadow-soft);
+  backdrop-filter: blur(22px);
+}
+
+.report-scene .report-stat-slab {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+}
+
+.report-scene .report-row {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.014)),
+    rgba(7, 10, 16, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px);
+}
+
+.report-scene .report-hover-lift {
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 240ms ease,
+    background-color 240ms ease;
+}
+
+.report-scene .report-hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
+}
+
+.report-scene .report-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.report-scene .report-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.report-scene .report-collapse-inner {
+  overflow: hidden;
+}
+
+.report-scene .report-bar-fill {
+  transition:
+    width 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 220ms ease;
+}
+
+.report-scene .report-ring-progress {
+  transition: stroke-dashoffset 1200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .artifact-overlay-enter {
@@ -328,6 +479,17 @@ html.dark .text-slate-400 {
   }
 }
 
+@keyframes report-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes artifact-overlay-enter {
   from {
     opacity: 0;
@@ -352,10 +514,17 @@ html.dark .text-slate-400 {
 
 @media (prefers-reduced-motion: reduce) {
   html.dark body::before,
-  .assessment-wallpaper::before,
+  .main-workspace::before,
+  .main-workspace::after,
   .view-transition,
+  .report-scene .report-fade-up,
+  .report-scene .report-ring-progress,
+  .report-scene .report-bar-fill,
+  .report-scene .report-hover-lift,
+  .report-scene .report-collapse,
   .artifact-overlay-enter,
   .artifact-content-enter {
     animation: none;
+    transition: none;
   }
 }

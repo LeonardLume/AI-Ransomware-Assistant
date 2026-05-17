@@ -239,6 +239,19 @@ SMALLTALK_HINTS = [
     "привет",
 ]
 
+ACKNOWLEDGEMENT_HINTS = [
+    "ok",
+    "okei",
+    "okey",
+    "oke",
+    "selge",
+    "arusaadav",
+    "sain aru",
+    "got it",
+    "understood",
+    "roger",
+]
+
 ANSWER_HINTS = [
     "jah",
     "yes",
@@ -814,6 +827,32 @@ def fallback_client_answer(user_message: str, current_question: dict[str, Any] |
         return defensive_refusal(user_message, current_question)
     if _is_identity_question(user_message):
         answer = _identity_text(language)
+    elif "organisatsioon" in text or "organization" in text or "organisation" in text:
+        if language == "English":
+            answer = (
+                "Here, organization means your company, agency, school, nonprofit, or other workplace being assessed.\n\n"
+                "In this question, the practical point is whether that organization knows which systems and data are most critical for keeping work going."
+            )
+        else:
+            answer = (
+                "Siin tähendab organisatsioon sinu ettevõtet, asutust, MTÜ-d, kooli või muud töökohta, mida hinnatakse.\n\n"
+                "Selle küsimuse mõte on praktiline: kas see organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad."
+            )
+    elif _contains_any(text, ["vpn", "rdp", "kaugligipaas", "kaugligipaas", "remote access", "pilvekonsool", "cloud console"]):
+        if language == "English":
+            answer = (
+                "VPN is a remote-access connection that lets a user enter the organization's internal network from outside the office. "
+                "RDP is Microsoft's remote desktop protocol, which lets someone open and control another computer over the network.\n\n"
+                "In ransomware readiness, both matter because stolen passwords on VPN, RDP, or cloud admin access can give an attacker a direct path into important systems. "
+                "That is why MFA is especially important on these access paths."
+            )
+        else:
+            answer = (
+                "VPN on turvaline kaugligipääsu ühendus, mille kaudu inimene saab väljastpoolt kontorit organisatsiooni sisevõrku sisse minna. "
+                "RDP on Microsofti kaugtöölaua protokoll, mille abil saab võrgu kaudu teist arvutit avada ja juhtida.\n\n"
+                "Lunavara valmisolekus on need tähtsad, sest varastatud parool VPN-i, RDP või pilve admin-konsooli jaoks võib anda ründajale otsese tee oluliste süsteemideni. "
+                "Sellepärast on MFA just nende ligipääsuteede puhul eriti oluline."
+            )
     elif _is_example_request(text) and current_question:
         answer = _examples_for_question(current_question)
     elif "mfa" in text or "mitmefaktor" in text:
@@ -1539,6 +1578,12 @@ def looks_like_current_question_clarification(
     if current_topic and (has_question_mark or has_question_word) and not _contains_any(text, GENERAL_ADVISORY_HINTS):
         return True
 
+    reply_tokens = {token for token in _tokenize_normalized(text) if len(token) >= 4}
+    current_tokens = _current_question_tokens(current_question)
+    overlap = reply_tokens & current_tokens
+    if overlap and (has_question_mark or has_question_word or _contains_any(text, CLARIFICATION_HINTS)):
+        return True
+
     return False
 
 
@@ -1660,6 +1705,10 @@ def _is_smalltalk(text: str) -> bool:
     return len(text.split()) <= 3 and _contains_any(text, SMALLTALK_HINTS)
 
 
+def _is_acknowledgement(text: str) -> bool:
+    return len(text.split()) <= 4 and _contains_any(text, ACKNOWLEDGEMENT_HINTS)
+
+
 def _has_answer_signal(text: str) -> bool:
     return _is_short_yes(text) or _contains_any(text, ANSWER_HINTS)
 
@@ -1688,6 +1737,8 @@ def _looks_like_short_current_question_reply(
     if len(text.split()) > 3:
         return False
     if _is_smalltalk(text):
+        return False
+    if _is_acknowledgement(text):
         return False
     if _is_example_request(text):
         return False

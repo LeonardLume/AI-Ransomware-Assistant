@@ -35,7 +35,7 @@ export default function ChatPanel({
   }, [messages.length, sending]);
 
   return (
-    <section className="flex min-h-[560px] flex-col overflow-hidden rounded-xl border border-white/10 bg-black/35 shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl lg:h-full lg:min-h-0">
+    <section className="chat-panel-shell relative flex min-h-[560px] flex-col overflow-hidden rounded-xl border border-[rgba(164,184,255,0.12)] bg-[rgba(7,10,16,0.66)] shadow-[0_28px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl lg:h-full lg:min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-black/25 px-4 py-3">
         <div>
           <h2 className="text-base font-semibold text-white">Interview</h2>
