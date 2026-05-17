@@ -183,6 +183,73 @@ textarea {
   opacity: 0.96;
 }
 
+.chat-panel-shell::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 22%),
+    radial-gradient(circle at 18% 18%, rgba(101, 137, 230, 0.08) 0%, transparent 28%),
+    radial-gradient(circle at 82% 84%, rgba(152, 70, 141, 0.08) 0%, transparent 26%);
+  opacity: 0.92;
+}
+
+.chat-panel-shell > .border-b,
+.chat-panel-shell > .border-t {
+  border-color: transparent !important;
+}
+
+.chat-question-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    rgba(8, 11, 18, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 42px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.chat-composer-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(7, 10, 16, 0.18);
+  backdrop-filter: blur(22px);
+}
+
+.chat-bubble {
+  backdrop-filter: blur(18px);
+}
+
+.chat-bubble-assistant {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    rgba(9, 12, 18, 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 46px rgba(0, 0, 0, 0.14);
+}
+
+.chat-bubble-user {
+  background:
+    linear-gradient(180deg, rgba(116, 180, 255, 0.18), rgba(70, 130, 255, 0.12)),
+    rgba(30, 76, 168, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 42px rgba(16, 54, 126, 0.22);
+}
+
+.chat-bubble-system {
+  background:
+    linear-gradient(180deg, rgba(255, 222, 163, 0.08), rgba(255, 222, 163, 0.03)),
+    rgba(69, 45, 18, 0.3) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 34px rgba(0, 0, 0, 0.12);
+}
+
 .view-transition {
   animation: view-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -212,47 +279,62 @@ textarea {
 }
 
 .report-scene {
-  --report-border: rgba(255, 255, 255, 0.08);
-  --report-border-soft: rgba(255, 255, 255, 0.06);
-  --report-glass: rgba(255, 255, 255, 0.055);
-  --report-glass-soft: rgba(255, 255, 255, 0.028);
-  --report-glow: rgba(255, 255, 255, 0.06);
-  --report-shadow: 0 24px 70px rgba(5, 8, 18, 0.16);
-  --report-shadow-soft: 0 12px 34px rgba(5, 8, 18, 0.1);
+  --report-border: rgba(255, 255, 255, 0.1);
+  --report-border-soft: rgba(255, 255, 255, 0.075);
+  --report-glass: rgba(255, 255, 255, 0.07);
+  --report-glass-soft: rgba(255, 255, 255, 0.04);
+  --report-glow: rgba(255, 255, 255, 0.075);
+  --report-shadow: 0 28px 90px rgba(2, 6, 16, 0.28);
+  --report-shadow-soft: 0 16px 48px rgba(2, 6, 16, 0.18);
 }
 
 .report-scene .report-panel {
   border: 1px solid var(--report-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.026)),
-    rgba(9, 12, 20, 0.18);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.028)),
+    linear-gradient(145deg, rgba(22, 26, 36, 0.78), rgba(9, 12, 20, 0.62));
   box-shadow: var(--report-shadow);
-  backdrop-filter: blur(26px);
+  backdrop-filter: blur(32px) saturate(118%);
 }
 
 .report-scene .report-panel-soft {
   border: 1px solid var(--report-border-soft);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    rgba(9, 12, 20, 0.12);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.022)),
+    linear-gradient(155deg, rgba(25, 29, 40, 0.68), rgba(11, 14, 22, 0.54));
   box-shadow: var(--report-shadow-soft);
-  backdrop-filter: blur(22px);
+  backdrop-filter: blur(28px) saturate(115%);
 }
 
 .report-scene .report-stat-slab {
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014)),
+    rgba(255, 255, 255, 0.018);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 38px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(18px) saturate(112%);
 }
 
 .report-scene .report-row {
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.014)),
-    rgba(7, 10, 16, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(14px);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.014)),
+    rgba(8, 11, 18, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(18px) saturate(110%);
+}
+
+.report-scene .report-hero {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.03)),
+    linear-gradient(135deg, rgba(20, 23, 31, 0.84), rgba(9, 11, 17, 0.72));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 30px 100px rgba(0, 0, 0, 0.24);
 }
 
 .report-scene .report-hover-lift {

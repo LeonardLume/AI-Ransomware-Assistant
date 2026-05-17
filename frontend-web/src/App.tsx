@@ -159,8 +159,12 @@ export default function App() {
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  const currentQuestion =
+    lastResponse?.current_question ||
+    questions.find((question) => question.id === sessionState?.current_question_id) ||
+    null;
   const currentDomain =
-    sessionState?.current_domain || lastResponse?.current_domain || lastResponse?.current_question?.domain;
+    sessionState?.current_domain || lastResponse?.current_domain || currentQuestion?.domain;
   const quickActions = [
     "Mida tähendab MFA?",
     "Miks backup restore test on oluline?",
@@ -625,8 +629,7 @@ export default function App() {
             <div className="relative min-h-0 min-w-0 flex-1">
               <ChatPanel
                 messages={messages}
-                quickActions={quickActions}
-                currentDomain={currentDomain}
+                language={language}
                 sending={sending}
                 error={error}
                 onStart={startAssessment}
@@ -674,7 +677,7 @@ export default function App() {
 
 const artifactTabs: Array<{
   id: ArtifactId;
-  labelKey?: "report" | "actionPlan" | "evidenceBinder" | "skills";
+  labelKey?: "report" | "actionPlan" | "evidenceBinder" | "skills" | "technical";
   label?: string;
   icon: JSX.Element;
 }> = [
@@ -682,7 +685,7 @@ const artifactTabs: Array<{
   { id: "action-plan", labelKey: "actionPlan", icon: <ClipboardList className="h-4 w-4" /> },
   { id: "evidence-binder", labelKey: "evidenceBinder", icon: <ListChecks className="h-4 w-4" /> },
   { id: "skills", labelKey: "skills", icon: <BookOpenCheck className="h-4 w-4" /> },
-  { id: "technical-json", label: "Technical", icon: <Settings2 className="h-4 w-4" /> },
+  { id: "technical-json", labelKey: "technical", icon: <Settings2 className="h-4 w-4" /> },
 ];
 
 function ArtifactTopTabs({
@@ -717,7 +720,7 @@ function ArtifactTopTabs({
             )}
           >
             <MessageSquare className="h-4 w-4" />
-            Chat
+            {t(language, "chat")}
           </button>
           {artifactTabs.map((tab) => {
             const active = artifactOverlayOpen && selectedArtifact === tab.id;

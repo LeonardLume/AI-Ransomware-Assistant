@@ -140,7 +140,10 @@ function ScoreRing({
 
   return (
     <div className="report-panel-soft report-hover-lift relative mx-auto flex w-full max-w-[248px] flex-col items-center rounded-[30px] px-7 py-7 text-center">
-      <div className="relative h-40 w-40">
+      <div className="text-[10px] uppercase tracking-[0.34em] text-slate-400">
+        {label}
+      </div>
+      <div className="relative mt-4 h-40 w-40">
         <svg viewBox="0 0 160 160" className="h-full w-full -rotate-90">
           <defs>
             <linearGradient id={`ring-${ringId}`} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -168,10 +171,7 @@ function ScoreRing({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-[10px] uppercase tracking-[0.32em] text-slate-400">
-            {label}
-          </div>
-          <div className="mt-2 text-5xl font-semibold leading-none text-white/95">
+          <div className="text-5xl font-semibold leading-none text-white/95">
             {animatedValue}
           </div>
           <div className="mt-2 text-[11px] uppercase tracking-[0.24em] text-slate-500">
@@ -405,10 +405,6 @@ function ReportCockpit({
           <h3 className="mt-3 text-[2rem] font-semibold tracking-[-0.03em] text-white">
             Readiness Cockpit
           </h3>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">
-            Cinematic executive view for the current report. Official score, risk level,
-            completion, and source data stay backend-owned. Frontend simulations are advisory only.
-          </p>
         </div>
         <Button
           type="button"

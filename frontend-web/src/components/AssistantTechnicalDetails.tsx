@@ -1,16 +1,16 @@
 import { CheckCircle2, FileCode2, ShieldCheck } from "lucide-react";
 import type { ArtifactId, ChatTechnicalDetails, ExtractedAnswerItem } from "../types/api";
+import { t, type UiLanguage } from "../utils/i18n";
 import { Accordion, Badge, Button } from "./ui";
 import { cn } from "./ui-helpers";
 
-const artifactLabels: Record<ArtifactId, string> = {
-  "readiness-report": "Readiness Report",
-  "action-plan": "Action Plan",
-  "evidence-binder": "Evidence Binder",
-  skills: "Skills",
-  "ransomware-playbook": "Ransomware Playbook",
-  "technical-json": "Technical JSON",
-};
+function artifactLabel(artifact: ArtifactId, language: UiLanguage): string {
+  if (artifact === "readiness-report") return t(language, "report");
+  if (artifact === "action-plan") return t(language, "actionPlan");
+  if (artifact === "evidence-binder") return t(language, "evidenceBinder");
+  if (artifact === "skills" || artifact === "ransomware-playbook") return t(language, "skills");
+  return t(language, "technicalJson");
+}
 
 function buildTimeline(details: ChatTechnicalDetails) {
   const steps: Array<{ label: string; detail?: string }> = [];
@@ -65,10 +65,12 @@ function confidenceFor(item: ExtractedAnswerItem): number | undefined {
 export default function AssistantTechnicalDetails({
   details,
   artifacts,
+  language = "et",
   onOpenArtifact,
 }: {
   details?: ChatTechnicalDetails;
   artifacts?: ArtifactId[];
+  language?: UiLanguage;
   onOpenArtifact?: (artifact: ArtifactId) => void;
 }) {
   if (!details && !artifacts?.length) {
@@ -78,12 +80,12 @@ export default function AssistantTechnicalDetails({
   const timeline = details ? buildTimeline(details) : [];
 
   return (
-    <div className="mt-3 border-t border-slate-200/80 pt-3">
+    <div className="mt-3 border-t border-white/8 pt-3">
       {artifacts?.length ? (
-        <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50/90 p-3">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
+        <div className="mb-3 rounded-[18px] border border-white/8 bg-white/[0.03] p-3 backdrop-blur-md">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             <FileCode2 className="h-4 w-4" />
-            Artifacts opened
+            {t(language, "artifactsOpened")}
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {artifacts.map((artifact) => (
@@ -92,9 +94,9 @@ export default function AssistantTechnicalDetails({
                 type="button"
                 variant="secondary"
                 onClick={() => onOpenArtifact?.(artifact)}
-                className="rounded-full px-2.5 py-1 text-xs"
+                className="rounded-full border-white/8 bg-white/[0.03] px-2.5 py-1 text-[11px] text-slate-300 shadow-none hover:bg-white/[0.06]"
               >
-                {artifactLabels[artifact]}
+                {artifactLabel(artifact, language)}
               </Button>
             ))}
           </div>
@@ -103,19 +105,19 @@ export default function AssistantTechnicalDetails({
 
       {timeline.length ? (
         <div className="mb-3">
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             <ShieldCheck className="h-4 w-4" />
-            Processing timeline
+            {t(language, "processingTimeline")}
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {timeline.map((step) => (
               <div
                 key={`${step.label}-${step.detail}`}
-                className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50/90 p-2"
+                className="flex items-start gap-2 rounded-[16px] border border-white/7 bg-white/[0.025] p-2.5 backdrop-blur-md"
               >
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-slate-700">{step.label}</div>
+                  <div className="text-xs font-semibold text-slate-300">{step.label}</div>
                   {step.detail ? (
                     <div className="truncate text-xs text-slate-500">{step.detail}</div>
                   ) : null}
@@ -126,14 +128,14 @@ export default function AssistantTechnicalDetails({
         </div>
       ) : null}
 
-      <Accordion title="Technical details" className="bg-white/95">
+      <Accordion title={t(language, "technicalDetails")} className="border-white/8 bg-white/[0.03]">
         <div className="space-y-3 text-xs leading-5 text-slate-600">
           {details?.extractedAnswers?.length ? (
             <div>
-              <div className="font-semibold text-slate-700">Extracted answers</div>
+              <div className="font-semibold text-slate-300">{t(language, "extractedAnswers")}</div>
               <div className="mt-2 space-y-2">
                 {details.extractedAnswers.map((item) => (
-                  <div key={item.questionId} className="rounded-xl bg-slate-50 p-3">
+                  <div key={item.questionId} className="rounded-[16px] border border-white/7 bg-white/[0.025] p-3">
                     <div className="flex flex-wrap gap-2">
                       <Badge tone="neutral">question_id: {item.questionId}</Badge>
                       <Badge tone="info">answer: {item.answerLabel || item.answer}</Badge>
@@ -142,14 +144,14 @@ export default function AssistantTechnicalDetails({
                       ) : null}
                     </div>
                     {item.questionText ? (
-                      <div className="mt-2 text-slate-600">{item.questionText}</div>
+                      <div className="mt-2 text-slate-500">{item.questionText}</div>
                     ) : null}
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div>No structured answers were extracted from this assistant turn.</div>
+            <div>{t(language, "noStructuredAnswers")}</div>
           )}
           <div className={cn("grid gap-2 sm:grid-cols-2")}>
             {details?.provider ? <Badge tone="info">provider: {details.provider}</Badge> : null}

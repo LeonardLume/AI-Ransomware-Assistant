@@ -28,7 +28,7 @@ function artifactTitle(artifact: ArtifactId, language: UiLanguage): string {
   if (normalized === "action-plan") return t(language, "actionPlan");
   if (normalized === "evidence-binder") return t(language, "evidenceBinder");
   if (normalized === "skills") return t(language, "skills");
-  return "Technical";
+  return t(language, "technical");
 }
 
 export default function SessionArtifactOverlay({
@@ -80,7 +80,7 @@ export default function SessionArtifactOverlay({
             {artifactTitle(selectedArtifact, language)}
           </h2>
           <p className="mt-0.5 truncate text-xs text-slate-500">
-            {activeSessionId ? `Session ${activeSessionId.slice(0, 8)}` : "No active session"}
+            {activeSessionId ? `${t(language, "sessionLabel")} ${activeSessionId.slice(0, 8)}` : t(language, "noActiveSession")}
           </p>
         </div>
         <Button
@@ -88,7 +88,7 @@ export default function SessionArtifactOverlay({
           variant="ghost"
           onClick={onClose}
           className="h-9 w-9 px-0 transition-all duration-300 ease-out hover:scale-105"
-          aria-label="Close artifact"
+          aria-label={t(language, "closeArtifact")}
         >
           <X className="h-4 w-4" />
         </Button>
@@ -98,7 +98,7 @@ export default function SessionArtifactOverlay({
         <div key={selectedArtifact} className="artifact-content-enter">
           {!activeSessionId ? (
             <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">
-              Start or load an assessment to see session artifacts.
+              {t(language, "startOrLoadAssessment")}
             </div>
           ) : null}
           {activeSessionId && selectedArtifact === "readiness-report" ? (
