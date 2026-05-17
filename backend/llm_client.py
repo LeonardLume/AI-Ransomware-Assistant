@@ -28,7 +28,12 @@ def load_prompt(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def generate_text(prompt: str, system_prompt: str = "", temperature: float = 0.2) -> LLMResult:
+def generate_text(
+    prompt: str,
+    system_prompt: str = "",
+    temperature: float = 0.2,
+    max_output_tokens: int = 1200,
+) -> LLMResult:
     """Generate text using configured provider.
 
     The app is demo-safe: if Ollama/OpenAI is unavailable, it falls back to a deterministic
@@ -42,6 +47,7 @@ def generate_text(prompt: str, system_prompt: str = "", temperature: float = 0.2
     openai_api_key = str(settings["openai_api_key"])
     openai_base_url = str(settings["openai_base_url"])
     request_timeout_seconds = float(settings["request_timeout_seconds"])
+    safe_max_output_tokens = max(128, min(int(max_output_tokens), 1200))
 
     if provider == "ollama":
         try:
@@ -78,6 +84,7 @@ def generate_text(prompt: str, system_prompt: str = "", temperature: float = 0.2
             response = client.chat.completions.create(
                 model=openai_model,
                 temperature=temperature,
+                max_tokens=safe_max_output_tokens,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},

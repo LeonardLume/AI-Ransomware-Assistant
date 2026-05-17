@@ -230,6 +230,12 @@ SMALLTALK_HINTS = [
     "hei",
     "hello",
     "hi",
+    "kuidas laheb",
+    "kuidas läheb",
+    "how are you",
+    "how's it going",
+    "hows it going",
+    "как дела",
     "aitäh",
     "aitah",
     "tänan",
@@ -860,6 +866,11 @@ def fallback_client_answer(user_message: str, current_question: dict[str, Any] |
             "MFA ehk mitmefaktoriline autentimine tähendab, et paroolist üksi ei piisa. "
             "Sisselogimiseks on vaja ka teist kinnitust, näiteks telefonirakendust, turvavõtit või koodi.\n\n"
             "See vähendab riski, et varastatud parool annab ründajale kohe ligipääsu e-postile, VPN-ile või admin-kontole."
+        )
+    elif re.search(r"\brag\b", text):
+        answer = (
+            "RAG ehk retrieval-augmented generation tähendab, et AI mudelile antakse enne vastamist juurde asjakohane allikainfo või dokumentide lõigud.\n\n"
+            "Praktiliselt aitab see vastata täpsemalt ja olemasolevatele allikatele toetudes, selle asemel et tugineda ainult mudeli üldteadmistele."
         )
     elif "taast" in text or "restore" in text:
         answer = (
@@ -1600,6 +1611,8 @@ def classify_user_intent(message: str, current_question: dict[str, Any] | None =
         return "smalltalk"
     if _is_identity_question(message):
         return "clarification"
+    if _looks_like_short_definition_question(text):
+        return "clarification"
 
     has_question_mark = "?" in raw or "ï¼Ÿ" in raw
     has_question_word = any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
@@ -1630,6 +1643,23 @@ def _looks_like_general_advisory_question(text: str, has_question_mark: bool, ha
     if has_general_hint and (has_question_mark or has_question_word):
         return True
     return False
+
+
+def _looks_like_short_definition_question(text: str) -> bool:
+    if len(text.split()) > 6:
+        return False
+    return _contains_any(
+        text,
+        [
+            "mis on",
+            "mida tähendab",
+            "mida tahendab",
+            "what is",
+            "what does",
+            "что такое",
+            "что значит",
+        ],
+    )
 
 
 def _looks_like_operational_answer(text: str, current_question: dict[str, Any] | None) -> bool:
@@ -1702,7 +1732,10 @@ def _normalize_intent(value: Any, fallback: Intent = "unknown") -> Intent:
 
 
 def _is_smalltalk(text: str) -> bool:
-    return len(text.split()) <= 3 and _contains_any(text, SMALLTALK_HINTS)
+    word_count = len(text.split())
+    if _contains_any(text, ["kuidas laheb", "kuidas läheb", "how are you", "how's it going", "hows it going", "как дела"]):
+        return word_count <= 5
+    return word_count <= 3 and _contains_any(text, SMALLTALK_HINTS)
 
 
 def _is_acknowledgement(text: str) -> bool:

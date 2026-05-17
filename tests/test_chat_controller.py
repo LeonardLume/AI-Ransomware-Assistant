@@ -1,4 +1,5 @@
 from backend.chat import ChatController
+from backend.chat_interview import classify_user_intent
 
 
 def test_chat_controller_routes_prompt_injection_before_other_actions():
@@ -62,3 +63,29 @@ def test_chat_controller_routes_short_contextual_replies_as_answers():
     assert decision.intent == "answer"
     assert decision.action == "extract_answer"
     assert decision.intent_confidence == "medium"
+
+
+def test_short_definition_question_routes_to_clarification():
+    assert (
+        classify_user_intent(
+            "mis on vpn",
+            {
+                "id": "mfa_remote_access",
+                "question": "Kas MFA on kasutusel VPN-i, RDP, pilvekonsoolide või muu kaugligipääsu puhul?",
+            },
+        )
+        == "clarification"
+    )
+
+
+def test_social_how_are_you_routes_to_smalltalk():
+    assert (
+        classify_user_intent(
+            "kuidas läheb",
+            {
+                "id": "org_critical_systems_known",
+                "question": "Kas organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad?",
+            },
+        )
+        == "smalltalk"
+    )

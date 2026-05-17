@@ -400,6 +400,35 @@ def test_fallback_clarification_explains_vpn_and_rdp_terms():
     assert "tuleme nüüd tagasi praeguse küsimuse juurde" in message
 
 
+def test_fallback_clarification_explains_rag_term():
+    reply = fallback_client_answer(
+        "mis on rag",
+        {
+            "id": "mfa_remote_access",
+            "question": "Kas MFA on kasutusel VPN-i, RDP, pilvekonsoolide või muu kaugligipääsu puhul?",
+            "domain": "mfa_access",
+            "options": ["yes", "partial", "no", "unsure"],
+        },
+    )
+    message = reply["message"].lower()
+    assert "rag" in message
+    assert "retrieval" in message or "allikainfo" in message
+
+
+def test_how_are_you_is_smalltalk_not_general_advisory():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "kuidas läheb"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "smalltalk"
+    assert data["response_type"] == "smalltalk"
+    assert data["current_question_id"] == current_q
+    assert data["extracted_answers"] == {}
+
+
 def test_current_question_importance_phrase_is_clarification():
     start = client.post("/chat", json={"message": ""}).json()
     sid = start["session_id"]
