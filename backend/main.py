@@ -1,42 +1,68 @@
 from __future__ import annotations
 
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from backend.adaptive import decide_followup, get_next_required_question, make_followup_question
+from backend.adaptive import (
+    decide_followup,
+    get_next_required_question,
+    make_followup_question,
+)
+from backend.chat import ChatController
 from backend.chat_interview import (
-    answer_general_advisory_with_llm,
     answer_client_question_with_llm,
-    answer_smalltalk,
-    classify_user_intent,
-    detect_language,
+    answer_general_advisory_with_llm,
+    answer_smalltalk_with_llm,
     defensive_refusal,
+    detect_language,
     extract_answers_with_llm,
     generate_next_question,
-    looks_like_offensive_request,
     missing_domain_labels,
     missing_required_question_ids,
     next_missing_question,
     should_generate_preliminary_report,
 )
-from backend.config import llm_status
+from backend.config import get_security_settings, llm_status
 from backend.exposure import build_external_exposure_self_check
 from backend.hygiene import load_employee_hygiene_checklist
-from backend.prompt_firewall import detect_prompt_injection, safe_prompt_injection_response
-from backend.questions import load_demo_profiles, load_questions, load_source_notes, question_map
+from backend.prompt_firewall import safe_prompt_injection_response
+from backend.questions import (
+    load_demo_profiles,
+    load_questions,
+    load_source_notes,
+    question_map,
+)
 from backend.report import generate_report
 from backend.scoring import calculate_scores
-from backend.storage import SESSIONS, SessionState, save_session, load_session
+from backend.security import (
+    RATE_LIMITER,
+    is_public_path,
+    is_request_authorized,
+    resolve_client_ip,
+)
+from backend.storage import SessionConflictError, SessionState, load_session, save_session
 
 app = FastAPI(
     title="Ransomware Readiness Assistant",
     description="MVP: adaptive ransomware-readiness interview, rule-based scoring, optional LLM report layer.",
     version="0.2.0-mvp",
 )
+
+CHAT_CONTROLLER = ChatController()
+
+PUBLIC_PATH_PREFIXES = {
+    "/",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/llm/status",
+    "/provider/status",
+}
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +78,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(SessionConflictError)
+def handle_session_conflict(_: Request, exc: SessionConflictError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.middleware("http")
+async def protect_and_rate_limit(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    settings = get_security_settings()
+    path = request.url.path
+
+    if settings["auth_enabled"] and not is_public_path(path, PUBLIC_PATH_PREFIXES):
+        expected_token = str(settings["api_auth_token"])
+        if not is_request_authorized(request, expected_token):
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+    rate_limit = _rate_limit_for_path(path, settings)
+    if rate_limit > 0:
+        client_ip = resolve_client_ip(
+            request,
+            trust_proxy_headers=bool(settings["trust_proxy_headers"]),
+        )
+        retry_after = RATE_LIMITER.check(
+            key=f"{path}:{client_ip}",
+            limit=rate_limit,
+        )
+        if retry_after is not None:
+            return JSONResponse(
+                status_code=429,
+                headers={"Retry-After": str(retry_after)},
+                content={"detail": "Rate limit exceeded. Please retry shortly."},
+            )
+
+    return await call_next(request)
 
 
 class SessionCreateIn(BaseModel):
@@ -157,49 +221,63 @@ def chat(payload: ChatIn):
         state.chat_history.append({"role": "user", "content": message})
         user_message_recorded = True
 
-    if message:
-        firewall = detect_prompt_injection(message)
-        if firewall["detected"]:
-            state.events.append(
-                {
-                    "type": "prompt_injection_blocked",
-                    "reason": firewall.get("reason", ""),
-                    "current_question_id": state.current_question_id,
-                }
-            )
-            return _chat_response(
-                state,
-                assistant_message=safe_prompt_injection_response(_language_code(message)),
-                extracted_answers={},
-                score=None,
-                report=None,
-                provider="guardrail",
-                used_fallback=True,
-                response_type="prompt_injection_blocked",
-                intent="guardrail",
-                prompt_injection_blocked=True,
-                prompt_injection_reason=str(firewall.get("reason", "")),
-                redactions_applied=[],
-                redacted_for_llm=False,
-            )
-
-    if is_new or not message:
-        if not _base_answers_only(state.answers):
-            return _ask_next_chat_question(
-                state,
-                greeting=True,
-                assistant_prefix="Tere! Viin sind lühidalt läbi lunavara valmisoleku intervjuu.",
-            )
-        return _ask_next_chat_question(state, greeting=False)
-
     base_answers = _base_answers_only(state.answers)
-
     qmap = question_map()
     current_question = qmap.get(state.current_question_id or "")
     if current_question is None or current_question["id"] in base_answers:
         current_question = next_missing_question(base_answers)
 
-    if looks_like_offensive_request(message):
+    decision = CHAT_CONTROLLER.decide_action(
+        message=message,
+        is_new_session=is_new,
+        current_question=current_question,
+    )
+
+    if decision.action == "prompt_injection_blocked":
+        state.events.append(
+            {
+                "type": "prompt_injection_blocked",
+                "reason": decision.prompt_injection_reason,
+                "current_question_id": state.current_question_id,
+            }
+        )
+        return _chat_response(
+            state,
+            assistant_message=safe_prompt_injection_response(_language_code(message)),
+            extracted_answers={},
+            score=None,
+            report=None,
+            provider="guardrail",
+            used_fallback=True,
+            response_type="prompt_injection_blocked",
+            intent=decision.intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
+            prompt_injection_blocked=True,
+            prompt_injection_reason=decision.prompt_injection_reason,
+            redactions_applied=[],
+            redacted_for_llm=False,
+        )
+
+    if decision.action == "ask_next_question":
+        if not base_answers:
+            return _ask_next_chat_question(
+                state,
+                greeting=True,
+                assistant_prefix="Tere! Viin sind lühidalt läbi lunavara valmisoleku intervjuu.",
+                intent=decision.intent,
+                action=decision.action,
+                intent_confidence=decision.intent_confidence,
+            )
+        return _ask_next_chat_question(
+            state,
+            greeting=False,
+            intent=decision.intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
+        )
+
+    if decision.action == "guardrail_refusal":
         if current_question is not None:
             state.current_question_id = current_question["id"]
             state.current_domain = current_question["domain"]
@@ -220,18 +298,31 @@ def chat(payload: ChatIn):
             provider=guardrail.get("provider", "guardrail"),
             used_fallback=True,
             response_type="guardrail",
-            intent="guardrail",
+            intent=decision.intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
         )
 
-    intent = classify_user_intent(message, current_question)
+    intent = decision.intent
 
-    if intent == "report_request":
-        return _finish_or_continue_chat(state, intent=intent)
+    if decision.action == "finish_or_continue_report":
+        return _finish_or_continue_chat(
+            state,
+            intent=intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
+        )
 
     if current_question is None:
-        return _complete_chat(state, completion_mode="full", intent=intent)
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            intent=intent,
+            action="complete_chat",
+            intent_confidence=decision.intent_confidence,
+        )
 
-    if intent == "general_advisory_chat":
+    if decision.action == "answer_general_advisory":
         advisory = answer_general_advisory_with_llm(
             user_message=message,
             current_question=current_question,
@@ -255,12 +346,14 @@ def chat(payload: ChatIn):
             provider=advisory.get("provider", "fallback"),
             used_fallback=advisory.get("used_fallback", True),
             response_type="general_advisory_chat",
-            intent="general_advisory_chat",
+            intent=decision.intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
             redactions_applied=advisory.get("redactions_applied", []),
             redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
         )
 
-    if intent == "clarification":
+    if decision.action == "answer_clarification":
         state.current_question_id = current_question["id"]
         state.current_domain = current_question["domain"]
         advisory = answer_client_question_with_llm(
@@ -287,14 +380,21 @@ def chat(payload: ChatIn):
             used_fallback=advisory.get("used_fallback", True),
             response_type="client_question",
             intent=intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
             redactions_applied=advisory.get("redactions_applied", []),
             redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
         )
 
-    if intent in {"smalltalk", "unknown"}:
+    if decision.action == "answer_smalltalk":
         state.current_question_id = current_question["id"]
         state.current_domain = current_question["domain"]
-        smalltalk = answer_smalltalk(message, current_question)
+        smalltalk = answer_smalltalk_with_llm(
+            message,
+            current_question,
+            base_answers,
+            state.org_info,
+        )
         return _chat_response(
             state,
             assistant_message=smalltalk["message"],
@@ -305,6 +405,8 @@ def chat(payload: ChatIn):
             used_fallback=smalltalk.get("used_fallback", True),
             response_type=intent,
             intent=intent,
+            action=decision.action,
+            intent_confidence=decision.intent_confidence,
         )
 
     extraction = extract_answers_with_llm(
@@ -314,6 +416,11 @@ def chat(payload: ChatIn):
         current_question=current_question,
     )
     extraction_intent = extraction.get("intent", intent)
+    interpretation = CHAT_CONTROLLER.build_answer_interpretation(
+        extraction.get("extracted_answers", {}) if isinstance(extraction.get("extracted_answers", {}), dict) else {},
+        extraction.get("confidence", {}),
+        load_questions(),
+    )
 
     if extraction_intent == "clarification":
         state.current_question_id = current_question["id"]
@@ -334,6 +441,8 @@ def chat(payload: ChatIn):
             used_fallback=advisory.get("used_fallback", True),
             response_type="client_question",
             intent=extraction_intent,
+            action="answer_clarification",
+            intent_confidence="medium",
             redactions_applied=advisory.get("redactions_applied", []),
             redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
         )
@@ -341,7 +450,12 @@ def chat(payload: ChatIn):
     if extraction_intent in {"smalltalk", "unknown"}:
         state.current_question_id = current_question["id"]
         state.current_domain = current_question["domain"]
-        smalltalk = answer_smalltalk(message, current_question)
+        smalltalk = answer_smalltalk_with_llm(
+            message,
+            current_question,
+            base_answers,
+            state.org_info,
+        )
         return _chat_response(
             state,
             assistant_message=smalltalk["message"],
@@ -352,6 +466,8 @@ def chat(payload: ChatIn):
             used_fallback=smalltalk.get("used_fallback", True),
             response_type=extraction_intent,
             intent=extraction_intent,
+            action="answer_smalltalk",
+            intent_confidence="medium",
         )
 
     extracted_answers = extraction.get("extracted_answers", {})
@@ -362,11 +478,23 @@ def chat(payload: ChatIn):
                 continue
             if answer not in q.get("options", []):
                 continue
+            previous = state.answers.get(qid)
             state.answers[qid] = {
                 "answer": answer,
                 "details": message,
                 "source": "ai_interview",
             }
+            state.events.append(
+                {
+                    "type": "chat_answer_saved",
+                    "question_id": qid,
+                    "answer": answer,
+                    "details": message,
+                    "source": "ai_interview",
+                    "previous_answer": (previous or {}).get("answer"),
+                    "confidence_score": (extraction.get("confidence", {}) or {}).get(qid),
+                }
+            )
             if qid in state.unclear_question_ids:
                 state.unclear_question_ids.remove(qid)
 
@@ -400,6 +528,10 @@ def chat(payload: ChatIn):
             provider=extraction.get("provider", "fallback"),
             used_fallback=extraction.get("used_fallback", True),
             intent=extraction.get("intent", intent),
+            action="complete_chat",
+            intent_confidence=decision.intent_confidence,
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
             redactions_applied=extraction.get("redactions_applied", []),
             redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
         )
@@ -409,8 +541,12 @@ def chat(payload: ChatIn):
         target_question = qmap[target_id]
         state.current_question_id = target_id
         state.current_domain = target_question["domain"]
-        assistant_message = extraction.get("clarification_question") or (
+        clarification_question = extraction.get("clarification_question") or (
             f"Kas saad palun täpsustada: {target_question['question']}"
+        )
+        assistant_message = CHAT_CONTROLLER.build_clarification_message(
+            clarification_question=clarification_question,
+            interpretation=interpretation,
         )
         return _chat_response(
             state,
@@ -422,6 +558,10 @@ def chat(payload: ChatIn):
             used_fallback=extraction.get("used_fallback", True),
             response_type="clarification",
             intent=extraction.get("intent", intent),
+            action="extract_answer",
+            intent_confidence=decision.intent_confidence,
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
             redactions_applied=extraction.get("redactions_applied", []),
             redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
         )
@@ -435,14 +575,19 @@ def chat(payload: ChatIn):
             provider=extraction.get("provider", "fallback"),
             used_fallback=extraction.get("used_fallback", True),
             intent=extraction.get("intent", intent),
+            action="complete_chat",
+            intent_confidence=decision.intent_confidence,
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
             redactions_applied=extraction.get("redactions_applied", []),
             redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
         )
+
     state.current_question_id = next_q["id"]
     state.current_domain = next_q["domain"]
     question_result = generate_next_question(next_q, {"answers": base_answers})
     assistant_message = question_result["message"]
-    acknowledgement = _answer_acknowledgement(extracted_answers)
+    acknowledgement = CHAT_CONTROLLER.build_answer_acknowledgement(interpretation)
     if acknowledgement:
         assistant_message = f"{acknowledgement}\n\nJärgmine küsimus: {assistant_message}"
     return _chat_response(
@@ -455,6 +600,10 @@ def chat(payload: ChatIn):
         used_fallback=bool(extraction.get("used_fallback", True) or question_result.get("used_fallback", True)),
         response_type="interview_answer",
         intent=extraction.get("intent", intent),
+        action="extract_answer",
+        intent_confidence=decision.intent_confidence,
+        answer_interpretation=interpretation.summary if interpretation else "",
+        answer_confidence=interpretation.confidence_label if interpretation else "",
         redactions_applied=extraction.get("redactions_applied", []),
         redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
     )
@@ -506,7 +655,6 @@ def submit_answer(payload: AnswerIn):
             generated_followup = make_followup_question(payload.question_id, followup_decision.get("followup_question", ""))
             state.followups.append(generated_followup)
 
-    save_session(state)
     state.events.append(
         {
             "type": "answer_saved",
@@ -515,6 +663,7 @@ def submit_answer(payload: AnswerIn):
             "followup_generated": bool(generated_followup),
         }
     )
+    save_session(state)
 
     return {
         "session_id": sid,
@@ -534,6 +683,7 @@ def submit_followup_answer(payload: FreeTextAnswerIn):
         raise HTTPException(status_code=400, detail="Unknown follow-up question_id")
     state.answers[payload.question_id] = {"answer": "free_text", "details": payload.text}
     state.events.append({"type": "followup_answer_saved", "question_id": payload.question_id})
+    save_session(state)
     return {"session_id": payload.session_id, "saved": {payload.question_id: payload.text}, "progress": _progress(state)}
 
 
@@ -605,12 +755,12 @@ def technical_flow():
             "backend/chat_interview.py: extract_answers_with_llm()",
             "backend/chat_interview.py: generate_next_question()",
             "backend/adaptive.py: decide_followup()",
-            "backend/report.py: generate_report() -> llm_report_text",
         ],
         "prompts": [
             "prompts/interview_system_prompt.txt",
             "prompts/extraction_prompt.txt",
             "prompts/advisor_prompt.txt",
+            "prompts/chat_turn_prompt.txt",
             "prompts/general_advisory_prompt.txt",
             "prompts/followup_prompt.txt",
             "prompts/report_prompt.txt",
@@ -637,11 +787,23 @@ def _get_or_create_chat_state(session_id: str | None) -> tuple[SessionState, boo
     return state, True
 
 
+def _rate_limit_for_path(path: str, settings: dict[str, object]) -> int:
+    if path == "/chat":
+        return int(settings["rate_limit_chat_per_minute"])
+    if path.startswith("/report/"):
+        return int(settings["rate_limit_report_per_minute"])
+    if path == "/demo/load-profile":
+        return int(settings["rate_limit_demo_per_minute"])
+    return 0
+
+
 def _ask_next_chat_question(
     state: SessionState,
     greeting: bool = False,
     assistant_prefix: str = "",
     intent: str = "smalltalk",
+    action: str = "ask_next_question",
+    intent_confidence: str = "high",
 ):
     base_answers = _base_answers_only(state.answers)
     if not missing_required_question_ids(base_answers):
@@ -668,22 +830,47 @@ def _ask_next_chat_question(
         provider=question_result.get("provider", "fallback"),
         used_fallback=question_result.get("used_fallback", True),
         intent=intent,
+        action=action,
+        intent_confidence=intent_confidence,
     )
 
 
-def _finish_or_continue_chat(state: SessionState, intent: str = "report_request"):
+def _finish_or_continue_chat(
+    state: SessionState,
+    intent: str = "report_request",
+    action: str = "finish_or_continue_report",
+    intent_confidence: str = "high",
+):
     base_answers = _base_answers_only(state.answers)
     full = not missing_required_question_ids(base_answers)
     if full:
-        return _complete_chat(state, completion_mode="full", intent=intent)
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            intent=intent,
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+        )
 
     if should_generate_preliminary_report(base_answers):
-        return _complete_chat(state, completion_mode="preliminary", intent=intent)
+        return _complete_chat(
+            state,
+            completion_mode="preliminary",
+            intent=intent,
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+        )
 
     missing_domains = ", ".join(missing_domain_labels(base_answers))
     q = next_missing_question(base_answers)
     if q is None:
-        return _complete_chat(state, completion_mode="preliminary")
+        return _complete_chat(
+            state,
+            completion_mode="preliminary",
+            intent=intent,
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+        )
 
     state.current_question_id = q["id"]
     state.current_domain = q["domain"]
@@ -703,6 +890,8 @@ def _finish_or_continue_chat(state: SessionState, intent: str = "report_request"
         used_fallback=question_result.get("used_fallback", True),
         response_type="report_request_blocked",
         intent=intent,
+        action=action,
+        intent_confidence=intent_confidence,
     )
 
 
@@ -713,6 +902,10 @@ def _complete_chat(
     provider: str = "fallback",
     used_fallback: bool = True,
     intent: str = "answer",
+    action: str = "complete_chat",
+    intent_confidence: str = "high",
+    answer_interpretation: str = "",
+    answer_confidence: str = "",
     redactions_applied: list[str] | None = None,
     redacted_for_llm: bool = False,
 ):
@@ -738,6 +931,10 @@ def _complete_chat(
         used_fallback=used_fallback,
         response_type="report",
         intent=intent,
+        action=action,
+        intent_confidence=intent_confidence,
+        answer_interpretation=answer_interpretation,
+        answer_confidence=answer_confidence,
         redactions_applied=redactions_applied or [],
         redacted_for_llm=redacted_for_llm,
     )
@@ -753,6 +950,10 @@ def _chat_response(
     used_fallback: bool,
     response_type: str = "interview_question",
     intent: str = "answer",
+    action: str = "extract_answer",
+    intent_confidence: str = "medium",
+    answer_interpretation: str = "",
+    answer_confidence: str = "",
     redactions_applied: list[str] | None = None,
     redacted_for_llm: bool = False,
     prompt_injection_blocked: bool = False,
@@ -768,7 +969,11 @@ def _chat_response(
         "session_id": state.session_id,
         "assistant_message": assistant_message,
         "intent": intent,
+        "action": action,
+        "intent_confidence": intent_confidence,
         "extracted_answers": extracted_answers or {},
+        "answer_interpretation": answer_interpretation,
+        "answer_confidence": answer_confidence,
         "missing_required_questions": missing_required_question_ids(base_answers),
         "unclear_questions": list(state.unclear_question_ids),
         "completion_rate": progress["completion_rate"],
@@ -787,16 +992,7 @@ def _chat_response(
         "prompt_injection_blocked": prompt_injection_blocked,
         "prompt_injection_reason": prompt_injection_reason,
         "chat_history": state.chat_history,
-    }
-
-
-def _answer_acknowledgement(extracted_answers: dict[str, str] | None) -> str:
-    if not extracted_answers:
-        return ""
-    pairs = [f"{qid} = {answer}" for qid, answer in extracted_answers.items()]
-    if len(pairs) == 1:
-        return f"Selge, märkisin vastuse: {pairs[0]}."
-    return "Selge, märkisin vastused: " + "; ".join(pairs) + "."
+}
 
 
 def _language_code(message: str) -> str:

@@ -8,7 +8,8 @@ import {
   valueLabel,
   type UiLanguage,
 } from "../utils/i18n";
-import { Badge, Card, EmptyState, riskTone } from "./ui";
+import { Badge, Card, EmptyState } from "./ui";
+import { riskTone } from "./ui-helpers";
 
 const fallbackPhases: Array<{ key: PhaseKey; items: string[] }> = [
   {

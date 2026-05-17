@@ -1,6 +1,7 @@
 .env
 *.env.local
 .venv/
+.ruff_cache/
 .tools/
 __pycache__/
 *.pyc

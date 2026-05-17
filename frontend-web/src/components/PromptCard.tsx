@@ -1,6 +1,6 @@
 import { ArrowUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "./ui";
+import { cn } from "./ui-helpers";
 
 const animatedPrompts = [
   "Check whether backups can be restored after ransomware...",

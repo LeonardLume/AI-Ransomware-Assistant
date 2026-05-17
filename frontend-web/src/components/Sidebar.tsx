@@ -12,7 +12,8 @@ import {
 import type { ChatResponse, ProviderStatusResponse, SessionSummary } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
 import type { AppView } from "./Layout";
-import { Badge, Button, cn } from "./ui";
+import { Badge, Button } from "./ui";
+import { cn } from "./ui-helpers";
 
 export default function Sidebar({
   sessions,

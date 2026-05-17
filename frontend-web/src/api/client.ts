@@ -14,6 +14,7 @@ import type {
 
 const DEFAULT_API_PORT = (import.meta.env.VITE_API_PORT as string | undefined) || "8000";
 const DEFAULT_API_BASE_URL = import.meta.env.PROD ? "/api" : "";
+const API_AUTH_TOKEN = (import.meta.env.VITE_API_AUTH_TOKEN as string | undefined)?.trim() || "";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]);
 
 function isLoopbackHost(hostname: string): boolean {
@@ -54,6 +55,17 @@ function resolveApiBaseUrl(): string {
 const API_BASE_URL = resolveApiBaseUrl();
 const DEFAULT_TIMEOUT_MS = 25_000;
 
+function buildHeaders(headers?: HeadersInit): Headers {
+  const next = new Headers(headers);
+  if (!next.has("Content-Type")) {
+    next.set("Content-Type", "application/json");
+  }
+  if (API_AUTH_TOKEN && !next.has("Authorization") && !next.has("X-API-Key")) {
+    next.set("Authorization", `Bearer ${API_AUTH_TOKEN}`);
+  }
+  return next;
+}
+
 export class ApiError extends Error {
   status?: number;
   payload?: unknown;
@@ -78,10 +90,7 @@ async function request<T>(
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
+      headers: buildHeaders(options.headers),
     });
 
     const contentType = response.headers.get("content-type") || "";

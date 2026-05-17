@@ -97,15 +97,15 @@ if (-not (Test-Path $VenvPython)) {
 }
 
 if (-not $SkipInstall) {
-  $Requirements = Join-Path $Root "requirements.txt"
-  $PythonStamp = Join-Path $Root ".venv\.requirements-ready"
+  $PyProject = Join-Path $Root "pyproject.toml"
+  $PythonStamp = Join-Path $Root ".venv\.backend-deps-ready"
   $NeedsPythonInstall = -not (Test-Path $PythonStamp)
   if (-not $NeedsPythonInstall) {
-    $NeedsPythonInstall = (Get-Item $Requirements).LastWriteTimeUtc -gt (Get-Item $PythonStamp).LastWriteTimeUtc
+    $NeedsPythonInstall = (Get-Item $PyProject).LastWriteTimeUtc -gt (Get-Item $PythonStamp).LastWriteTimeUtc
   }
   if ($NeedsPythonInstall) {
     Write-Host "Installing backend dependencies..."
-    & $VenvPython -m pip install -r $Requirements
+    & $VenvPython -m pip install -e "$Root[dev]"
     New-Item -Path $PythonStamp -ItemType File -Force | Out-Null
   }
 

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from backend.confidence import calculate_domain_confidence, calculate_overall_confidence
 from backend.exposure import build_external_exposure_self_check
 from backend.findings import build_findings
 from backend.hygiene import build_employee_hygiene_actions, build_employee_hygiene_checklist
-from backend.llm_client import generate_text, load_prompt
 from backend.questions import load_domain_metadata, load_questions, load_source_notes
 from backend.redaction import redact_sensitive_text
 from backend.scoring import calculate_scores
@@ -67,6 +65,48 @@ def build_risks_and_steps(
     return risks, next_steps
 
 
+def build_report_narrative(
+    *,
+    scores: dict[str, Any],
+    risks: list[dict[str, Any]],
+    next_steps: list[str],
+    findings: list[dict[str, Any]],
+    overall_confidence: str,
+) -> str:
+    lines: list[str] = []
+    lines.append(
+        f"Valmisoleku koondhinnang on {scores['overall_score']}/100 ja riskitase on {scores['risk_level']}."
+    )
+
+    if not scores["is_complete"]:
+        lines.append(
+            f"Hinnang on esialgne, sest vastatud on {scores['answered_questions']} / {scores['total_questions']} põhiküsimusele."
+        )
+
+    lines.append(f"Vastuste usaldusväärsuse hinnang on {overall_confidence.lower()}.")
+
+    if risks:
+        risk_summary = "; ".join(
+            f"{risk.get('title', risk.get('domain', 'Valdkond'))}: {str(risk.get('risk', '')).strip().rstrip('.')}"
+            for risk in risks[:3]
+        )
+        if risk_summary:
+            lines.append(f"Olulisemad riskikohad on {risk_summary}.")
+
+    if findings:
+        finding_titles = [str(item.get("title", "")).strip() for item in findings[:3] if str(item.get("title", "")).strip()]
+        if finding_titles:
+            lines.append("Kõige nähtavamad kontrollilüngad puudutavad järgmisi teemasid: " + "; ".join(finding_titles) + ".")
+
+    if next_steps:
+        step_summary = "; ".join(str(step).strip().rstrip(".") for step in next_steps[:4])
+        if step_summary:
+            lines.append(f"Järgmised praktilised sammud on {step_summary}.")
+
+    lines.append("Numbriline skoor põhineb ainult backendi reeglitel ja küsimuste vastustel.")
+    return "\n\n".join(lines)
+
+
 def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[str, Any] | None = None) -> dict[str, Any]:
     org_info = org_info or {}
     scores = calculate_scores(answer_records)
@@ -108,29 +148,14 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         )
     base_summary += "Peamised riskid ja soovitatud järgmised sammud on toodud allpool."
 
-    prompt_payload = {
-        "org_info": org_info,
-        "scores": scores,
-        "top_risks": risks,
-        "next_steps": next_steps,
-        "action_plan": action_plan,
-        "evidence_checklist": evidence_checklist,
-        "skill_references": skill_references,
-        "findings": findings,
-        "overall_confidence": overall_confidence,
-        "domain_confidence": domain_confidence,
-        "employee_hygiene_checklist": employee_hygiene_checklist,
-        "external_exposure_self_check": external_exposure_self_check,
-        "answers": answer_summary,
-        "scoring_guardrail": "Numeric score comes only from data/scoring_rules.json; skills add explanation and recommendations only.",
-    }
-    system_prompt = load_prompt("report_prompt.txt")
-    user_prompt = "Koosta lõppkasutajale lühike raport järgmise JSON-sisendi põhjal:\n" + json.dumps(
-        prompt_payload, ensure_ascii=False, indent=2
+    report_text = build_report_narrative(
+        scores=scores,
+        risks=risks,
+        next_steps=next_steps,
+        findings=findings,
+        overall_confidence=overall_confidence,
     )
-    llm_result = generate_text(prompt=user_prompt, system_prompt=system_prompt, temperature=0.2)
 
-    # The rule-based data remains primary; LLM text is a readable layer.
     return {
         **scores,
         "summary": base_summary,
@@ -144,13 +169,15 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         "domain_confidence": domain_confidence,
         "employee_hygiene_checklist": employee_hygiene_checklist,
         "external_exposure_self_check": external_exposure_self_check,
-        "llm_report_text": llm_result.text,
+        "answers": answer_summary,
+        "llm_report_text": report_text,
+        "report_text": report_text,
         "llm": {
-            "provider": llm_result.provider,
-            "model": llm_result.model,
-            "used_real_llm": llm_result.used_real_llm,
-            "error": llm_result.error,
-            "report_prompt_preview": system_prompt[:500] + "...",
+            "provider": "backend_rule_based",
+            "model": "deterministic-report",
+            "used_real_llm": False,
+            "error": None,
+            "report_prompt_preview": "",
         },
         "sources": load_source_notes(),
     }

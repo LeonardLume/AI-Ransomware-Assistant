@@ -1,5 +1,5 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -23,27 +23,65 @@ def load_dotenv(path: Path) -> dict[str, str]:
     return values
 
 
-def get_llm_settings() -> dict[str, object]:
-    dotenv = {} if os.getenv("RRA_IGNORE_DOTENV") == "1" else load_dotenv(BASE_DIR / ".env")
+def _dotenv_values() -> dict[str, str]:
+    if os.getenv("RRA_IGNORE_DOTENV") == "1":
+        return {}
+    return load_dotenv(BASE_DIR / ".env")
 
-    def value(key: str, default: str = "") -> str:
-        if key in dotenv:
-            return dotenv[key]
-        return os.getenv(key, default)
 
+def get_config_value(key: str, default: str = "") -> str:
+    dotenv = _dotenv_values()
+    if key in dotenv:
+        return dotenv[key]
+    return os.getenv(key, default)
+
+
+def _parse_float(value: str, default: float) -> float:
     try:
-        timeout = float(value("REQUEST_TIMEOUT_SECONDS", "30"))
+        return float(value)
     except ValueError:
-        timeout = 30.0
+        return default
+
+
+def _parse_int(value: str, default: int) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _parse_bool(value: str, default: bool = False) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def get_llm_settings() -> dict[str, object]:
+    timeout = _parse_float(get_config_value("REQUEST_TIMEOUT_SECONDS", "30"), 30.0)
 
     return {
-        "provider": value("LLM_PROVIDER", "fallback").strip().lower(),
-        "ollama_url": value("OLLAMA_URL", "http://localhost:11434/api/generate").strip(),
-        "ollama_model": value("OLLAMA_MODEL", "qwen2.5:7b").strip(),
-        "openai_model": value("OPENAI_MODEL", "gpt-4o-mini").strip(),
-        "openai_api_key": value("OPENAI_API_KEY").strip(),
-        "openai_base_url": value("OPENAI_BASE_URL", "https://api.openai.com/v1").strip(),
+        "provider": get_config_value("LLM_PROVIDER", "fallback").strip().lower(),
+        "ollama_url": get_config_value("OLLAMA_URL", "http://localhost:11434/api/generate").strip(),
+        "ollama_model": get_config_value("OLLAMA_MODEL", "qwen2.5:7b").strip(),
+        "openai_model": get_config_value("OPENAI_MODEL", "gpt-4o-mini").strip(),
+        "openai_api_key": get_config_value("OPENAI_API_KEY").strip(),
+        "openai_base_url": get_config_value("OPENAI_BASE_URL", "https://api.openai.com/v1").strip(),
         "request_timeout_seconds": timeout,
+    }
+
+
+def get_security_settings() -> dict[str, object]:
+    api_auth_token = get_config_value("API_AUTH_TOKEN").strip()
+    return {
+        "api_auth_token": api_auth_token,
+        "auth_enabled": bool(api_auth_token),
+        "trust_proxy_headers": _parse_bool(get_config_value("TRUST_PROXY_HEADERS", "0")),
+        "rate_limit_chat_per_minute": _parse_int(get_config_value("RATE_LIMIT_CHAT_PER_MINUTE", "20"), 20),
+        "rate_limit_report_per_minute": _parse_int(get_config_value("RATE_LIMIT_REPORT_PER_MINUTE", "10"), 10),
+        "rate_limit_demo_per_minute": _parse_int(get_config_value("RATE_LIMIT_DEMO_PER_MINUTE", "5"), 5),
     }
 
 

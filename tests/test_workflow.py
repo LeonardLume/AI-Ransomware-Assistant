@@ -3,15 +3,33 @@ import os
 os.environ["LLM_PROVIDER"] = "fallback"
 os.environ["RRA_IGNORE_DOTENV"] = "1"
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.report import generate_report
 from backend.redaction import has_sensitive_data, redact_sensitive_text
+from backend.report import generate_report
 from backend.scoring import calculate_scores
+from backend.security import RATE_LIMITER
 from backend.skills import build_action_plan_from_skills, load_skills, match_skills
+from backend.storage import load_session
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def reset_runtime_env(monkeypatch: pytest.MonkeyPatch):
+    for key in [
+        "API_AUTH_TOKEN",
+        "RATE_LIMIT_CHAT_PER_MINUTE",
+        "RATE_LIMIT_REPORT_PER_MINUTE",
+        "RATE_LIMIT_DEMO_PER_MINUTE",
+        "TRUST_PROXY_HEADERS",
+    ]:
+        monkeypatch.delenv(key, raising=False)
+    RATE_LIMITER.clear()
+    yield
+    RATE_LIMITER.clear()
 
 
 def test_demo_profile_end_to_end():
@@ -30,7 +48,10 @@ def test_demo_profile_end_to_end():
     assert report["evidence_checklist"]
     assert report["skill_references"]
     assert "llm" in report
-    assert "fallback" not in report["llm_report_text"].lower()
+    assert report["llm"]["provider"] == "backend_rule_based"
+    assert report["llm"]["used_real_llm"] is False
+    assert report["llm_report_text"] == report["report_text"]
+    assert "backendi reeglitel" in report["llm_report_text"].lower()
 
 
 def test_skills_load_correctly():
@@ -156,6 +177,21 @@ def test_preliminary_score_has_completion_rate():
     assert score["completion_rate"] < 100
 
 
+def test_session_storage_tracks_version_and_timestamps():
+    sid = client.post("/session", json={"organization_name": "Test"}).json()["session_id"]
+    state = load_session(sid)
+    assert state is not None
+    assert state.version >= 1
+    assert state.created_at
+    assert state.updated_at
+
+    client.post("/answer", json={"session_id": sid, "question_id": "backups_exist", "answer": "yes"})
+    updated_state = load_session(sid)
+    assert updated_state is not None
+    assert updated_state.version > state.version
+    assert updated_state.updated_at >= updated_state.created_at
+
+
 def test_chat_starts_controlled_interview_and_extracts_free_text():
     start = client.post("/chat", json={"message": ""})
     assert start.status_code == 200
@@ -175,7 +211,11 @@ def test_chat_starts_controlled_interview_and_extracts_free_text():
     assert answer.status_code == 200
     data = answer.json()
     assert data["intent"] == "answer"
+    assert data["action"] == "extract_answer"
+    assert data["intent_confidence"] in {"medium", "high"}
     assert data["extracted_answers"] == {"org_critical_systems_known": "yes"}
+    assert "Tõlgendasin sinu vastuse nii:" in data["answer_interpretation"]
+    assert data["answer_confidence"] in {"Medium", "High"}
     assert data["completion_rate"] > 0
     assert data["current_question_id"] == "backups_exist"
 
@@ -417,6 +457,88 @@ def test_short_ja_is_treated_as_yes_answer():
     assert "Selge" in data["assistant_message"]
     assert data["current_question_id"] == "backups_exist"
 
+    session = client.get(f"/session/{sid}").json()
+    saved = [event for event in session["events"] if event["type"] == "chat_answer_saved"]
+    assert saved
+    assert saved[-1]["question_id"] == "org_critical_systems_known"
+    assert saved[-1]["answer"] == "yes"
+    assert saved[-1]["details"] == "ja"
+
+
+def test_first_question_example_request_stays_on_same_question():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "too näidis"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "clarification"
+    assert data["response_type"] == "client_question"
+    assert data["extracted_answers"] == {}
+    assert "Näited" in data["assistant_message"]
+    assert data["current_question_id"] == "org_critical_systems_known"
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+
+
+def test_question_predicate_echo_is_treated_as_yes_answer():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "teab"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "answer"
+    assert data["action"] == "extract_answer"
+    assert data["extracted_answers"] == {"org_critical_systems_known": "yes"}
+    assert data["answer_confidence"] in {"Low", "Medium", "High"}
+    assert data["current_question_id"] == "backups_exist"
+
+
+def test_tehakse_is_treated_as_yes_answer_for_backup_question():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    client.post("/chat", json={"session_id": sid, "message": "jah"})
+
+    response = client.post("/chat", json={"session_id": sid, "message": "tehakse"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "answer"
+    assert data["action"] == "extract_answer"
+    assert data["extracted_answers"] == {"backups_exist": "yes"}
+    assert data["current_question_id"] == "backup_frequency_defined"
+
+
+def test_short_contextual_reply_without_keyword_is_treated_as_yes_answer():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    client.post("/chat", json={"session_id": sid, "message": "jah"})
+
+    response = client.post("/chat", json={"session_id": sid, "message": "toimub"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "answer"
+    assert data["action"] == "extract_answer"
+    assert data["extracted_answers"] == {"backups_exist": "yes"}
+    assert data["answer_confidence"] in {"Low", "Medium", "High"}
+    assert data["current_question_id"] == "backup_frequency_defined"
+
+
+def test_contextual_uncertain_reply_is_treated_as_unsure_answer():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    client.post("/chat", json={"session_id": sid, "message": "jah"})
+
+    response = client.post("/chat", json={"session_id": sid, "message": "võib olla"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "answer"
+    assert data["action"] == "extract_answer"
+    assert data["extracted_answers"] == {"backups_exist": "unsure"}
+    assert data["answer_confidence"] in {"Medium", "High"}
+    assert data["current_question_id"] == "backup_frequency_defined"
+
 
 def test_examples_request_is_advisory_not_answer():
     start = client.post("/chat", json={"message": ""}).json()
@@ -435,6 +557,21 @@ def test_examples_request_is_advisory_not_answer():
     assert set(session["answers"]) == {"org_critical_systems_known"}
 
 
+def test_singular_example_request_is_clarification():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    client.post("/chat", json={"session_id": sid, "message": "jah"})
+
+    response = client.post("/chat", json={"session_id": sid, "message": "too näidis"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "clarification"
+    assert data["response_type"] == "client_question"
+    assert data["extracted_answers"] == {}
+    assert "Näited" in data["assistant_message"]
+    assert data["current_question_id"] == "backups_exist"
+
+
 def test_chat_can_extract_backup_facts_without_saving_wrong_current_question():
     start = client.post("/chat", json={"message": ""}).json()
     sid = start["session_id"]
@@ -449,8 +586,12 @@ def test_chat_can_extract_backup_facts_without_saving_wrong_current_question():
     assert response.status_code == 200
     data = response.json()
     assert data["intent"] == "answer"
+    assert data["action"] == "extract_answer"
     assert data["extracted_answers"]["backups_exist"] == "yes"
     assert data["extracted_answers"]["restore_tested"] == "no"
+    assert "Tõlgendasin sinu vastuse nii:" in data["assistant_message"]
+    assert "Kindlus:" in data["assistant_message"]
+    assert data["answer_confidence"] in {"Medium", "High"}
 
     session = client.get(f"/session/{sid}").json()
     assert "backups_exist" in session["answers"]
@@ -483,3 +624,28 @@ def test_external_exposure_checklist_endpoint_works():
         "remote_access_exposure_reviewed",
         "email_security_records_known",
     }
+
+
+def test_auth_can_be_enabled_without_touching_public_healthcheck(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("API_AUTH_TOKEN", "topsecret")
+
+    assert client.get("/").status_code == 200
+    assert client.post("/session", json={"organization_name": "Test"}).status_code == 401
+
+    authorized = client.post(
+        "/session",
+        json={"organization_name": "Test"},
+        headers={"Authorization": "Bearer topsecret"},
+    )
+    assert authorized.status_code == 200
+
+
+def test_chat_rate_limit_returns_429(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("RATE_LIMIT_CHAT_PER_MINUTE", "1")
+
+    first = client.post("/chat", json={"message": ""})
+    second = client.post("/chat", json={"message": ""})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["detail"]

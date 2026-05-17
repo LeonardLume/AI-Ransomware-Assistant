@@ -1,6 +1,7 @@
 import { CheckCircle2, FileCode2, ShieldCheck } from "lucide-react";
 import type { ArtifactId, ChatTechnicalDetails, ExtractedAnswerItem } from "../types/api";
-import { Accordion, Badge, Button, cn } from "./ui";
+import { Accordion, Badge, Button } from "./ui";
+import { cn } from "./ui-helpers";
 
 const artifactLabels: Record<ArtifactId, string> = {
   "readiness-report": "Readiness Report",

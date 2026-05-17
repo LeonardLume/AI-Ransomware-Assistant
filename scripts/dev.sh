@@ -30,10 +30,10 @@ if [ ! -x "$ROOT/.venv/bin/python" ]; then
 fi
 
 if [ "$SKIP_INSTALL" != "1" ]; then
-  if [ ! -f "$ROOT/.venv/.requirements-ready" ] || [ "$ROOT/requirements.txt" -nt "$ROOT/.venv/.requirements-ready" ]; then
+  if [ ! -f "$ROOT/.venv/.backend-deps-ready" ] || [ "$ROOT/pyproject.toml" -nt "$ROOT/.venv/.backend-deps-ready" ]; then
     echo "Installing backend dependencies..."
-    "$ROOT/.venv/bin/python" -m pip install -r "$ROOT/requirements.txt"
-    touch "$ROOT/.venv/.requirements-ready"
+    "$ROOT/.venv/bin/python" -m pip install -e "$ROOT[dev]"
+    touch "$ROOT/.venv/.backend-deps-ready"
   fi
 
   if [ ! -d "$FRONTEND_DIR/node_modules" ]; then

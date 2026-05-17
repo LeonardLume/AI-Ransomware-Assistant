@@ -7,7 +7,8 @@ import type {
 } from "../types/api";
 import type { UiLanguage } from "../utils/i18n";
 import Sidebar from "./Sidebar";
-import { Button, cn } from "./ui";
+import { Button } from "./ui";
+import { cn } from "./ui-helpers";
 
 export type AppView = "home" | "interview";
 

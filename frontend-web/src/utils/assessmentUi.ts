@@ -7,7 +7,7 @@ import type {
   SessionStateResponse,
   SessionSummary,
 } from "../types/api";
-import type { Tone } from "../components/ui";
+import type { Tone } from "../components/ui-helpers";
 
 const answerLabels: Record<string, string> = {
   yes: "Yes",

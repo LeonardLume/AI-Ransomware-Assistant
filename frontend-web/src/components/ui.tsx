@@ -1,13 +1,8 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import { ChevronDown, Info, Loader2 } from "lucide-react";
-import type { ArtifactId, RiskLevel } from "../types/api";
-
-export type Tone = "neutral" | "success" | "info" | "warning" | "orange" | "danger";
+import type { RiskLevel } from "../types/api";
+import { cn, riskTone, type Tone } from "./ui-helpers";
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-
-export function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 const toneClasses: Record<Tone, string> = {
   neutral: "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
@@ -21,15 +16,6 @@ const toneClasses: Record<Tone, string> = {
   danger:
     "border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-950/50 dark:text-red-300",
 };
-
-export function riskTone(level?: RiskLevel): Tone {
-  const normalized = String(level || "").toLowerCase();
-  if (normalized === "low") return "success";
-  if (normalized === "medium") return "warning";
-  if (normalized === "high") return "orange";
-  if (normalized === "critical") return "danger";
-  return "neutral";
-}
 
 export function Card({
   className,

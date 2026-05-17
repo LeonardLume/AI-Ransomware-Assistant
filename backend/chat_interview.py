@@ -49,8 +49,12 @@ REPORT_HINTS = [
 CLARIFICATION_HINTS = [
     "kes sa oled",
     "kes oled",
+    "too näidis",
+    "too naidis",
     "too näidised",
     "too naidised",
+    "näidis",
+    "naidis",
     "näidised",
     "naidised",
     "näide",
@@ -113,8 +117,12 @@ CURRENT_QUESTION_CLARIFICATION_HINTS = [
     "mida tahendab",
     "miks see oluline",
     "miks see tahtis",
+    "too naidis",
+    "too näidis",
     "too naide",
     "too naidised",
+    "naidis",
+    "näidis",
     "naide",
     "selgita lihtsamalt",
     "seleta lihtsamalt",
@@ -238,6 +246,7 @@ ANSWER_HINTS = [
     "olemas",
     "kasutame",
     "teeme",
+    "tehakse",
     "ei",
     "no",
     "pole",
@@ -251,6 +260,25 @@ ANSWER_HINTS = [
     "unsure",
     "not sure",
 ]
+
+CURRENT_QUESTION_REPLY_STOPWORDS = {
+    "kas",
+    "mis",
+    "mida",
+    "miks",
+    "kuidas",
+    "milline",
+    "millised",
+    "millal",
+    "see",
+    "seda",
+    "selle",
+    "need",
+    "ning",
+    "voi",
+    "on",
+    "ega",
+}
 
 OFFENSIVE_REQUEST_HINTS = [
     "bypass mfa",
@@ -600,6 +628,41 @@ def build_advisor_context(
     }
 
 
+def build_chat_turn_context(
+    user_message: str,
+    language: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]],
+    org_info: dict[str, Any],
+) -> dict[str, Any]:
+    advisory_domain = _advisory_domain(user_message, current_question)
+    return {
+        "user_message": user_message,
+        "response_language": language,
+        "turn_kind": "smalltalk_or_unknown",
+        "current_interview_question": current_question,
+        "current_question_text": get_current_question_text(current_question),
+        "current_question_answer": _current_question_answer(current_question, current_answers),
+        "current_domain_summary": get_domain_summary(current_question),
+        "defensive_skill_context": build_skill_context_for_domain(advisory_domain, current_answers),
+        "answered_question_ids": list(current_answers.keys()),
+        "organization_info": org_info,
+        "domain_metadata": load_domain_metadata(),
+        "trusted_sources_used_for_project": load_source_notes(),
+        "conversation_rules": [
+            "Reply conversationally and briefly to the user's latest message.",
+            "If the message is a greeting or thanks, acknowledge it naturally in one short sentence.",
+            "If the message is ambiguous, do not invent an answer; explain briefly what kind of answer fits the active question.",
+            "Use the active interview question and defensive_skill_context to stay on topic.",
+            "Do not save or infer an assessment answer in this turn.",
+            "Do not move the interview forward.",
+            "Do not introduce yourself unless asked.",
+            "Keep the tone calm, practical, and concise.",
+            "End by gently returning to the active interview question if one exists.",
+        ],
+    }
+
+
 def normalize_assistant_text(
     text: str,
     language: str,
@@ -828,6 +891,66 @@ def answer_smalltalk(message: str, current_question: dict[str, Any] | None) -> d
     return {"message": answer, "provider": "fallback", "used_fallback": True, "model": "deterministic-template", "error": None}
 
 
+def answer_smalltalk_with_llm(
+    message: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]] | None = None,
+    org_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    current_answers = current_answers or {}
+    org_info = org_info or {}
+
+    if looks_like_offensive_request(message):
+        return defensive_refusal(message, current_question)
+
+    if get_llm_settings()["provider"] == "fallback":
+        fallback = answer_smalltalk(message, current_question)
+        fallback["redactions_applied"] = []
+        fallback["redacted_for_llm"] = False
+        return fallback
+
+    language = detect_language(message)
+    redacted_message, message_redactions = redact_sensitive_text(message)
+    redacted_answers, answer_redactions = _redact_answer_records(current_answers)
+    redactions = _merge_redactions(message_redactions, answer_redactions)
+    context_payload = build_chat_turn_context(
+        user_message=redacted_message,
+        language=language,
+        current_question=current_question,
+        current_answers=redacted_answers,
+        org_info=org_info,
+    )
+    result = generate_text(
+        prompt=json.dumps(context_payload, ensure_ascii=False, indent=2),
+        system_prompt=load_prompt("chat_turn_prompt.txt"),
+        temperature=0.3,
+    )
+    if not result.used_real_llm or not result.text.strip():
+        fallback = answer_smalltalk(message, current_question)
+        fallback["redactions_applied"] = redactions
+        fallback["redacted_for_llm"] = bool(redactions)
+        fallback["error"] = result.error
+        return fallback
+
+    normalized = normalize_assistant_text(
+        result.text.strip(),
+        language,
+        current_question,
+        _current_question_answer(current_question, current_answers),
+    )
+    if not _is_identity_question(message):
+        normalized = _strip_unrequested_identity(normalized)
+    return {
+        "message": normalized,
+        "provider": result.provider,
+        "used_fallback": False,
+        "model": result.model,
+        "error": result.error,
+        "redactions_applied": redactions,
+        "redacted_for_llm": bool(redactions),
+    }
+
+
 def extract_answers_with_llm(
     user_message: str,
     questions: list[dict[str, Any]],
@@ -996,6 +1119,12 @@ def fallback_extract_answers(
             confidence[qid] = score
 
     if not extracted and current_question:
+        fallback_answer, fallback_score = _infer_current_question_reply(user_message, current_question)
+        if fallback_answer and fallback_answer in current_question.get("options", []):
+            extracted[current_question["id"]] = fallback_answer
+            confidence[current_question["id"]] = fallback_score
+
+    if not extracted and current_question:
         unclear.append(current_question["id"])
 
     clarification = default_clarification_question(qmap[unclear[0]]) if unclear else ""
@@ -1019,7 +1148,7 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
         return "yes", 0.86
 
     if question_id == "backups_exist" and _contains_any(text, ["backup", "varukoop", "koopiad"]):
-        if _contains_any(text, ["olemas", "teeme", "jah", "regulaarselt", "iga paev", "iga nadal", "daily", "weekly"]):
+        if _contains_any(text, ["olemas", "teeme", "tehakse", "jah", "regulaarselt", "iga paev", "iga nadal", "daily", "weekly"]):
             return "yes", 0.9
         if _contains_any(text, ["ei ole", "pole", "puudub", "ei tee"]):
             return "no", 0.88
@@ -1043,7 +1172,21 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
         if _contains_any(text, ["jah", "olemas", "kasutame", "koigil", "kõigil"]):
             return "yes", 0.84
 
-    if _contains_any(text, ["ei tea", "pole kindel", "ei ole kindel", "kindel pole", "ei oska oelda", "unsure", "not sure"]):
+    if _contains_any(
+        text,
+        [
+            "ei tea",
+            "pole kindel",
+            "ei ole kindel",
+            "kindel pole",
+            "ei oska oelda",
+            "unsure",
+            "not sure",
+            "voib olla",
+            "voib-olla",
+            "maybe",
+        ],
+    ) or re.search(r"\b(vist|ehk)\b", text):
         return "unsure", 0.9
     if _contains_any(
         text,
@@ -1052,7 +1195,7 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
         return "partial", 0.82
     if _contains_any(text, ["ei ole", "pole", "puudub", "ei kasuta", "ei tee", "ei test", "mitte", "no", "not"]) or re.search(r"\bei\b", text):
         return "no", 0.78
-    if _contains_any(text, ["jah", "yes", "olemas", "kasutame", "teeme", "on olemas", "regulaars", "koik", "kõik", "testitud", "dokumenteeritud"]):
+    if _contains_any(text, ["jah", "yes", "olemas", "kasutame", "teeme", "tehakse", "on olemas", "regulaars", "koik", "kõik", "testitud", "dokumenteeritud"]):
         return "yes", 0.78
     return None, 0.0
 
@@ -1194,7 +1337,23 @@ def _current_question_answer(
 
 
 def _is_example_request(text: str) -> bool:
-    return _contains_any(text, ["too näidised", "too naidised", "näidised", "naidised", "näide", "naide", "examples", "example"])
+    return _contains_any(
+        text,
+        [
+            "too näidis",
+            "too naidis",
+            "too näidised",
+            "too naidised",
+            "näidis",
+            "naidis",
+            "näidised",
+            "naidised",
+            "näide",
+            "naide",
+            "examples",
+            "example",
+        ],
+    )
 
 
 def _examples_for_question(question: dict[str, Any]) -> str:
@@ -1390,6 +1549,8 @@ def classify_user_intent(message: str, current_question: dict[str, Any] | None =
         return "answer"
     if _looks_like_operational_answer(text, current_question):
         return "answer"
+    if _looks_like_short_current_question_reply(text, raw, current_question):
+        return "answer"
     if looks_like_current_question_clarification(message, current_question):
         return "clarification"
     if _looks_like_general_advisory_question(text, has_question_mark, has_question_word):
@@ -1498,6 +1659,82 @@ def _looks_like_direct_answer(text: str, current_question: dict[str, Any] | None
     question_id = current_question.get("id", "")
     topic_ids = _topic_question_ids(text)
     return _has_answer_signal(text) and (not topic_ids or question_id in topic_ids)
+
+
+def _looks_like_short_current_question_reply(
+    text: str,
+    raw: str,
+    current_question: dict[str, Any] | None,
+) -> bool:
+    if not current_question:
+        return False
+    if "?" in raw:
+        return False
+    if len(text.split()) > 3:
+        return False
+    if _is_smalltalk(text):
+        return False
+    if _is_example_request(text):
+        return False
+    if _contains_any(text, CLARIFICATION_HINTS):
+        return False
+    if _contains_any(text, CURRENT_QUESTION_CLARIFICATION_HINTS):
+        return False
+    if _contains_any(text, REPORT_HINTS):
+        return False
+    return True
+
+
+def _tokenize_normalized(text: str) -> list[str]:
+    return re.findall(r"\b\w+\b", _normalize(text))
+
+
+def _current_question_tokens(current_question: dict[str, Any]) -> set[str]:
+    parts = [str(current_question.get("question") or ""), str(current_question.get("help") or "")]
+    tokens: set[str] = set()
+    for part in parts:
+        for token in _tokenize_normalized(part):
+            if len(token) < 4:
+                continue
+            if token in CURRENT_QUESTION_REPLY_STOPWORDS:
+                continue
+            tokens.add(token)
+    return tokens
+
+
+def _semantic_short_reply_answer(
+    text: str,
+    raw: str,
+    current_question: dict[str, Any],
+) -> tuple[str | None, float]:
+    if not _looks_like_short_current_question_reply(text, raw, current_question):
+        return None, 0.0
+
+    if re.search(r"\b(vist|ehk)\b", text) or "voib olla" in text or "voib-olla" in text or "maybe" in text:
+        return "unsure", 0.76
+
+    reply_tokens = {token for token in _tokenize_normalized(text) if len(token) >= 4}
+    if not reply_tokens:
+        return "yes", 0.58
+
+    overlap = reply_tokens & _current_question_tokens(current_question)
+    if overlap:
+        return "yes", 0.72
+
+    return "yes", 0.58
+
+
+def _infer_current_question_reply(
+    user_message: str,
+    current_question: dict[str, Any],
+) -> tuple[str | None, float]:
+    answer, score = infer_answer(user_message, current_question.get("id", ""))
+    if answer:
+        return answer, score
+
+    text = _normalize(user_message)
+    raw = user_message.strip()
+    return _semantic_short_reply_answer(text, raw, current_question)
 
 
 def _normalize(text: str) -> str:

@@ -1,5 +1,5 @@
 import { languageOptions, type UiLanguage } from "../utils/i18n";
-import { cn } from "./ui";
+import { cn } from "./ui-helpers";
 
 export default function LanguageSwitcher({
   language,

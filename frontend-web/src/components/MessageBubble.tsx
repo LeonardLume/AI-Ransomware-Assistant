@@ -1,7 +1,8 @@
 import ReactMarkdown from "react-markdown";
 import type { ArtifactId, UiMessage } from "../types/api";
 import AssistantTechnicalDetails from "./AssistantTechnicalDetails";
-import { Card, cn } from "./ui";
+import { Card } from "./ui";
+import { cn } from "./ui-helpers";
 
 function formatTime(timestamp: string): string {
   const date = new Date(timestamp);

@@ -25,7 +25,7 @@ import HeroDashboard from "./components/HeroDashboard";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import Layout, { type AppView } from "./components/Layout";
 import SessionArtifactOverlay from "./components/SessionArtifactOverlay";
-import { cn } from "./components/ui";
+import { cn } from "./components/ui-helpers";
 import {
   artifactsForResponse,
   buildReadableSessionTitle,
@@ -59,7 +59,6 @@ function normalizeRole(role: BackendChatMessage["role"]): UiMessage["role"] {
 
 function toUiMessages(
   history: BackendChatMessage[] | undefined,
-  questions: Question[] = [],
 ): UiMessage[] {
   return (history || [])
     .filter((message) => Boolean(message.content))
@@ -237,7 +236,7 @@ export default function App() {
         nextSession = sessionResult.value;
         setSessionState(sessionResult.value);
         if (options.updateMessages !== false && sessionResult.value.chat_history) {
-          setMessages(toUiMessages(sessionResult.value.chat_history, questions));
+          setMessages(toUiMessages(sessionResult.value.chat_history));
         }
       }
       if (scoreResult.status === "fulfilled") {
@@ -261,7 +260,7 @@ export default function App() {
         riskLevel: nextScore?.risk_level,
       });
     },
-    [questions, refreshSessionMetadata],
+    [refreshSessionMetadata],
   );
 
   const applyChatResponse = useCallback(
@@ -272,7 +271,7 @@ export default function App() {
       setError(null);
 
       if (response.chat_history?.length) {
-        setMessages(attachLatestAssistantMetadata(toUiMessages(response.chat_history, questions), response, questions));
+        setMessages(attachLatestAssistantMetadata(toUiMessages(response.chat_history), response, questions));
       } else if (response.assistant_message) {
         setMessages((current) => [
           ...current,

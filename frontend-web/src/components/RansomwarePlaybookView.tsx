@@ -1,6 +1,7 @@
 import { ClipboardCheck, LifeBuoy, RotateCcw, ShieldCheck } from "lucide-react";
 import type { ReportResponse } from "../types/api";
-import { Badge, riskTone } from "./ProgressCard";
+import { Badge } from "./ProgressCard";
+import { riskTone } from "./progress-card-helpers";
 
 export default function RansomwarePlaybookView({ report }: { report?: ReportResponse | null }) {
   const topActions = report?.action_plan?.slice(0, 6) || [];
