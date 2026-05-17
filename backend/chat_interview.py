@@ -261,6 +261,18 @@ ANSWER_HINTS = [
     "not sure",
 ]
 
+CORRECTION_TURN_HINTS = [
+    "tegelikult",
+    "pigem",
+    "parandan",
+    "mootlesin",
+    "motlesin",
+    "mootlen",
+    "motlen",
+    "mitte see",
+    "vaid",
+]
+
 CURRENT_QUESTION_REPLY_STOPWORDS = {
     "kas",
     "mis",
@@ -1113,7 +1125,10 @@ def fallback_extract_answers(
         q = qmap.get(qid)
         if not q:
             continue
-        answer, score = infer_answer(user_message, qid)
+        if current_question and qid == current_question.get("id"):
+            answer, score = _infer_current_question_reply(user_message, current_question)
+        else:
+            answer, score = infer_answer(user_message, qid)
         if answer and answer in q.get("options", []):
             extracted[qid] = answer
             confidence[qid] = score
@@ -1724,16 +1739,77 @@ def _semantic_short_reply_answer(
     return "yes", 0.58
 
 
+def _looks_like_correction_turn(text: str, raw: str) -> bool:
+    stripped = raw.strip().lower()
+    return stripped.startswith("ei,") or stripped.startswith("no,") or _contains_any(text, CORRECTION_TURN_HINTS)
+
+
+def _semantic_current_question_answer(
+    text: str,
+    raw: str,
+    current_question: dict[str, Any],
+) -> tuple[str | None, float]:
+    reply_tokens = {token for token in _tokenize_normalized(text) if len(token) >= 4}
+    overlap = reply_tokens & _current_question_tokens(current_question)
+    if not overlap:
+        return None, 0.0
+
+    if _contains_any(
+        text,
+        [
+            "ei tea",
+            "pole kindel",
+            "ei ole kindel",
+            "kindel pole",
+            "voib olla",
+            "voib-olla",
+            "maybe",
+        ],
+    ) or re.search(r"\b(vist|ehk)\b", text):
+        return "unsure", 0.84
+
+    if _contains_any(
+        text,
+        ["osaliselt", "monel", "mõnel", "moned", "mõned", "ainult", "osadel", "pigem osaliselt"],
+    ):
+        return "partial", 0.84
+
+    if _looks_like_correction_turn(text, raw):
+        if _contains_any(
+            text,
+            [
+                "teada",
+                "olemas",
+                "tehakse",
+                "testitud",
+                "dokumenteeritud",
+                "kaardistatud",
+                "jalgitav",
+                "jalgitakse",
+            ],
+        ):
+            return "yes", 0.86
+        if _contains_any(text, ["ei tehta", "ei ole", "pole", "puudub", "ei kasuta", "ei test"]):
+            return "no", 0.82
+
+    return None, 0.0
+
+
 def _infer_current_question_reply(
     user_message: str,
     current_question: dict[str, Any],
 ) -> tuple[str | None, float]:
+    text = _normalize(user_message)
+    raw = user_message.strip()
+
+    semantic_answer, semantic_score = _semantic_current_question_answer(text, raw, current_question)
+    if semantic_answer:
+        return semantic_answer, semantic_score
+
     answer, score = infer_answer(user_message, current_question.get("id", ""))
     if answer:
         return answer, score
 
-    text = _normalize(user_message)
-    raw = user_message.strip()
     return _semantic_short_reply_answer(text, raw, current_question)
 
 
