@@ -9,7 +9,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ComponentProps, type ReactNode } from "react";
 import type { DomainScore, ReportResponse, RiskLevel } from "../types/api";
 import {
   isEarlyPreview,
@@ -28,7 +28,13 @@ import {
   valueLabel,
   type UiLanguage,
 } from "../utils/i18n";
-import { Badge, Button, EmptyState } from "./ui";
+import { EmptyState } from "./ui";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { ScrollArea } from "./ui/scroll-area";
+import { Separator } from "./ui/separator";
+import { Skeleton } from "./ui/skeleton";
 import { cn, riskTone, type Tone } from "./ui-helpers";
 
 type FindingLike = {
@@ -38,6 +44,13 @@ type FindingLike = {
   domain?: string;
   summary?: string;
   action?: string;
+};
+
+type BadgeVariant = ComponentProps<typeof Badge>["variant"];
+type ReportSource = {
+  name: string;
+  url?: string;
+  usedFor?: string;
 };
 
 const severityRank: Record<string, number> = {
@@ -89,6 +102,30 @@ function toneColor(tone: Tone): string {
   if (tone === "danger") return "#f87171";
   if (tone === "info") return "#38bdf8";
   return "#cbd5e1";
+}
+
+function badgeVariantForTone(tone: Tone): BadgeVariant {
+  if (tone === "success") return "success";
+  if (tone === "warning") return "warning";
+  if (tone === "orange") return "orange";
+  if (tone === "danger") return "danger";
+  if (tone === "info") return "info";
+  return "neutral";
+}
+
+function normalizeReportSources(report?: ReportResponse | null): ReportSource[] {
+  if (!Array.isArray(report?.sources)) {
+    return [];
+  }
+
+  return report.sources
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => ({
+      name: String(item.name || "").trim(),
+      url: typeof item.url === "string" ? item.url : undefined,
+      usedFor: typeof item.used_for === "string" ? item.used_for : undefined,
+    }))
+    .filter((item) => item.name);
 }
 
 function useCountUp(target: number, duration = 1000) {
@@ -184,45 +221,73 @@ function ScoreRing({
   );
 }
 
-function CollapsePanel({
+function ReportDisclosure({
   title,
+  description,
   open,
-  onToggle,
+  onOpenChange,
   children,
 }: {
   title: string;
+  description: string;
   open: boolean;
-  onToggle: () => void;
+  onOpenChange: (open: boolean) => void;
   children: ReactNode;
 }) {
   return (
-    <section className="report-panel rounded-[30px] px-6 py-5">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 text-left"
-      >
-        <div>
-          <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
-            {title}
-          </h4>
-          <p className="mt-2 text-sm text-slate-500">
-            {open ? "Expanded" : "Collapsed by default"}
-          </p>
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <section className="report-panel rounded-[30px] px-6 py-5">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <div>
+              <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
+                {title}
+              </h4>
+              <p className="mt-2 text-sm text-slate-500">
+                {description}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/8 bg-white/[0.04] text-slate-300 transition-transform duration-300",
+                open && "rotate-180",
+              )}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </span>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="pt-4">{children}</div>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
+  );
+}
+
+function ReportLoadingSkeleton() {
+  return (
+    <div className="report-scene space-y-6">
+      <section className="report-panel rounded-[34px] px-7 py-7">
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-7 w-28 rounded-full" />
+            <Skeleton className="h-7 w-24 rounded-full" />
+            <Skeleton className="h-7 w-32 rounded-full" />
+          </div>
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-24 w-full rounded-[28px]" />
         </div>
-        <span
-          className={cn(
-            "inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/8 bg-white/[0.04] text-slate-300 transition-transform duration-300",
-            open && "rotate-180",
-          )}
-        >
-          <ChevronDown className="h-4 w-4" />
-        </span>
-      </button>
-      <div data-open={open} className="report-collapse">
-        <div className="report-collapse-inner pt-4">{children}</div>
+      </section>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Skeleton className="h-56 rounded-[30px]" />
+        <Skeleton className="h-56 rounded-[30px]" />
       </div>
-    </section>
+      <Skeleton className="h-72 rounded-[30px]" />
+    </div>
   );
 }
 
@@ -239,6 +304,10 @@ export default function ReportView({
   onGenerate: () => void;
   language?: UiLanguage;
 }) {
+  if (loading && !report) {
+    return <ReportLoadingSkeleton />;
+  }
+
   if (!report) {
     return (
       <EmptyState
@@ -285,6 +354,7 @@ function ReportCockpit({
   language: UiLanguage;
 }) {
   const [narrativeOpen, setNarrativeOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [simulatorAdjustments, setSimulatorAdjustments] = useState<Record<string, number>>({});
 
   const domainEntries: Array<[string, DomainScore]> = Object.entries(
@@ -305,6 +375,7 @@ function ReportCockpit({
         report.answered_questions ?? 0
       } / ${report.total_questions ?? 0}.`
     : `${t(language, "confidence")}: ${valueLabel(language, confidenceValue)}`;
+  const sources = normalizeReportSources(report);
   const summaryText =
     language === "et" && report.summary
       ? report.summary
@@ -324,6 +395,7 @@ function ReportCockpit({
     });
     setSimulatorAdjustments(nextAdjustments);
     setNarrativeOpen(false);
+    setSourcesOpen(false);
   }, [report]);
 
   const criticalFindings: FindingLike[] = report.findings?.length
@@ -422,19 +494,19 @@ function ReportCockpit({
         <div className="relative grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_272px] xl:items-center">
           <div className="space-y-6">
             <div className="flex flex-wrap gap-2">
-              <Badge tone="neutral" className="border-white/8 bg-white/[0.045] text-slate-200">
+              <Badge variant="neutral" className="border-white/8 bg-white/[0.045] text-slate-200">
                 {t(language, "officialScoreBackend")}
               </Badge>
-              <Badge tone={report.score_status === "final" ? "success" : "warning"}>
+              <Badge variant={report.score_status === "final" ? "success" : "warning"}>
                 {earlyPreview
                   ? valueLabel(language, "preliminary")
                   : valueLabel(language, report.score_status || "preliminary")}
               </Badge>
-              <Badge tone={riskToneValue}>{officialRisk}</Badge>
-              <Badge tone={report.is_complete ? "success" : "warning"}>
+              <Badge variant={badgeVariantForTone(riskToneValue)}>{officialRisk}</Badge>
+              <Badge variant={report.is_complete ? "success" : "warning"}>
                 {completionRate}% {t(language, "completion").toLowerCase()}
               </Badge>
-              <Badge tone="info">{confidenceText}</Badge>
+              <Badge variant="info">{confidenceText}</Badge>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(250px,0.85fr)]">
@@ -502,7 +574,7 @@ function ReportCockpit({
                 </p>
               </div>
             </div>
-            <Badge tone={criticalFindings.length ? riskToneValue : "neutral"}>
+            <Badge variant={criticalFindings.length ? badgeVariantForTone(riskToneValue) : "neutral"}>
               {criticalFindings.length || 0} items
             </Badge>
           </div>
@@ -515,9 +587,11 @@ function ReportCockpit({
                   className="report-row report-hover-lift rounded-[22px] px-4 py-3.5"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={riskTone(finding.severity)}>{riskLabel(language, finding.severity || "High")}</Badge>
+                    <Badge variant={badgeVariantForTone(riskTone(finding.severity))}>
+                      {riskLabel(language, finding.severity || "High")}
+                    </Badge>
                     {finding.domain ? (
-                      <Badge tone="neutral" className="border-white/8 bg-white/[0.04] text-slate-200">
+                      <Badge variant="neutral" className="border-white/8 bg-white/[0.04] text-slate-200">
                         {domainLabel(language, finding.domain)}
                       </Badge>
                     ) : null}
@@ -600,7 +674,7 @@ function ReportCockpit({
               </p>
             </div>
           </div>
-          <Badge tone="neutral" className="border-white/8 bg-white/[0.04] text-slate-200">
+          <Badge variant="neutral" className="border-white/8 bg-white/[0.04] text-slate-200">
             {domainEntries.length} domains
           </Badge>
         </div>
@@ -669,7 +743,7 @@ function ReportCockpit({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="warning">Unofficial preview</Badge>
+            <Badge variant="warning">Unofficial preview</Badge>
             <Button
               type="button"
               variant="ghost"
@@ -703,7 +777,7 @@ function ReportCockpit({
                           Base {baseScore} {"->"} Simulated {simulatedValue}
                         </div>
                       </div>
-                      <Badge tone={riskTone(advisoryRiskLevel(simulatedValue))}>
+                      <Badge variant={badgeVariantForTone(riskTone(advisoryRiskLevel(simulatedValue)))}>
                         +{simulatorAdjustments[domain] || 0}
                       </Badge>
                     </div>
@@ -755,8 +829,10 @@ function ReportCockpit({
               />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Badge tone={riskTone(simulatedRisk)}>{riskLabel(language, simulatedRisk)}</Badge>
-              <Badge tone={simulatorDelta > 0 ? "success" : "neutral"}>
+              <Badge variant={badgeVariantForTone(riskTone(simulatedRisk))}>
+                {riskLabel(language, simulatedRisk)}
+              </Badge>
+              <Badge variant={simulatorDelta > 0 ? "success" : "neutral"}>
                 {simulatorDelta >= 0 ? "+" : ""}
                 {simulatorDelta} vs official
               </Badge>
@@ -770,10 +846,11 @@ function ReportCockpit({
       </section>
 
       {narrativeText || report.external_exposure_self_check?.items?.length ? (
-        <CollapsePanel
+        <ReportDisclosure
           title="Detailed narrative"
+          description={narrativeOpen ? "Expanded" : "Collapsed by default"}
           open={narrativeOpen}
-          onToggle={() => setNarrativeOpen((open) => !open)}
+          onOpenChange={setNarrativeOpen}
         >
           <div className="space-y-5 text-sm leading-7 text-slate-400">
             <p className="max-w-3xl">{summaryText}</p>
@@ -788,8 +865,8 @@ function ReportCockpit({
                   <h5 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
                     {t(language, "externalExposure")}
                   </h5>
-                  <Badge tone="neutral">{t(language, "advisoryOnly")}</Badge>
-                  <Badge tone="success">{t(language, "noScanning")}</Badge>
+                  <Badge variant="neutral">{t(language, "advisoryOnly")}</Badge>
+                  <Badge variant="success">{t(language, "noScanning")}</Badge>
                 </div>
                 <ul className="mt-4 space-y-2">
                   {report.external_exposure_self_check.items.slice(0, 6).map((item) => (
@@ -804,7 +881,46 @@ function ReportCockpit({
               </div>
             ) : null}
           </div>
-        </CollapsePanel>
+        </ReportDisclosure>
+      ) : null}
+
+      {sources.length ? (
+        <ReportDisclosure
+          title="Sources used"
+          description={sourcesOpen ? "Expanded" : "Collapsed by default"}
+          open={sourcesOpen}
+          onOpenChange={setSourcesOpen}
+        >
+          <Separator className="mb-4 bg-white/6" />
+          <ScrollArea className="max-h-72 pr-3">
+            <div className="space-y-3">
+              {sources.map((source) => (
+                <article
+                  key={`${source.name}-${source.url || ""}`}
+                  className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3.5"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="neutral">Reference</Badge>
+                    {source.url ? (
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-cyan-300 transition-colors hover:text-cyan-200"
+                      >
+                        Open source
+                      </a>
+                    ) : null}
+                  </div>
+                  <h5 className="mt-3 text-[15px] font-semibold text-white">{source.name}</h5>
+                  {source.usedFor ? (
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{source.usedFor}</p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </ScrollArea>
+        </ReportDisclosure>
       ) : null}
     </div>
   );

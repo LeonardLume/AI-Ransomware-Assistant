@@ -1,7 +1,10 @@
 import { CheckCircle2, FileCode2, ShieldCheck } from "lucide-react";
 import type { ArtifactId, ChatTechnicalDetails, ExtractedAnswerItem } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
-import { Accordion, Badge, Button } from "./ui";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Separator } from "./ui/separator";
 import { cn } from "./ui-helpers";
 
 function artifactLabel(artifact: ArtifactId, language: UiLanguage): string {
@@ -62,6 +65,15 @@ function confidenceFor(item: ExtractedAnswerItem): number | undefined {
   return (item as ExtractedAnswerItem & { confidence?: number }).confidence;
 }
 
+function responseTypeVariant(responseType?: string) {
+  const normalized = String(responseType || "").toLowerCase();
+  if (normalized.includes("error") || normalized.includes("blocked")) return "danger" as const;
+  if (normalized.includes("question")) return "warning" as const;
+  if (normalized.includes("answer")) return "info" as const;
+  if (normalized.includes("artifact") || normalized.includes("report")) return "success" as const;
+  return "neutral" as const;
+}
+
 export default function AssistantTechnicalDetails({
   details,
   artifacts,
@@ -93,8 +105,9 @@ export default function AssistantTechnicalDetails({
                 key={artifact}
                 type="button"
                 variant="secondary"
+                size="sm"
                 onClick={() => onOpenArtifact?.(artifact)}
-                className="rounded-full border-white/8 bg-white/[0.03] px-2.5 py-1 text-[11px] text-slate-300 shadow-none hover:bg-white/[0.06]"
+                className="rounded-full border-white/8 bg-white/[0.03] text-slate-300 shadow-none hover:bg-white/[0.06]"
               >
                 {artifactLabel(artifact, language)}
               </Button>
@@ -128,60 +141,68 @@ export default function AssistantTechnicalDetails({
         </div>
       ) : null}
 
-      <Accordion title={t(language, "technicalDetails")} className="border-white/8 bg-white/[0.03]">
-        <div className="space-y-3 text-xs leading-5 text-slate-600">
-          {details?.extractedAnswers?.length ? (
-            <div>
-              <div className="font-semibold text-slate-300">{t(language, "extractedAnswers")}</div>
-              <div className="mt-2 space-y-2">
-                {details.extractedAnswers.map((item) => (
-                  <div key={item.questionId} className="rounded-[16px] border border-white/7 bg-white/[0.025] p-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge tone="neutral">question_id: {item.questionId}</Badge>
-                      <Badge tone="info">answer: {item.answerLabel || item.answer}</Badge>
-                      {confidenceFor(item) !== undefined ? (
-                        <Badge tone="neutral">confidence: {confidenceFor(item)}</Badge>
-                      ) : null}
-                    </div>
-                    {item.questionText ? (
-                      <div className="mt-2 text-slate-500">{item.questionText}</div>
-                    ) : null}
+      <Accordion type="single" collapsible>
+        <AccordionItem value="technical-details" className="border-white/8 bg-white/[0.03]">
+          <AccordionTrigger>{t(language, "technicalDetails")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-3 text-xs leading-5 text-slate-600">
+              {details?.extractedAnswers?.length ? (
+                <div>
+                  <div className="font-semibold text-slate-300">{t(language, "extractedAnswers")}</div>
+                  <div className="mt-2 space-y-2">
+                    {details.extractedAnswers.map((item) => (
+                      <div key={item.questionId} className="rounded-[16px] border border-white/7 bg-white/[0.025] p-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="neutral">question_id: {item.questionId}</Badge>
+                          <Badge variant="info">answer: {item.answerLabel || item.answer}</Badge>
+                          {confidenceFor(item) !== undefined ? (
+                            <Badge variant="neutral">confidence: {confidenceFor(item)}</Badge>
+                          ) : null}
+                        </div>
+                        {item.questionText ? (
+                          <div className="mt-2 text-slate-500">{item.questionText}</div>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              ) : (
+                <div>{t(language, "noStructuredAnswers")}</div>
+              )}
+              <Separator className="bg-white/6" />
+              <div className={cn("grid gap-2 sm:grid-cols-2")}>
+                {details?.provider ? <Badge variant="info">provider: {details.provider}</Badge> : null}
+                {details?.usedFallback !== undefined ? (
+                  <Badge variant={details.usedFallback ? "warning" : "success"}>
+                    fallback: {String(details.usedFallback)}
+                  </Badge>
+                ) : null}
+                {details?.currentDomain ? (
+                  <Badge variant="neutral">domain: {details.currentDomain}</Badge>
+                ) : null}
+                {details?.currentQuestionId ? (
+                  <Badge variant="neutral">question_id: {details.currentQuestionId}</Badge>
+                ) : null}
+                {details?.responseType ? (
+                  <Badge variant={responseTypeVariant(details.responseType)}>type: {details.responseType}</Badge>
+                ) : null}
+                {details?.redactedForLlm !== undefined ? (
+                  <Badge variant={details.redactedForLlm ? "success" : "neutral"}>
+                    redacted for LLM: {String(details.redactedForLlm)}
+                  </Badge>
+                ) : null}
+                {details?.redactionsApplied?.length ? (
+                  <Badge variant="success">redactions: {details.redactionsApplied.join(", ")}</Badge>
+                ) : null}
+                {details?.missingRequiredQuestions?.length ? (
+                  <Badge variant="warning">
+                    missing: {details.missingRequiredQuestions.length}
+                  </Badge>
+                ) : null}
               </div>
             </div>
-          ) : (
-            <div>{t(language, "noStructuredAnswers")}</div>
-          )}
-          <div className={cn("grid gap-2 sm:grid-cols-2")}>
-            {details?.provider ? <Badge tone="info">provider: {details.provider}</Badge> : null}
-            {details?.usedFallback !== undefined ? (
-              <Badge tone={details.usedFallback ? "warning" : "success"}>
-                fallback: {String(details.usedFallback)}
-              </Badge>
-            ) : null}
-            {details?.currentDomain ? (
-              <Badge tone="neutral">domain: {details.currentDomain}</Badge>
-            ) : null}
-            {details?.currentQuestionId ? (
-              <Badge tone="neutral">question_id: {details.currentQuestionId}</Badge>
-            ) : null}
-            {details?.responseType ? <Badge tone="neutral">type: {details.responseType}</Badge> : null}
-            {details?.redactedForLlm !== undefined ? (
-              <Badge tone={details.redactedForLlm ? "success" : "neutral"}>
-                redacted for LLM: {String(details.redactedForLlm)}
-              </Badge>
-            ) : null}
-            {details?.redactionsApplied?.length ? (
-              <Badge tone="success">redactions: {details.redactionsApplied.join(", ")}</Badge>
-            ) : null}
-            {details?.missingRequiredQuestions?.length ? (
-              <Badge tone="warning">
-                missing: {details.missingRequiredQuestions.length}
-              </Badge>
-            ) : null}
-          </div>
-        </div>
+          </AccordionContent>
+        </AccordionItem>
       </Accordion>
     </div>
   );

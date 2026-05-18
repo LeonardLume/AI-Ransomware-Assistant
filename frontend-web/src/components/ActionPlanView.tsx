@@ -8,7 +8,10 @@ import {
   valueLabel,
   type UiLanguage,
 } from "../utils/i18n";
-import { Badge, Card, EmptyState } from "./ui";
+import { EmptyState } from "./ui";
+import { Badge } from "./ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Separator } from "./ui/separator";
 import { riskTone } from "./ui-helpers";
 
 const fallbackPhases: Array<{ key: PhaseKey; items: string[] }> = [
@@ -48,15 +51,19 @@ export default function ActionPlanView({
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {fallbackPhases.map((phase) => (
-            <Card key={phase.key} className="!border-white/10 !bg-white/[0.07] p-5 backdrop-blur-xl">
-              <h3 className="text-base font-semibold text-white">{phaseLabel(language, phase.key)}</h3>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-                {phase.items.map((item) => (
-                  <li key={item} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    {localizeKnownText(language, item)}
-                  </li>
-                ))}
-              </ul>
+            <Card key={phase.key} className="border-white/10 bg-white/[0.07]">
+              <CardHeader className="pb-4">
+                <CardTitle>{phaseLabel(language, phase.key)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm leading-6 text-slate-300">
+                  {phase.items.map((item) => (
+                    <li key={item} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                      {localizeKnownText(language, item)}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -80,29 +87,34 @@ export default function ActionPlanView({
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         {Object.entries(grouped).map(([phase, phaseItems]) => (
-          <Card key={phase} className="!border-white/10 !bg-white/[0.07] p-5 backdrop-blur-xl">
-            <h3 className="text-base font-semibold text-white">{phaseLabel(language, phase as PhaseKey)}</h3>
-            <div className="mt-4 space-y-3">
+          <Card key={phase} className="border-white/10 bg-white/[0.07]">
+            <CardHeader className="pb-4">
+              <CardTitle>{phaseLabel(language, phase as PhaseKey)}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
               {phaseItems.map((item, index) => (
                 <article
                   key={`${item.title}-${index}`}
                   className="rounded-2xl border border-white/10 bg-black/20 p-4"
                 >
                   <div className="flex flex-wrap gap-2">
-                    <Badge tone={riskTone(item.priority)}>{riskLabel(language, item.priority || t(language, "priority"))}</Badge>
-                    {item.domain ? <Badge tone="neutral">{domainLabel(language, item.domain)}</Badge> : null}
+                    <Badge variant={badgeVariant(riskTone(item.priority))}>
+                      {riskLabel(language, item.priority || t(language, "priority"))}
+                    </Badge>
+                    {item.domain ? <Badge variant="neutral">{domainLabel(language, item.domain)}</Badge> : null}
                   </div>
                   <h4 className="mt-3 text-sm font-semibold leading-6 text-white">
                     {localizeKnownText(language, item.title) || actionItemLabel(language)}
                   </h4>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400">
+                  <Separator className="my-3 bg-white/6" />
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
                     <span>{t(language, "owner")}: {valueLabel(language, item.owner || item.owner_suggestion)}</span>
                     <span>{t(language, "effort")}: {effortLabel(language, item.effort)}</span>
                     <span className="col-span-2">{t(language, "deadline")}: {valueLabel(language, item.deadline)}</span>
                   </div>
                 </article>
               ))}
-            </div>
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -136,6 +148,14 @@ function phaseLabel(language: UiLanguage, phase: PhaseKey): string {
 
 function actionItemLabel(language: UiLanguage): string {
   if (language === "en") return "Action item";
-  if (language === "ru") return "Действие";
+  if (language === "ru") return "Ð”ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ";
   return "Tegevus";
+}
+
+function badgeVariant(tone: ReturnType<typeof riskTone>) {
+  if (tone === "success") return "success" as const;
+  if (tone === "warning") return "warning" as const;
+  if (tone === "orange") return "orange" as const;
+  if (tone === "danger") return "danger" as const;
+  return "neutral" as const;
 }

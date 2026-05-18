@@ -6,9 +6,11 @@ import unicodedata
 INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("ignore previous instructions", re.compile(r"\bignore\s+(?:all\s+)?previous\s+instructions\b", re.I)),
     ("reveal system prompt", re.compile(r"\b(?:reveal|show|print|dump)\s+(?:the\s+)?system\s+prompt\b", re.I)),
+    ("internal prompts", re.compile(r"\binternal\s+prompts?\b", re.I)),
     ("developer message", re.compile(r"\bdeveloper\s+(?:message|instructions?)\b", re.I)),
     ("hidden prompt", re.compile(r"\bhidden\s+prompt\b", re.I)),
     ("disable safety", re.compile(r"\bdisable\s+(?:all\s+)?safety\b", re.I)),
+    ("ignore safety rules", re.compile(r"\bignore\s+(?:all\s+)?safety\s+rules\b", re.I)),
     ("jailbreak", re.compile(r"\bjailbreak\b", re.I)),
     ("act unrestricted", re.compile(r"\bact\s+as\s+(?:an?\s+)?unrestricted\b", re.I)),
     ("print instructions", re.compile(r"\b(?:print|show|reveal|dump)\s+(?:your\s+)?instructions\b", re.I)),
@@ -25,9 +27,11 @@ def detect_prompt_injection(text: str) -> dict[str, object]:
     normalized_checks = {
         "ignore previous instructions": "ignore previous instructions",
         "reveal system prompt": "reveal system prompt",
+        "internal prompts": "internal prompts",
         "developer message": "developer message",
         "hidden prompt": "hidden prompt",
         "disable safety": "disable safety",
+        "ignore safety rules": "ignore safety rules",
         "jailbreak": "jailbreak",
         "act unrestricted": "act as unrestricted",
         "print instructions": "print your instructions",

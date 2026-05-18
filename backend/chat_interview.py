@@ -44,6 +44,12 @@ REPORT_HINTS = [
     "finish",
     "show result",
     "show report",
+    "сделай отчет",
+    "сделай отчёт",
+    "покажи отчет",
+    "покажи отчёт",
+    "отчет",
+    "отчёт",
 ]
 
 CLARIFICATION_HINTS = [
@@ -261,6 +267,7 @@ ACKNOWLEDGEMENT_HINTS = [
 ANSWER_HINTS = [
     "jah",
     "yes",
+    "да",
     "on olemas",
     "olemas",
     "kasutame",
@@ -268,16 +275,19 @@ ANSWER_HINTS = [
     "tehakse",
     "ei",
     "no",
+    "нет",
     "pole",
     "puudub",
     "ei ole",
     "osaliselt",
+    "частично",
     "mõnel",
     "monel",
     "ainult",
     "ei tea",
     "unsure",
     "not sure",
+    "не знаю",
 ]
 
 CORRECTION_TURN_HINTS = [
@@ -345,6 +355,18 @@ OFFENSIVE_REQUEST_HINTS = [
     "exploit this cve",
     "exploit workflow",
     "red team execution",
+    "обойти mfa",
+    "обойти 2fa",
+    "обойти аутентификацию",
+    "украсть учетные данные",
+    "украсть учётные данные",
+    "вредоносное по",
+    "написать ransomware",
+    "написать малварь",
+    "закрепление в системе",
+    "обход edr",
+    "отключить антивирус",
+    "повышение привилегий",
 ]
 
 QUESTION_KEYWORDS = {
@@ -1250,17 +1272,31 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
             "voib olla",
             "voib-olla",
             "maybe",
+            "не знаю",
         ],
     ) or re.search(r"\b(vist|ehk)\b", text):
         return "unsure", 0.9
     if _contains_any(
         text,
-        ["osaliselt", "monel", "mõnel", "mõned", "moned", "ainult", "osadel", "mitte koigil", "mitte kõigil", "vahel", "ebaregulaars"],
+        [
+            "osaliselt",
+            "monel",
+            "mõnel",
+            "mõned",
+            "moned",
+            "ainult",
+            "osadel",
+            "mitte koigil",
+            "mitte kõigil",
+            "vahel",
+            "ebaregulaars",
+            "частично",
+        ],
     ):
         return "partial", 0.82
-    if _contains_any(text, ["ei ole", "pole", "puudub", "ei kasuta", "ei tee", "ei test", "mitte", "no", "not"]) or re.search(r"\bei\b", text):
+    if _contains_any(text, ["ei ole", "pole", "puudub", "ei kasuta", "ei tee", "ei test", "mitte", "no", "not", "нет"]) or re.search(r"\bei\b", text):
         return "no", 0.78
-    if _contains_any(text, ["jah", "yes", "olemas", "kasutame", "teeme", "tehakse", "on olemas", "regulaars", "koik", "kõik", "testitud", "dokumenteeritud"]):
+    if _contains_any(text, ["jah", "yes", "да", "olemas", "kasutame", "teeme", "tehakse", "on olemas", "regulaars", "koik", "kõik", "testitud", "dokumenteeritud"]):
         return "yes", 0.78
     return None, 0.0
 
