@@ -662,8 +662,7 @@ function ReportCockpit({
                   className="flex gap-3 pt-1"
                 >
                   <div className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold text-slate-950 shadow-[0_10px_20px_rgba(255,255,255,0.08)]",
-                    `bg-gradient-to-br ${toneAccent(step.tone)}`,
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-slate-950/70 text-sm font-semibold text-cyan-100 shadow-[0_10px_24px_rgba(8,145,178,0.14)] ring-1 ring-white/[0.04]",
                   )}>
                     {index + 1}
                   </div>

@@ -121,7 +121,7 @@ export default function Sidebar({
                   <div
                     key={session.id}
                     className={cn(
-                      "group rounded-xl border px-2.5 py-2.5",
+                      "group rounded-xl border px-2.5 py-2.5 transition-all duration-200 ease-out",
                       active
                         ? "border-sky-400/30 bg-sky-500/15"
                         : "border-transparent bg-transparent hover:bg-white/[0.07]",
@@ -149,7 +149,7 @@ export default function Sidebar({
                       <button
                         type="button"
                         onClick={() => onDeleteSession(session.id)}
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 opacity-0 hover:bg-white/10 hover:text-slate-200 group-hover:opacity-100"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 opacity-0 transition-all duration-200 hover:bg-white/10 hover:text-slate-200 group-hover:opacity-100"
                         aria-label="Delete local session"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export default function Sidebar({
             ) : (
               <div className="rounded-xl border border-dashed border-white/10 p-3 text-xs leading-5 text-slate-500">
                 {language === "ru"
-                  ? "No local sessions yet."
+                  ? "Локальных сессий пока нет."
                   : language === "en"
                     ? "No local sessions yet."
                     : "Kohalikke sessioone veel ei ole."}

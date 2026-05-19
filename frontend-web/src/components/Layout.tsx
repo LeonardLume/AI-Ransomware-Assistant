@@ -21,6 +21,7 @@ export default function Layout({
   sessions,
   activeSessionId,
   activeView,
+  contentKey,
   workspaceOverflowVisible,
   language,
   pages,
@@ -40,6 +41,7 @@ export default function Layout({
   sessions: SessionSummary[];
   activeSessionId?: string | null;
   activeView: AppView;
+  contentKey?: string;
   workspaceOverflowVisible?: boolean;
   language: UiLanguage;
   pages: Record<AppView, ReactNode>;
@@ -96,7 +98,7 @@ export default function Layout({
             </Button>
 
             <div
-              key={`${activeView}-${activeSessionId || "no-session"}`}
+              key={contentKey || activeView}
               className="view-transition-soft relative z-10 min-h-0 flex-1 p-4 sm:p-5 lg:p-6"
             >
               {pages[activeView]}

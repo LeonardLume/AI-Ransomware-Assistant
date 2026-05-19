@@ -35,7 +35,9 @@ export function saveSessions(sessions: SessionSummary[]): void {
 export function upsertSession(summary: SessionSummary): SessionSummary[] {
   const existing = getSessions();
   const withoutCurrent = existing.filter((item) => item.id !== summary.id);
-  const next = [summary, ...withoutCurrent].slice(0, 25);
+  const next = [summary, ...withoutCurrent]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 25);
   saveSessions(next);
   return next;
 }

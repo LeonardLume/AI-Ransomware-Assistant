@@ -341,9 +341,11 @@ export default function App() {
         score?: ScoreResponse | null;
         session?: SessionStateResponse | null;
         explicitTitle?: string;
+        touch?: boolean;
       } = {},
     ) => {
       const existing = getSessions().find((item) => item.id === sessionId);
+      const shouldTouch = patch.touch !== false;
       const title = buildReadableSessionTitle({
         score: patch.score,
         session: patch.session,
@@ -357,7 +359,7 @@ export default function App() {
           ...patch,
           title,
           createdAt: existing?.createdAt,
-          updatedAt: new Date().toISOString(),
+          updatedAt: shouldTouch ? new Date().toISOString() : existing?.updatedAt,
         }),
       );
       setSessions(next);
@@ -368,7 +370,7 @@ export default function App() {
   const refreshBackendState = useCallback(
     async (
       sessionId: string,
-      options: { includeReport?: boolean; updateMessages?: boolean } = {},
+      options: { includeReport?: boolean; updateMessages?: boolean; touchSession?: boolean } = {},
     ) => {
       const [sessionResult, scoreResult] = await Promise.allSettled([
         getSession(sessionId),
@@ -400,6 +402,7 @@ export default function App() {
       refreshSessionMetadata(sessionId, {
         score: nextScore,
         session: nextSession,
+        touch: options.touchSession,
         completionRate:
           nextScore?.completion_rate ??
           (sessionResult.status === "fulfilled"
@@ -486,7 +489,10 @@ export default function App() {
       setActiveView("interview");
       setSidebarOpen(false);
       try {
-        await refreshBackendState(sessionId, { includeReport: shouldLoadReport || shouldKeepReport });
+        await refreshBackendState(sessionId, {
+          includeReport: shouldLoadReport || shouldKeepReport,
+          touchSession: false,
+        });
       } catch (selectError) {
         if (selectError instanceof ApiError && selectError.status === 404) {
           setSessions(removeSession(sessionId));
@@ -517,7 +523,7 @@ export default function App() {
     void bootstrap();
     const restored = initialUiStateRef.current;
     const restoredSessionExists = localSessions.some((session) => session.id === restored.activeSessionId);
-    const sessionId = restoredSessionExists ? restored.activeSessionId : localSessions[0]?.id;
+    const sessionId = restoredSessionExists ? restored.activeSessionId : null;
 
     if (sessionId) {
       setActiveSessionId(sessionId);
@@ -525,6 +531,7 @@ export default function App() {
       setActiveArtifact(restored.activeArtifact ?? "readiness-report");
       setArtifactOverlayOpen(Boolean(restored.artifactOverlayOpen));
       void refreshBackendState(sessionId, {
+        touchSession: false,
         includeReport: Boolean(
           restored.artifactOverlayOpen &&
           artifactNeedsReport(restored.activeArtifact ?? "readiness-report"),
@@ -536,12 +543,23 @@ export default function App() {
           return;
         }
         try {
-          await refreshBackendState(sessionId, { includeReport: false });
+          await refreshBackendState(sessionId, { includeReport: false, touchSession: false });
         } catch (fallbackError) {
           setBackendOnline(false);
           setError(messageFromError(fallbackError));
         }
       });
+    } else {
+      setActiveSessionId(null);
+      setSessionState(null);
+      setScore(null);
+      setReport(null);
+      setLastResponse(null);
+      setMessages([]);
+      setArtifactOverlayOpen(false);
+      if (restored.activeView === "interview") {
+        setActiveView("home");
+      }
     }
   }, [bootstrap, refreshBackendState]);
 
@@ -577,7 +595,10 @@ export default function App() {
   }, [artifactOverlayVisible]);
 
   useEffect(() => {
-    document.body.classList.toggle("interview-page-open", activeView === "interview");
+    document.body.classList.toggle(
+      "interview-page-open",
+      activeView === "interview",
+    );
     return () => document.body.classList.remove("interview-page-open");
   }, [activeView]);
 
@@ -814,6 +835,7 @@ export default function App() {
       providerStatus={providerStatus}
       lastResponse={lastResponse}
       activeView={activeView}
+      contentKey={`${activeView}-${activeSessionId || "no-session"}`}
       workspaceOverflowVisible={artifactOverlayVisible}
       language={language}
       sidebarOpen={sidebarOpen}

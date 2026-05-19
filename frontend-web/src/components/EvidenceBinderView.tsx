@@ -9,7 +9,6 @@ import {
 } from "../utils/i18n";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
-import { ScrollArea } from "./ui/scroll-area";
 import { EmptyState } from "./ui";
 
 export default function EvidenceBinderView({
@@ -80,16 +79,14 @@ export default function EvidenceBinderView({
                   <p className="mt-1 text-xs text-slate-500">NIST CSF: {group.nist_csf.join(", ")}</p>
                 ) : null}
               </div>
-              <ScrollArea className="mt-4 max-h-72 pr-3">
-                <ul className="space-y-3 text-sm leading-6 text-slate-300">
-                  {(group.items || []).map((item) => (
-                    <li key={item} className="flex gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
-                      <span>{localizeKnownText(language, item)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </ScrollArea>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                {(group.items || []).map((item) => (
+                  <li key={item} className="flex gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
+                    <span>{localizeKnownText(language, item)}</span>
+                  </li>
+                ))}
+              </ul>
             </Card>
           );
         })}
