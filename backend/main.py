@@ -19,6 +19,7 @@ from backend.ai_trace import (
     trace_intent_decision,
 )
 from backend.chat import ChatController
+from backend.chat.transparency import build_assistant_transparency
 from backend.chat_interview import (
     answer_client_question_with_llm,
     answer_general_advisory_with_llm,
@@ -528,66 +529,14 @@ def chat(payload: ChatIn, request: Request):
             intent_confidence="medium",
         )
 
-    extracted_answers = extraction.get("extracted_answers", {})
-    if isinstance(extracted_answers, dict):
-        for qid, answer in extracted_answers.items():
-            q = qmap.get(qid)
-            if not q:
-                continue
-            if answer not in q.get("options", []):
-                continue
-            previous = state.answers.get(qid)
-            state.answers[qid] = {
-                "answer": answer,
-                "details": message,
-                "source": "ai_interview",
-            }
-            state.events.append(
-                {
-                    "type": "chat_answer_saved",
-                    "question_id": qid,
-                    "answer": answer,
-                    "details": message,
-                    "source": "ai_interview",
-                    "previous_answer": (previous or {}).get("answer"),
-                    "confidence_score": (extraction.get("confidence", {}) or {}).get(qid),
-                }
-            )
-            trace_answer_saved(
-                session_id=state.session_id,
-                request_id=request_id,
-                intent=extraction.get("intent", intent),
-                response_type="interview_answer",
-                provider=extraction.get("provider", "fallback") if not extraction.get("used_fallback", True) else "fallback",
-                used_fallback=bool(extraction.get("used_fallback", True)),
-                current_question_id=qid,
-                current_domain=q.get("domain"),
-                user_message=message,
-                saved_answer={"question_id": qid, "answer": answer},
-                confidence=(extraction.get("confidence", {}) or {}).get(qid),
-            )
-            if qid in state.unclear_question_ids:
-                state.unclear_question_ids.remove(qid)
-
-    unclear_questions = [
-        qid
-        for qid in extraction.get("unclear_questions", [])
-        if qid in qmap and qid not in _base_answers_only(state.answers)
-    ]
-    for qid in unclear_questions:
-        if qid not in state.unclear_question_ids:
-            state.unclear_question_ids.append(qid)
-
-    state.events.append(
-        {
-            "type": "chat_message_processed",
-            "intent": extraction.get("intent", intent),
-            "current_question_id": current_question["id"],
-            "extracted_answers": extracted_answers,
-            "unclear_questions": unclear_questions,
-            "provider": extraction.get("provider", "fallback"),
-            "used_fallback": extraction.get("used_fallback", True),
-        }
+    extracted_answers, unclear_questions = _apply_chat_extraction(
+        state=state,
+        extraction=extraction,
+        qmap=qmap,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        intent=intent,
     )
 
     base_answers = _base_answers_only(state.answers)
@@ -1298,7 +1247,7 @@ def _chat_response(
         "prompt_injection_blocked": prompt_injection_blocked,
         "prompt_injection_reason": prompt_injection_reason,
         "knowledge_sources": knowledge_sources or [],
-        "assistant_transparency": _assistant_transparency(
+        "assistant_transparency": build_assistant_transparency(
             response_type=response_type,
             current_question=current_question,
             current_question_id=state.current_question_id,
@@ -1327,6 +1276,111 @@ def _base_answers_only(answers: dict[str, dict[str, Any]]) -> dict[str, dict[str
     return {qid: value for qid, value in answers.items() if not qid.startswith("followup__")}
 
 
+def _apply_chat_extraction(
+    *,
+    state: SessionState,
+    extraction: dict[str, Any],
+    qmap: dict[str, dict[str, Any]],
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+    intent: str,
+) -> tuple[dict[str, str], list[str]]:
+    extracted_answers = _extracted_answer_map(extraction)
+    confidence = _extraction_confidence(extraction)
+    used_fallback = bool(extraction.get("used_fallback", True))
+    trace_provider = "fallback" if used_fallback else str(extraction.get("provider", "fallback"))
+
+    for qid, answer in extracted_answers.items():
+        q = qmap.get(qid)
+        if not q or answer not in q.get("options", []):
+            continue
+
+        previous = state.answers.get(qid)
+        state.answers[qid] = {
+            "answer": answer,
+            "details": message,
+            "source": "ai_interview",
+        }
+        state.events.append(
+            {
+                "type": "chat_answer_saved",
+                "question_id": qid,
+                "answer": answer,
+                "details": message,
+                "source": "ai_interview",
+                "previous_answer": (previous or {}).get("answer"),
+                "confidence_score": confidence.get(qid),
+            }
+        )
+        trace_answer_saved(
+            session_id=state.session_id,
+            request_id=request_id,
+            intent=extraction.get("intent", intent),
+            response_type="interview_answer",
+            provider=trace_provider,
+            used_fallback=used_fallback,
+            current_question_id=qid,
+            current_domain=q.get("domain"),
+            user_message=message,
+            saved_answer={"question_id": qid, "answer": answer},
+            confidence=confidence.get(qid),
+        )
+        if qid in state.unclear_question_ids:
+            state.unclear_question_ids.remove(qid)
+
+    unclear_questions = _sync_unclear_questions(state, extraction, qmap)
+    state.events.append(
+        {
+            "type": "chat_message_processed",
+            "intent": extraction.get("intent", intent),
+            "current_question_id": current_question["id"],
+            "extracted_answers": extracted_answers,
+            "unclear_questions": unclear_questions,
+            "provider": extraction.get("provider", "fallback"),
+            "used_fallback": used_fallback,
+        }
+    )
+    return extracted_answers, unclear_questions
+
+
+def _extracted_answer_map(extraction: dict[str, Any]) -> dict[str, str]:
+    raw_answers = extraction.get("extracted_answers", {})
+    if not isinstance(raw_answers, dict):
+        return {}
+    return {
+        str(qid): str(answer)
+        for qid, answer in raw_answers.items()
+        if str(qid).strip() and str(answer).strip()
+    }
+
+
+def _extraction_confidence(extraction: dict[str, Any]) -> dict[str, Any]:
+    confidence = extraction.get("confidence", {})
+    return confidence if isinstance(confidence, dict) else {}
+
+
+def _sync_unclear_questions(
+    state: SessionState,
+    extraction: dict[str, Any],
+    qmap: dict[str, dict[str, Any]],
+) -> list[str]:
+    raw_unclear_questions = extraction.get("unclear_questions", [])
+    if not isinstance(raw_unclear_questions, list):
+        return []
+
+    base_answers = _base_answers_only(state.answers)
+    unclear_questions = [
+        str(qid)
+        for qid in raw_unclear_questions
+        if str(qid) in qmap and str(qid) not in base_answers
+    ]
+    for qid in unclear_questions:
+        if qid not in state.unclear_question_ids:
+            state.unclear_question_ids.append(qid)
+    return unclear_questions
+
+
 def _progress(state: SessionState) -> dict[str, Any]:
     base_answers = _base_answers_only(state.answers)
     scores = calculate_scores(base_answers)
@@ -1337,139 +1391,6 @@ def _progress(state: SessionState) -> dict[str, Any]:
         "is_complete": scores["is_complete"],
         "followups_total": len(state.followups),
         "followups_answered": len([qid for qid in state.answers if qid.startswith("followup__")]),
-    }
-
-
-def _question_source_entries(question: dict[str, Any] | None) -> list[dict[str, str]]:
-    if not question:
-        return []
-    return [
-        {"label": str(ref), "kind": "question_source"}
-        for ref in (question.get("source_refs") or [])
-        if str(ref).strip()
-    ]
-
-
-def _knowledge_source_entries(items: list[dict[str, Any]] | None) -> list[dict[str, str]]:
-    entries: list[dict[str, str]] = []
-    for item in items or []:
-        label = str(item.get("name") or item.get("label") or "").strip()
-        if not label:
-            continue
-        entry = {"label": label, "kind": "knowledge_source"}
-        url = str(item.get("url") or "").strip()
-        if url:
-            entry["url"] = url
-        entries.append(entry)
-    return entries
-
-
-def _dedupe_source_entries(entries: list[dict[str, str]]) -> list[dict[str, str]]:
-    seen: set[str] = set()
-    unique: list[dict[str, str]] = []
-    for entry in entries:
-        key = f"{entry.get('label', '').strip().lower()}|{entry.get('url', '').strip().lower()}"
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        unique.append(entry)
-    return unique
-
-
-def _saved_answer_items(extracted_answers: dict[str, str] | None) -> list[dict[str, str]]:
-    return [
-        {"question_id": qid, "answer": answer}
-        for qid, answer in (extracted_answers or {}).items()
-        if str(qid).strip() and str(answer).strip()
-    ]
-
-
-def _saved_answer_source_entries(extracted_answers: dict[str, str] | None) -> list[dict[str, str]]:
-    qmap = question_map()
-    entries: list[dict[str, str]] = []
-    for qid in (extracted_answers or {}).keys():
-        entries.extend(_question_source_entries(qmap.get(qid)))
-    return _dedupe_source_entries(entries)
-
-
-def _assistant_answer_status(
-    *,
-    response_type: str,
-    current_question_id: str | None,
-    extracted_answers: dict[str, str] | None,
-    report: dict[str, Any] | None,
-    prompt_injection_blocked: bool,
-) -> str:
-    saved_answer_ids = list((extracted_answers or {}).keys())
-    if prompt_injection_blocked or response_type in {"guardrail", "prompt_injection_blocked", "report_request_blocked"}:
-        return "blocked"
-    if report:
-        return "report_ready"
-    if saved_answer_ids:
-        if current_question_id and current_question_id not in saved_answer_ids:
-            return "saved_and_advanced"
-        return "answer_saved"
-    if response_type == "clarification":
-        return "followup_requested"
-    if response_type in {"client_question", "general_advisory_chat", "knowledge_grounded_answer", "smalltalk"}:
-        return "question_unchanged"
-    if response_type == "interview_question":
-        return "question_presented"
-    return "info_only"
-
-
-def _assistant_source_entries(
-    *,
-    response_type: str,
-    current_question: dict[str, Any] | None,
-    extracted_answers: dict[str, str] | None,
-    knowledge_sources: list[dict[str, Any]] | None,
-) -> list[dict[str, str]]:
-    if response_type == "knowledge_grounded_answer":
-        entries = _knowledge_source_entries(knowledge_sources or load_source_notes())
-        return _dedupe_source_entries(entries)
-
-    if response_type in {"client_question", "general_advisory_chat"}:
-        entries = _question_source_entries(current_question)
-        if not entries:
-            entries = _knowledge_source_entries(load_source_notes())
-        return _dedupe_source_entries(entries)
-
-    if extracted_answers:
-        return _saved_answer_source_entries(extracted_answers)
-
-    if response_type == "interview_question":
-        return _question_source_entries(current_question)
-
-    return []
-
-
-def _assistant_transparency(
-    *,
-    response_type: str,
-    current_question: dict[str, Any] | None,
-    current_question_id: str | None,
-    extracted_answers: dict[str, str] | None,
-    knowledge_sources: list[dict[str, Any]] | None,
-    report: dict[str, Any] | None,
-    prompt_injection_blocked: bool,
-) -> dict[str, Any]:
-    return {
-        "answer_type": response_type,
-        "answer_status": _assistant_answer_status(
-            response_type=response_type,
-            current_question_id=current_question_id,
-            extracted_answers=extracted_answers,
-            report=report,
-            prompt_injection_blocked=prompt_injection_blocked,
-        ),
-        "sources": _assistant_source_entries(
-            response_type=response_type,
-            current_question=current_question,
-            extracted_answers=extracted_answers,
-            knowledge_sources=knowledge_sources,
-        ),
-        "saved_answers": _saved_answer_items(extracted_answers),
     }
 
 
@@ -1684,66 +1605,14 @@ def _handle_chat_answer_turn(
             intent_confidence="medium",
         )
 
-    extracted_answers = extraction.get("extracted_answers", {})
-    if isinstance(extracted_answers, dict):
-        for qid, answer in extracted_answers.items():
-            q = qmap.get(qid)
-            if not q:
-                continue
-            if answer not in q.get("options", []):
-                continue
-            previous = state.answers.get(qid)
-            state.answers[qid] = {
-                "answer": answer,
-                "details": message,
-                "source": "ai_interview",
-            }
-            state.events.append(
-                {
-                    "type": "chat_answer_saved",
-                    "question_id": qid,
-                    "answer": answer,
-                    "details": message,
-                    "source": "ai_interview",
-                    "previous_answer": (previous or {}).get("answer"),
-                    "confidence_score": (extraction.get("confidence", {}) or {}).get(qid),
-                }
-            )
-            trace_answer_saved(
-                session_id=state.session_id,
-                request_id=request_id,
-                intent=extraction.get("intent", intent),
-                response_type="interview_answer",
-                provider=extraction.get("provider", "fallback") if not extraction.get("used_fallback", True) else "fallback",
-                used_fallback=bool(extraction.get("used_fallback", True)),
-                current_question_id=qid,
-                current_domain=q.get("domain"),
-                user_message=message,
-                saved_answer={"question_id": qid, "answer": answer},
-                confidence=(extraction.get("confidence", {}) or {}).get(qid),
-            )
-            if qid in state.unclear_question_ids:
-                state.unclear_question_ids.remove(qid)
-
-    unclear_questions = [
-        qid
-        for qid in extraction.get("unclear_questions", [])
-        if qid in qmap and qid not in _base_answers_only(state.answers)
-    ]
-    for qid in unclear_questions:
-        if qid not in state.unclear_question_ids:
-            state.unclear_question_ids.append(qid)
-
-    state.events.append(
-        {
-            "type": "chat_message_processed",
-            "intent": extraction.get("intent", intent),
-            "current_question_id": current_question["id"],
-            "extracted_answers": extracted_answers,
-            "unclear_questions": unclear_questions,
-            "provider": extraction.get("provider", "fallback"),
-            "used_fallback": extraction.get("used_fallback", True),
-        }
+    extracted_answers, unclear_questions = _apply_chat_extraction(
+        state=state,
+        extraction=extraction,
+        qmap=qmap,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        intent=intent,
     )
 
     refreshed_answers = _base_answers_only(state.answers)

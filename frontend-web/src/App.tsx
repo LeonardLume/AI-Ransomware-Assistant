@@ -10,6 +10,7 @@ import {
 import {
   ApiError,
   chat,
+  createSession,
   getProviderStatus,
   getQuestions,
   getReport,
@@ -119,6 +120,109 @@ function attachLatestAssistantMetadata(
           openedArtifacts,
         }
       : message,
+  );
+}
+
+function preserveAssistantMetadata(
+  previousMessages: UiMessage[],
+  nextMessages: UiMessage[],
+): UiMessage[] {
+  const previousAssistants = previousMessages.filter((message) => message.role === "assistant");
+  let assistantIndex = 0;
+
+  return nextMessages.map((message, index) => {
+    const previousAtIndex = previousMessages[index];
+    if (message.role !== "assistant") {
+      if (
+        previousAtIndex &&
+        previousAtIndex.role === message.role &&
+        previousAtIndex.content === message.content
+      ) {
+        return previousAtIndex;
+      }
+      return message;
+    }
+
+    const previous = previousAssistants[assistantIndex];
+    assistantIndex += 1;
+    if (!previous || previous.content !== message.content) {
+      return message;
+    }
+
+    if (
+      previousAtIndex &&
+      previousAtIndex.role === message.role &&
+      previousAtIndex.content === message.content
+    ) {
+      return previousAtIndex;
+    }
+
+    return {
+      ...message,
+      technicalDetails: previous.technicalDetails,
+      assistantTransparency: previous.assistantTransparency,
+      openedArtifacts: previous.openedArtifacts,
+    };
+  });
+}
+
+function buildSessionSnapshot(
+  previous: SessionStateResponse | null,
+  response: ChatResponse,
+): SessionStateResponse {
+  const sameSession = previous?.session_id === response.session_id;
+  const nextAnswers = { ...(sameSession ? previous?.answers || {} : {}) };
+
+  for (const [questionId, answer] of Object.entries(response.extracted_answers || {})) {
+    nextAnswers[questionId] = {
+      ...(nextAnswers[questionId] || {}),
+      answer,
+      source: nextAnswers[questionId]?.source || "ai_interview",
+    };
+  }
+
+  return {
+    session_id: response.session_id,
+    org_info: sameSession ? previous?.org_info : {},
+    answers: nextAnswers,
+    followups: sameSession ? previous?.followups || [] : [],
+    events: sameSession ? previous?.events || [] : [],
+    chat_history: response.chat_history || previous?.chat_history || [],
+    unclear_question_ids: response.unclear_questions || [],
+    current_question_id: response.current_question_id,
+    current_domain: response.current_domain,
+    interview_complete: Boolean(response.is_complete),
+    completion_mode: response.completion_mode,
+    progress: {
+      ...(sameSession ? previous?.progress || {} : {}),
+      completion_rate: response.completion_rate,
+      is_complete: response.is_complete,
+    },
+  };
+}
+
+function mergeChatResponseMessages(
+  previousMessages: UiMessage[],
+  response: ChatResponse,
+  questions: Question[],
+): UiMessage[] {
+  const nextMessages = response.chat_history?.length
+    ? toUiMessages(response.chat_history)
+    : response.assistant_message
+      ? [
+          ...previousMessages,
+          makeLocalMessage("assistant", response.assistant_message || "", {
+            technicalDetails: buildTechnicalDetails(response, questions),
+            assistantTransparency: response.assistant_transparency,
+            openedArtifacts: artifactsForResponse(response),
+          }),
+        ]
+      : previousMessages;
+
+  return attachLatestAssistantMetadata(
+    preserveAssistantMetadata(previousMessages, nextMessages),
+    response,
+    questions,
   );
 }
 
@@ -261,19 +365,9 @@ export default function App() {
       setLastResponse(response);
       setBackendOnline(true);
       setError(null);
+      setSessionState((current) => buildSessionSnapshot(current, response));
 
-      if (response.chat_history?.length) {
-        setMessages(attachLatestAssistantMetadata(toUiMessages(response.chat_history), response, questions));
-      } else if (response.assistant_message) {
-        setMessages((current) => [
-          ...current,
-          makeLocalMessage("assistant", response.assistant_message || "", {
-            technicalDetails: buildTechnicalDetails(response, questions),
-            assistantTransparency: response.assistant_transparency,
-            openedArtifacts: artifactsForResponse(response),
-          }),
-        ]);
-      }
+      setMessages((current) => mergeChatResponseMessages(current, response, questions));
 
       if (response.score) {
         setScore(response.score);
@@ -290,10 +384,8 @@ export default function App() {
         completionRate: response.score?.completion_rate ?? response.completion_rate,
         riskLevel: response.score?.risk_level ?? response.report?.risk_level,
       });
-
-      await refreshBackendState(response.session_id, { includeReport: false, updateMessages: false });
     },
-    [questions, refreshBackendState, refreshSessionMetadata],
+    [questions, refreshSessionMetadata],
   );
 
   const bootstrap = useCallback(async () => {
@@ -430,6 +522,38 @@ export default function App() {
           return;
         }
       }
+      setBackendOnline(false);
+      setError(messageFromError(sendError));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sendNewSessionMessage(message: string) {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      await startAssessment();
+      return;
+    }
+
+    setSending(true);
+    setError(null);
+    setLastUserMessage(trimmedMessage);
+    setReport(null);
+    setScore(null);
+    setSessionState(null);
+    setLastResponse(null);
+    setArtifactOverlayOpen(false);
+    setActiveView("interview");
+    setSidebarOpen(false);
+    setMessages([makeLocalMessage("user", trimmedMessage)]);
+
+    try {
+      const session = await createSession();
+      setActiveSessionId(session.session_id);
+      const response = await chat(session.session_id, trimmedMessage);
+      await applyChatResponse(response);
+    } catch (sendError) {
       setBackendOnline(false);
       setError(messageFromError(sendError));
     } finally {
@@ -592,8 +716,7 @@ export default function App() {
             sending={sending}
             canGenerateReport={Boolean(activeSessionId)}
             reportLoading={artifactLoading}
-            onPrompt={sendMessage}
-            onStart={startAssessment}
+            onPrompt={sendNewSessionMessage}
             onLoadDemo={handleLoadDemo}
             onGenerateReport={generateReport}
             onOpenTechnical={() => {

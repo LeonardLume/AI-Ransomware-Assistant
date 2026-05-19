@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import type { ArtifactId, UiMessage } from "../types/api";
 import type { UiLanguage } from "../utils/i18n";
@@ -54,7 +55,7 @@ function compactAnswerLabel(value?: string): string {
   return labels[String(value || "")] || String(value || "");
 }
 
-export default function MessageBubble({
+function MessageBubble({
   message,
   onOpenArtifact,
   language = "et",
@@ -113,7 +114,7 @@ export default function MessageBubble({
         </div>
 
         {transparency ? (
-          <div className="mt-4 border-t border-white/8 pt-3 text-[11px] text-slate-400">
+          <div className="mt-3 text-[11px] text-slate-400">
             <div className="flex flex-wrap gap-1.5">
               <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 backdrop-blur-md">
                 Type: {answerTypeLabel(transparency.answer_type)}
@@ -174,3 +175,5 @@ export default function MessageBubble({
     </div>
   );
 }
+
+export default memo(MessageBubble);

@@ -17,7 +17,6 @@ export default function PromptCard({
   placeholder?: string;
   sending?: boolean;
   onSubmit: (message: string) => void;
-  onStart: () => void;
 }) {
   const [value, setValue] = useState("");
   const [animatedText, setAnimatedText] = useState("");
@@ -44,7 +43,7 @@ export default function PromptCard({
           setPromptIndex((current) => current + 1);
         }, 1800);
       }
-    }, 35);
+    }, 65);
 
     return () => window.clearInterval(typing);
   }, [promptIndex, value, placeholder]);

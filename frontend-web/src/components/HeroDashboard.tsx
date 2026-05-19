@@ -5,7 +5,6 @@ import PromptCard from "./PromptCard";
 export default function HeroDashboard({
   sending,
   onPrompt,
-  onStart,
 }: {
   session?: SessionStateResponse | null;
   score?: ScoreResponse | null;
@@ -13,7 +12,6 @@ export default function HeroDashboard({
   canGenerateReport: boolean;
   reportLoading?: boolean;
   onPrompt: (message: string) => void;
-  onStart: () => void;
   onLoadDemo: (profileId: "weak_sme" | "better_sme") => void;
   onGenerateReport: () => void;
   onOpenTechnical: () => void;
@@ -31,7 +29,7 @@ export default function HeroDashboard({
         </p>
 
         <div className="mt-10">
-          <PromptCard sending={sending} onSubmit={onPrompt} onStart={onStart} />
+          <PromptCard sending={sending} onSubmit={onPrompt} />
         </div>
       </div>
     </section>

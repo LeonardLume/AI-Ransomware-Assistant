@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Play, RefreshCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactId, UiMessage } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
 import Composer from "./Composer";
@@ -27,10 +27,12 @@ export default function ChatPanel({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const [showScrollUp, setShowScrollUp] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
 
-  const updateScrollControls = () => {
+  const updateScrollControls = useCallback(() => {
+    scrollFrameRef.current = null;
     const node = scrollRef.current;
     if (!node) {
       setShowScrollUp(false);
@@ -43,9 +45,18 @@ export default function ChatPanel({
       setShowScrollDown(false);
       return;
     }
-    setShowScrollUp(node.scrollTop > 80);
-    setShowScrollDown(node.scrollTop + node.clientHeight < node.scrollHeight - 80);
-  };
+    const nextShowScrollUp = node.scrollTop > 80;
+    const nextShowScrollDown = node.scrollTop + node.clientHeight < node.scrollHeight - 80;
+    setShowScrollUp((current) => (current === nextShowScrollUp ? current : nextShowScrollUp));
+    setShowScrollDown((current) => (current === nextShowScrollDown ? current : nextShowScrollDown));
+  }, []);
+
+  const scheduleScrollControlUpdate = useCallback(() => {
+    if (scrollFrameRef.current !== null) {
+      return;
+    }
+    scrollFrameRef.current = window.requestAnimationFrame(updateScrollControls);
+  }, [updateScrollControls]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -54,12 +65,17 @@ export default function ChatPanel({
   useEffect(() => {
     const timer = window.setTimeout(updateScrollControls, 120);
     return () => window.clearTimeout(timer);
-  }, [messages.length, sending]);
+  }, [messages.length, sending, updateScrollControls]);
 
   useEffect(() => {
     window.addEventListener("resize", updateScrollControls);
-    return () => window.removeEventListener("resize", updateScrollControls);
-  }, []);
+    return () => {
+      window.removeEventListener("resize", updateScrollControls);
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
+  }, [updateScrollControls]);
 
   return (
     <section className="chat-panel-shell relative flex min-h-[560px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[rgba(8,11,18,0.54)] shadow-[0_34px_90px_rgba(0,0,0,0.38)] backdrop-blur-[28px] lg:h-full lg:min-h-0">
@@ -85,7 +101,7 @@ export default function ChatPanel({
       ) : null}
       <div
         ref={scrollRef}
-        onScroll={updateScrollControls}
+        onScroll={scheduleScrollControlUpdate}
         className="scrollbar-slim min-h-0 flex-1 overflow-y-auto bg-black/8 px-5 py-8 sm:px-7"
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-10">

@@ -1,160 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
-import Particles, { initParticlesEngine } from "@tsparticles/react";
-import { loadSlim } from "@tsparticles/slim";
-import type { Engine, ISourceOptions } from "@tsparticles/engine";
-
-let particlesEngineReady: Promise<void> | null = null;
-
-function ensureParticlesEngine(): Promise<void> {
-  if (!particlesEngineReady) {
-    particlesEngineReady = initParticlesEngine(async (engine: Engine) => {
-      await loadSlim(engine);
-    });
-  }
-
-  return particlesEngineReady;
-}
-
-function usePrefersReducedMotion(): boolean {
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updatePreference = () => setReducedMotion(mediaQuery.matches);
-
-    updatePreference();
-    mediaQuery.addEventListener("change", updatePreference);
-
-    return () => mediaQuery.removeEventListener("change", updatePreference);
-  }, []);
-
-  return reducedMotion;
-}
+const points = [
+  "left-[12%] top-[18%] h-1 w-1 opacity-45",
+  "left-[18%] top-[25%] h-1.5 w-1.5 opacity-35",
+  "left-[31%] top-[6%] h-1.5 w-1.5 opacity-50",
+  "left-[38%] top-[22%] h-1 w-1 opacity-60",
+  "left-[44%] top-[8%] h-1 w-1 opacity-40",
+  "left-[52%] top-[26%] h-1.5 w-1.5 opacity-45",
+  "left-[65%] top-[7%] h-1 w-1 opacity-55",
+  "left-[77%] top-[20%] h-1 w-1 opacity-38",
+  "left-[86%] top-[4%] h-1 w-1 opacity-55",
+  "left-[8%] top-[72%] h-1.5 w-1.5 opacity-55",
+  "left-[23%] top-[75%] h-1.5 w-1.5 opacity-42",
+  "left-[35%] top-[76%] h-1 w-1 opacity-38",
+  "left-[49%] top-[88%] h-1 w-1 opacity-48",
+  "left-[58%] top-[98%] h-1 w-1 opacity-36",
+  "left-[71%] top-[82%] h-1 w-1 opacity-40",
+  "left-[82%] top-[95%] h-1.5 w-1.5 opacity-52",
+];
 
 export default function HomeParticles() {
-  const [ready, setReady] = useState(false);
-  const reducedMotion = usePrefersReducedMotion();
-
-  useEffect(() => {
-    let mounted = true;
-
-    ensureParticlesEngine().then(() => {
-      if (mounted) {
-        setReady(true);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const options = useMemo<ISourceOptions>(
-    () => ({
-      autoPlay: true,
-      background: {
-        color: {
-          value: "transparent",
-        },
-      },
-      detectRetina: true,
-      fpsLimit: reducedMotion ? 20 : 45,
-      fullScreen: {
-        enable: false,
-      },
-      interactivity: {
-        detectsOn: "window",
-        events: {
-          onClick: {
-            enable: false,
-          },
-          onHover: {
-            enable: false,
-          },
-          resize: {
-            enable: true,
-          },
-        },
-      },
-      particles: {
-        collisions: {
-          enable: false,
-        },
-        color: {
-          value: ["#ffffff", "#f0ffff", "#c8fbff"],
-        },
-        links: {
-          enable: false,
-        },
-        move: {
-          direction: "none",
-          enable: !reducedMotion,
-          outModes: {
-            default: "out",
-          },
-          random: true,
-          speed: 0.34,
-          straight: false,
-        },
-        number: {
-          density: {
-            enable: true,
-            area: 780,
-          },
-          value: 68,
-        },
-        opacity: {
-          value: {
-            min: 0.22,
-            max: 0.58,
-          },
-          animation: {
-            enable: !reducedMotion,
-            speed: 0.42,
-            sync: false,
-            startValue: "random",
-            minimumValue: 0.16,
-          },
-        },
-        shape: {
-          type: "circle",
-        },
-        size: {
-          value: {
-            min: 0.9,
-            max: 2.2,
-          },
-          animation: {
-            enable: false,
-          },
-        },
-      },
-      pauseOnBlur: true,
-      pauseOnOutsideViewport: true,
-    }),
-    [reducedMotion],
-  );
-
-  if (!ready) {
-    return null;
-  }
-
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-90 [filter:drop-shadow(0_0_3px_rgba(255,255,255,0.38))]"
-    >
-      <Particles
-        className="absolute inset-0 h-full w-full"
-        id="home-particles"
-        options={options}
-        style={{
-          height: "100%",
-          inset: 0,
-          position: "absolute",
-          width: "100%",
-        }}
-      />
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      {points.map((className, index) => (
+        <span
+          key={index}
+          className={`absolute rounded-full bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.22)] ${className}`}
+        />
+      ))}
     </div>
   );
 }
