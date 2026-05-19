@@ -229,7 +229,9 @@ textarea {
 .chat-bubble {
   transition:
     border-color 160ms ease,
-    background-color 160ms ease;
+    background-color 160ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
 }
 
 .chat-bubble-assistant {
@@ -262,6 +264,23 @@ textarea {
 
 .artifact-tab-transition {
   animation: artifact-tab-transition 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.chat-panel-shell,
+.chat-question-panel,
+.chat-composer-shell,
+.report-scene,
+.report-scene .report-panel,
+.report-scene .report-panel-soft,
+.report-scene .report-row,
+.report-scene .report-score-stage,
+.report-scene .report-metric-strip {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .report-scene .report-fade-up {
@@ -358,8 +377,7 @@ textarea {
   color: transparent;
 }
 
-.report-scene .report-metric-strip,
-.report-scene .report-highlight-row {
+.report-scene .report-metric-strip {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.035);
   backdrop-filter: blur(24px);
@@ -643,6 +661,16 @@ html.dark .text-slate-400 {
   .view-transition,
   .view-transition-soft,
   .artifact-tab-transition,
+  .chat-panel-shell,
+  .chat-question-panel,
+  .chat-composer-shell,
+  .chat-bubble,
+  .report-scene,
+  .report-scene .report-panel,
+  .report-scene .report-panel-soft,
+  .report-scene .report-row,
+  .report-scene .report-score-stage,
+  .report-scene .report-metric-strip,
   .report-scene .report-fade-up,
   .report-scene .report-ring-progress,
   .report-scene .report-bar-fill,

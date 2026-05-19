@@ -33,13 +33,13 @@ export default function ReportCockpitHero({
     <section className="report-hero relative px-0 py-0">
       <div className="relative space-y-6">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-center">
-          <div className="space-y-5">
-            <p className="max-w-3xl text-lg font-medium leading-8 tracking-normal text-slate-200">
+          <div className="space-y-6">
+            <p className="max-w-4xl text-xl font-semibold leading-9 tracking-normal text-slate-200">
               {summary}
             </p>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2">
               {topFinding ? (
-                <div className="report-highlight-row rounded-2xl px-4 py-3.5">
+                <div>
                   <div className="flex items-start gap-3">
                     <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
                     <div className="min-w-0">
@@ -53,7 +53,7 @@ export default function ReportCockpitHero({
                 </div>
               ) : null}
               {topAction ? (
-                <div className="report-highlight-row rounded-2xl px-4 py-3.5">
+                <div>
                   <div className="flex items-start gap-3">
                     <Target className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
                     <div className="min-w-0">

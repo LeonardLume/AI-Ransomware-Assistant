@@ -602,7 +602,7 @@ function ReportCockpit({
             </Badge>
           </div>
 
-          <div className="mt-4 grid gap-2.5">
+          <div className="mt-4 grid gap-4">
             {criticalFindings.length ? (
               criticalFindings.map((finding) => (
                 <article
@@ -654,12 +654,12 @@ function ReportCockpit({
             </div>
           </div>
 
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-4 space-y-4">
             {prioritySteps.length ? (
               prioritySteps.map((step, index) => (
                 <article
                   key={step.id}
-                  className="report-row flex gap-3 rounded-2xl px-4 py-3.5"
+                  className="flex gap-3 pt-1"
                 >
                   <div className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold text-slate-950 shadow-[0_10px_20px_rgba(255,255,255,0.08)]",
