@@ -65,10 +65,8 @@ html.dark body::before {
     radial-gradient(ellipse at 72% 64%, rgba(245, 158, 11, 0.38) 0%, transparent 42%),
     linear-gradient(180deg, #080a0c 0%, #10201f 26%, #0f766e 48%, #16a34a 70%, #eab308 100%);
   background-size: 120% 120%, 150% 150%, 140% 140%, 140% 140%, 100% 100%;
-  filter: blur(26px) saturate(118%);
-  opacity: 0.92;
+  opacity: 0.86;
   transform: translate3d(0, 0, 0);
-  animation: ambient-wallpaper 28s ease-in-out infinite alternate;
 }
 
 html.dark body::after {
@@ -80,6 +78,23 @@ html.dark body::after {
   background:
     radial-gradient(ellipse at 50% 0%, rgba(0, 0, 0, 0.54) 0%, rgba(0, 0, 0, 0.22) 28%, transparent 50%),
     linear-gradient(180deg, rgba(2, 6, 23, 0.22) 0%, rgba(2, 6, 23, 0.10) 44%, rgba(2, 6, 23, 0.32) 100%);
+}
+
+html.dark body.interview-page-open,
+html.dark body.artifact-page-open {
+  background: #07090d;
+}
+
+html.dark body.interview-page-open::before,
+html.dark body.interview-page-open::after,
+html.dark body.artifact-page-open::before,
+html.dark body.artifact-page-open::after,
+html.dark body.artifact-page-open .main-workspace::before,
+html.dark body.artifact-page-open .main-workspace::after {
+  opacity: 0;
+  background: #07090d;
+  filter: none;
+  transform: none;
 }
 
 button,
@@ -116,10 +131,6 @@ textarea {
   inset: -1px;
   content: "";
   pointer-events: none;
-  transition:
-    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    filter 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .main-workspace::before {
@@ -133,7 +144,6 @@ textarea {
     radial-gradient(ellipse at 28% 70%, rgba(245, 158, 11, 0.38) 0%, transparent 44%),
     linear-gradient(180deg, #080a0c 0%, #10201f 26%, #0f766e 48%, #16a34a 70%, #eab308 100%);
   background-size: 120% 120%, 150% 150%, 140% 140%, 140% 140%, 100% 100%;
-  animation: ambient-wallpaper 28s ease-in-out infinite alternate;
 }
 
 .main-workspace::after {
@@ -150,14 +160,13 @@ textarea {
     radial-gradient(circle at 50% 82%, rgba(66, 94, 190, 0.24) 0%, rgba(66, 94, 190, 0.12) 22%, transparent 48%),
     linear-gradient(180deg, #070b12 0%, #0d1320 28%, #12182b 54%, #171126 76%, #160b16 100%);
   background-size: 100% 100%, 138% 138%, 138% 138%, 132% 132%, 132% 132%, 128% 128%, 100% 100%;
-  animation: ambient-wallpaper 28s ease-in-out infinite alternate;
-  filter: saturate(108%) contrast(110%);
+  filter: saturate(104%) contrast(104%);
 }
 
 .main-workspace[data-view="interview"]::before {
   opacity: 0.08;
   transform: scale(1.03);
-  filter: blur(10px) saturate(72%);
+  filter: saturate(72%);
 }
 
 .main-workspace[data-view="interview"]::after {
@@ -209,23 +218,18 @@ textarea {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 16px 42px rgba(0, 0, 0, 0.14);
-  backdrop-filter: blur(18px);
 }
 
 .chat-composer-shell {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.008)),
     rgba(9, 11, 17, 0.42);
-  backdrop-filter: blur(30px);
 }
 
 .chat-bubble {
-  backdrop-filter: blur(18px);
   transition:
-    transform 220ms ease,
-    border-color 220ms ease,
-    background-color 220ms ease,
-    box-shadow 220ms ease;
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
 
 .chat-bubble-assistant {
@@ -252,12 +256,16 @@ textarea {
     0 14px 34px rgba(0, 0, 0, 0.12);
 }
 
-.view-transition {
-  animation: view-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.view-transition-soft {
+  animation: view-transition-soft 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.artifact-tab-transition {
+  animation: artifact-tab-transition 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .report-scene .report-fade-up {
-  animation: report-fade-up 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: none;
 }
 
 .report-scene .report-fade-up-delay-1 {
@@ -281,74 +289,90 @@ textarea {
 }
 
 .report-scene {
-  --report-border: rgba(255, 255, 255, 0.1);
-  --report-border-soft: rgba(255, 255, 255, 0.075);
-  --report-glass: rgba(255, 255, 255, 0.07);
-  --report-glass-soft: rgba(255, 255, 255, 0.04);
-  --report-glow: rgba(255, 255, 255, 0.075);
-  --report-shadow: 0 28px 90px rgba(2, 6, 16, 0.28);
-  --report-shadow-soft: 0 16px 48px rgba(2, 6, 16, 0.18);
+  --report-border: rgba(255, 255, 255, 0.09);
+  --report-border-soft: rgba(255, 255, 255, 0.07);
+  --report-glass: rgba(255, 255, 255, 0.035);
+  --report-glass-soft: rgba(255, 255, 255, 0.026);
+  --report-shadow: 0 20px 70px rgba(0, 0, 0, 0.18);
+  --report-shadow-soft: 0 14px 44px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, ui-sans-serif, system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.055), transparent 26%),
+    radial-gradient(circle at 82% 14%, rgba(34, 211, 238, 0.06), transparent 32%),
+    #050608;
+  border-radius: 38px;
 }
 
 .report-scene .report-panel {
   border: 1px solid var(--report-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.028)),
-    linear-gradient(145deg, rgba(22, 26, 36, 0.78), rgba(9, 12, 20, 0.62));
+  background: var(--report-glass);
   box-shadow: var(--report-shadow);
-  backdrop-filter: blur(32px) saturate(118%);
+  backdrop-filter: blur(24px);
 }
 
 .report-scene .report-panel-soft {
   border: 1px solid var(--report-border-soft);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.022)),
-    linear-gradient(155deg, rgba(25, 29, 40, 0.68), rgba(11, 14, 22, 0.54));
+  background: var(--report-glass-soft);
   box-shadow: var(--report-shadow-soft);
-  backdrop-filter: blur(28px) saturate(115%);
+  backdrop-filter: blur(18px);
+}
+
+.report-scene .report-panel,
+.report-scene .report-panel-soft,
+.report-scene .report-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 }
 
 .report-scene .report-stat-slab {
   border: 1px solid rgba(255, 255, 255, 0.07);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014)),
-    rgba(255, 255, 255, 0.018);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 38px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(18px) saturate(112%);
+  background: rgba(255, 255, 255, 0.032);
 }
 
 .report-scene .report-row {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.014)),
-    rgba(8, 11, 18, 0.16);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 14px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(18px) saturate(110%);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.026);
 }
 
 .report-scene .report-hero {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.report-scene .report-score-stage {
+  border-radius: 30px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.03)),
-    linear-gradient(135deg, rgba(20, 23, 31, 0.84), rgba(9, 11, 17, 0.72));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 30px 100px rgba(0, 0, 0, 0.24);
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.10), transparent 46%),
+    radial-gradient(circle at 50% 78%, rgba(34, 211, 238, 0.055), transparent 42%),
+    rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px);
+}
+
+.report-scene .report-title-gradient {
+  background: linear-gradient(180deg, #ffffff 0%, #dbeafe 48%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.report-scene .report-metric-strip,
+.report-scene .report-highlight-row {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(24px);
 }
 
 .report-scene .report-hover-lift {
   transition:
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 240ms ease,
     background-color 240ms ease;
 }
 
 .report-scene .report-hover-lift:hover {
-  transform: translateY(-3px);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
 }
 
@@ -376,12 +400,28 @@ textarea {
   transition: stroke-dashoffset 1200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.artifact-overlay-enter {
-  animation: artifact-overlay-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+@keyframes view-transition-soft {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.997);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.artifact-content-enter {
-  animation: artifact-content-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+@keyframes artifact-tab-transition {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 details > summary {
@@ -601,6 +641,8 @@ html.dark .text-slate-400 {
   .main-workspace::before,
   .main-workspace::after,
   .view-transition,
+  .view-transition-soft,
+  .artifact-tab-transition,
   .report-scene .report-fade-up,
   .report-scene .report-ring-progress,
   .report-scene .report-bar-fill,

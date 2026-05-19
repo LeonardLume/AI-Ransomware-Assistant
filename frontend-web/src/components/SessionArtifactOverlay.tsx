@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type {
   ArtifactId,
   ChatResponse,
@@ -17,7 +16,6 @@ import ReportView from "./ReportView";
 import SkillsView from "./SkillsView";
 import TechnicalTransparencyView from "./TechnicalTransparencyView";
 import TechnicalView from "./TechnicalView";
-import { Button } from "./ui";
 
 function normalizeArtifact(artifact: ArtifactId): ArtifactId {
   return artifact === "ransomware-playbook" ? "skills" : artifact;
@@ -49,7 +47,6 @@ export default function SessionArtifactOverlay({
   language = "et",
   onGenerateReport,
   onOpenReport,
-  onClose,
 }: {
   open: boolean;
   activeArtifact: ArtifactId;
@@ -82,29 +79,10 @@ export default function SessionArtifactOverlay({
       selectedArtifact === "skills");
 
   return (
-    <div className="artifact-overlay-enter absolute inset-0 z-30 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/25 px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-white">
-            {artifactTitle(selectedArtifact, language)}
-          </h2>
-          <p className="mt-0.5 truncate text-xs text-slate-500">
-            {activeSessionId ? `${t(language, "sessionLabel")} ${activeSessionId.slice(0, 8)}` : t(language, "noActiveSession")}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onClose}
-          className="h-9 w-9 px-0 transition-all duration-300 ease-out hover:scale-105"
-          aria-label={t(language, "closeArtifact")}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      <div className="scrollbar-slim h-[calc(100%-64px)] overflow-y-auto p-4 sm:p-5">
-        <div key={selectedArtifact} className="artifact-content-enter">
+    <div className="absolute inset-x-0 top-0 z-30 min-h-full rounded-xl border border-white/10 bg-[#07090d] shadow-[0_22px_58px_rgba(0,0,0,0.46)]">
+      <div className="absolute inset-x-0 -bottom-24 top-0 bg-[#07090d]" aria-hidden="true" />
+      <div className="relative z-10 bg-[#07090d] p-3 sm:p-4">
+        <div key={selectedArtifact} className="artifact-tab-transition">
           {!activeSessionId ? (
             <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">
               {t(language, "startOrLoadAssessment")}
@@ -159,6 +137,7 @@ export default function SessionArtifactOverlay({
             </div>
           ) : null}
         </div>
+        <div className="mt-8 h-px rounded-full bg-white/10" aria-hidden="true" />
       </div>
     </div>
   );

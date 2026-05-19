@@ -9,7 +9,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { useEffect, useId, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import type { DomainScore, ReportResponse, RiskLevel } from "../types/api";
 import {
   isEarlyPreview,
@@ -32,10 +32,11 @@ import { EmptyState } from "./ui";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { Skeleton } from "./ui/skeleton";
 import { cn, riskTone, type Tone } from "./ui-helpers";
+import ReportCockpitHero from "./report/ReportCockpitHero";
+import type { MetricStripItem } from "./report/MetricStrip";
 
 type FindingLike = {
   id: string;
@@ -61,6 +62,157 @@ const severityRank: Record<string, number> = {
 };
 
 const simulatorBump = 24;
+
+const reportCopy = {
+  et: {
+    introLabel: "Valmisoleku raport",
+    title: "Your Raport",
+    subtitle: "Backendi hinnatud raport prioriseeritud tegevuste ja t\u00f5enditega.",
+    score: "Skoor",
+    risk: "Risk",
+    completion: "T\u00e4idetud",
+    confidence: "Usaldus",
+    backendOwned: "Backendi arvutus",
+    backendRisk: "Backendi riskitase",
+    answered: "Vastatud",
+    separateSignal: "Eraldi signaal",
+    officialScore: "Ametlik skoor",
+    topRisk: "Peamine risk",
+    priorityAction: "Prioriteetne tegevus",
+    criticalFindings: "Kriitilised leiud",
+    criticalFindingsDescription: "L\u00fchike \u00fclevaade backendi leidudest ja peamistest riskidest.",
+    prioritySteps: "Prioriteetsed sammud",
+    priorityStepsDescription: "Backendi soovitatud j\u00e4rgmised tegevused.",
+    items: "kirjet",
+    noFindings: "Kompaktseid leide pole veel. V\u00e4rskenda backendi raportit.",
+    noSteps: "Prioriseeritud samme pole veel.",
+    domainRiskMap: "Domeenide riskikaart",
+    domainRiskDescription: "Ridadel on ainult backendi domeeniskoorid.",
+    domains: "domeeni",
+    noRiskLabel: "Riskim\u00e4rgis puudub",
+    coverage: "Kaetus",
+    criticalNegatives: "kriitilist negatiivset",
+    whatIf: "Mis-kui simulaator",
+    whatIfDescription: "Kohalik stsenaariumit\u00f6\u00f6riist. Ametlik skoor j\u00e4\u00e4b backendile.",
+    unofficialPreview: "Mitteametlik eelvaade",
+    reset: "L\u00e4htesta",
+    base: "Algne",
+    simulated: "Simuleeritud",
+    simulatorUnavailable: "Simulaator ilmub siis, kui backendi raportis on domeeniskoorid.",
+    advisoryPreview: "N\u00f5uandev eelvaade",
+    simulatedScore: "simuleeritud skoor",
+    vsOfficial: "vs ametlik",
+    simulationNote: "Simulation only - official score remains backend-owned.",
+    detailedNarrative: "Detailne narratiiv",
+    expanded: "Avatud",
+    collapsed: "Vaikimisi suletud",
+    sourcesUsed: "Kasutatud allikad",
+    reference: "Viide",
+    openSource: "Ava allikas",
+    immediatePriority: "Kohe prioriteet",
+    queuedAction: "J\u00e4rjekorras tegevus",
+  },
+  en: {
+    introLabel: "Readiness report",
+    title: "Your Raport",
+    subtitle: "Backend-scored assessment with prioritized actions and evidence.",
+    score: "Score",
+    risk: "Risk",
+    completion: "Completion",
+    confidence: "Confidence",
+    backendOwned: "Backend-owned",
+    backendRisk: "Backend risk",
+    answered: "Answered",
+    separateSignal: "Separate signal",
+    officialScore: "Official score",
+    topRisk: "Top risk",
+    priorityAction: "Priority action",
+    criticalFindings: "Critical findings",
+    criticalFindingsDescription: "Short briefing from backend findings and top risks.",
+    prioritySteps: "Priority next steps",
+    priorityStepsDescription: "Backend-recommended next actions.",
+    items: "items",
+    noFindings: "No compact findings available yet. Refresh the backend report.",
+    noSteps: "No prioritized next steps available yet.",
+    domainRiskMap: "Domain risk map",
+    domainRiskDescription: "Rows show backend domain scores only.",
+    domains: "domains",
+    noRiskLabel: "No risk label",
+    coverage: "Coverage",
+    criticalNegatives: "critical negatives",
+    whatIf: "What-if simulator",
+    whatIfDescription: "Local scenario tool. The official score remains backend-owned.",
+    unofficialPreview: "Unofficial preview",
+    reset: "Reset",
+    base: "Base",
+    simulated: "Simulated",
+    simulatorUnavailable: "Simulator becomes available once domain scores exist in the backend report.",
+    advisoryPreview: "Advisory preview",
+    simulatedScore: "simulated score",
+    vsOfficial: "vs official",
+    simulationNote: "Simulation only - official score remains backend-owned.",
+    detailedNarrative: "Detailed narrative",
+    expanded: "Expanded",
+    collapsed: "Collapsed by default",
+    sourcesUsed: "Sources used",
+    reference: "Reference",
+    openSource: "Open source",
+    immediatePriority: "Immediate priority",
+    queuedAction: "Queued action",
+  },
+  ru: {
+    introLabel: "\u041e\u0442\u0447\u0451\u0442 \u0433\u043e\u0442\u043e\u0432\u043d\u043e\u0441\u0442\u0438",
+    title: "Your Raport",
+    subtitle: "\u041e\u0446\u0435\u043d\u0451\u043d\u043d\u044b\u0439 backend \u043e\u0442\u0447\u0451\u0442 \u0441 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u044b\u043c\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f\u043c\u0438 \u0438 \u0434\u043e\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c\u0441\u0442\u0432\u0430\u043c\u0438.",
+    score: "Score",
+    risk: "\u0420\u0438\u0441\u043a",
+    completion: "\u0413\u043e\u0442\u043e\u0432\u043e",
+    confidence: "\u0414\u043e\u0432\u0435\u0440\u0438\u0435",
+    backendOwned: "\u0420\u0430\u0441\u0447\u0451\u0442 backend",
+    backendRisk: "\u0420\u0438\u0441\u043a backend",
+    answered: "\u041e\u0442\u0432\u0435\u0447\u0435\u043d\u043e",
+    separateSignal: "\u041e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0439 \u0441\u0438\u0433\u043d\u0430\u043b",
+    officialScore: "\u041e\u0444\u0438\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0439 score",
+    topRisk: "\u0413\u043b\u0430\u0432\u043d\u044b\u0439 \u0440\u0438\u0441\u043a",
+    priorityAction: "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u043e\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435",
+    criticalFindings: "\u041a\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u043d\u0430\u0445\u043e\u0434\u043a\u0438",
+    criticalFindingsDescription: "\u041a\u0440\u0430\u0442\u043a\u0438\u0439 \u0431\u0440\u0438\u0444 \u0438\u0437 backend findings \u0438 \u0433\u043b\u0430\u0432\u043d\u044b\u0445 \u0440\u0438\u0441\u043a\u043e\u0432.",
+    prioritySteps: "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u044b\u0435 \u0448\u0430\u0433\u0438",
+    priorityStepsDescription: "\u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f, \u0432\u0435\u0440\u043d\u0443\u0442\u044b\u0435 backend.",
+    items: "\u0448\u0442.",
+    noFindings: "\u041a\u043e\u043c\u043f\u0430\u043a\u0442\u043d\u044b\u0445 findings \u043f\u043e\u043a\u0430 \u043d\u0435\u0442. \u041e\u0431\u043d\u043e\u0432\u0438 backend \u043e\u0442\u0447\u0451\u0442.",
+    noSteps: "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u044b\u0445 \u0448\u0430\u0433\u043e\u0432 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.",
+    domainRiskMap: "\u041a\u0430\u0440\u0442\u0430 \u0440\u0438\u0441\u043a\u0430 \u043f\u043e \u0434\u043e\u043c\u0435\u043d\u0430\u043c",
+    domainRiskDescription: "\u0421\u0442\u0440\u043e\u043a\u0438 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u044e\u0442 \u0442\u043e\u043b\u044c\u043a\u043e backend score \u0434\u043e\u043c\u0435\u043d\u043e\u0432.",
+    domains: "\u0434\u043e\u043c\u0435\u043d\u043e\u0432",
+    noRiskLabel: "\u041d\u0435\u0442 \u043c\u0435\u0442\u043a\u0438 \u0440\u0438\u0441\u043a\u0430",
+    coverage: "\u041f\u043e\u043a\u0440\u044b\u0442\u0438\u0435",
+    criticalNegatives: "\u043a\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0445 negative",
+    whatIf: "\u0421\u0438\u043c\u0443\u043b\u044f\u0442\u043e\u0440 what-if",
+    whatIfDescription: "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439. \u041e\u0444\u0438\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0439 score \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f \u0432 backend.",
+    unofficialPreview: "\u041d\u0435\u043e\u0444\u0438\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0439 preview",
+    reset: "\u0421\u0431\u0440\u043e\u0441",
+    base: "\u0411\u0430\u0437\u0430",
+    simulated: "\u0421\u0438\u043c\u0443\u043b\u044f\u0446\u0438\u044f",
+    simulatorUnavailable: "\u0421\u0438\u043c\u0443\u043b\u044f\u0442\u043e\u0440 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f, \u043a\u043e\u0433\u0434\u0430 \u0432 backend \u043e\u0442\u0447\u0451\u0442\u0435 \u0435\u0441\u0442\u044c \u0434\u043e\u043c\u0435\u043d\u043d\u044b\u0435 score.",
+    advisoryPreview: "\u0421\u0446\u0435\u043d\u0430\u0440\u043d\u044b\u0439 preview",
+    simulatedScore: "\u0441\u0438\u043c\u0443\u043b\u0438\u0440\u0443\u0435\u043c\u044b\u0439 score",
+    vsOfficial: "\u043a \u043e\u0444\u0438\u0446.",
+    simulationNote: "Simulation only - official score remains backend-owned.",
+    detailedNarrative: "\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u043d\u0430\u0440\u0440\u0430\u0442\u0438\u0432",
+    expanded: "\u041e\u0442\u043a\u0440\u044b\u0442\u043e",
+    collapsed: "\u0421\u043a\u0440\u044b\u0442\u043e \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e",
+    sourcesUsed: "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0438",
+    reference: "\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a",
+    openSource: "\u041e\u0442\u043a\u0440\u044b\u0442\u044c",
+    immediatePriority: "\u0421\u0440\u043e\u0447\u043d\u044b\u0439 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442",
+    queuedAction: "\u0412 \u043e\u0447\u0435\u0440\u0435\u0434\u0438",
+  },
+} as const;
+
+function r(language: UiLanguage, key: keyof typeof reportCopy.en): string {
+  return reportCopy[language]?.[key] || reportCopy.en[key];
+}
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, value));
@@ -95,15 +247,6 @@ function toneTrack(tone: Tone): string {
   return "bg-slate-300";
 }
 
-function toneColor(tone: Tone): string {
-  if (tone === "success") return "#34d399";
-  if (tone === "warning") return "#fbbf24";
-  if (tone === "orange") return "#fb923c";
-  if (tone === "danger") return "#f87171";
-  if (tone === "info") return "#38bdf8";
-  return "#cbd5e1";
-}
-
 function badgeVariantForTone(tone: Tone): BadgeVariant {
   if (tone === "success") return "success";
   if (tone === "warning") return "warning";
@@ -128,99 +271,6 @@ function normalizeReportSources(report?: ReportResponse | null): ReportSource[] 
     .filter((item) => item.name);
 }
 
-function useCountUp(target: number, duration = 1000) {
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    const safeTarget = roundNumber(target);
-    let frame = 0;
-    let startTime = 0;
-    const startValue = value;
-
-    const tick = (timestamp: number) => {
-      if (!startTime) {
-        startTime = timestamp;
-      }
-      const progress = clamp((timestamp - startTime) / duration, 0, 1);
-      const eased = 1 - (1 - progress) * (1 - progress) * (1 - progress);
-      const nextValue = Math.round(startValue + (safeTarget - startValue) * eased);
-      setValue(nextValue);
-      if (progress < 1) {
-        frame = window.requestAnimationFrame(tick);
-      }
-    };
-
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [target]);
-
-  return value;
-}
-
-function ScoreRing({
-  value,
-  tone,
-  label,
-  caption,
-}: {
-  value: number;
-  tone: Tone;
-  label: string;
-  caption: string;
-}) {
-  const ringId = useId().replace(/:/g, "");
-  const radius = 62;
-  const circumference = 2 * Math.PI * radius;
-  const safeValue = clamp(value);
-  const dashOffset = circumference - (safeValue / 100) * circumference;
-  const animatedValue = useCountUp(safeValue, 1200);
-
-  return (
-    <div className="report-panel-soft report-hover-lift relative mx-auto flex w-full max-w-[248px] flex-col items-center rounded-[30px] px-7 py-7 text-center">
-      <div className="text-[10px] uppercase tracking-[0.34em] text-slate-400">
-        {label}
-      </div>
-      <div className="relative mt-4 h-40 w-40">
-        <svg viewBox="0 0 160 160" className="h-full w-full -rotate-90">
-          <defs>
-            <linearGradient id={`ring-${ringId}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={toneColor(tone)} />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.95)" />
-            </linearGradient>
-          </defs>
-          <circle
-            cx="80"
-            cy="80"
-            r={radius}
-            className="fill-none stroke-white/10"
-            strokeWidth="14"
-          />
-          <circle
-            cx="80"
-            cy="80"
-            r={radius}
-            className="report-ring-progress fill-none"
-            stroke={`url(#ring-${ringId})`}
-            strokeWidth="14"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-5xl font-semibold leading-none text-white/95">
-            {animatedValue}
-          </div>
-          <div className="mt-2 text-[11px] uppercase tracking-[0.24em] text-slate-500">
-            / 100
-          </div>
-        </div>
-      </div>
-      <p className="mt-5 max-w-[17rem] text-sm leading-6 text-slate-400">{caption}</p>
-    </div>
-  );
-}
-
 function ReportDisclosure({
   title,
   description,
@@ -236,23 +286,23 @@ function ReportDisclosure({
 }) {
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <section className="report-panel rounded-[30px] px-6 py-5">
+      <section className="report-panel rounded-[34px] px-6 py-6 sm:px-8">
         <CollapsibleTrigger asChild>
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 text-left"
           >
             <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
+              <h4 className="text-[13px] font-semibold text-zinc-200">
                 {title}
               </h4>
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-[15px] text-zinc-500">
                 {description}
               </p>
             </div>
             <span
               className={cn(
-                "inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/8 bg-white/[0.04] text-slate-300 transition-transform duration-300",
+                "inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-300 transition-transform duration-300",
                 open && "rotate-180",
               )}
             >
@@ -271,7 +321,7 @@ function ReportDisclosure({
 function ReportLoadingSkeleton() {
   return (
     <div className="report-scene space-y-6">
-      <section className="report-panel rounded-[34px] px-7 py-7">
+      <section className="report-panel rounded-[38px] px-7 py-8">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Skeleton className="h-7 w-28 rounded-full" />
@@ -357,24 +407,21 @@ function ReportCockpit({
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [simulatorAdjustments, setSimulatorAdjustments] = useState<Record<string, number>>({});
 
-  const domainEntries: Array<[string, DomainScore]> = Object.entries(
-    report.domain_details || {},
-  ).length
-    ? Object.entries(report.domain_details || {})
-    : Object.entries(report.domain_scores || {}).map(([domain, domainScore]) => [
-        domain,
-        { title: domain, score: domainScore },
-      ]);
+  const domainEntries: Array<[string, DomainScore]> = useMemo(() => {
+    const details = Object.entries(report.domain_details || {});
+    if (details.length) {
+      return details;
+    }
+    return Object.entries(report.domain_scores || {}).map(([domain, domainScore]) => [
+      domain,
+      { title: domain, score: domainScore },
+    ]);
+  }, [report.domain_details, report.domain_scores]);
   const completionRate = report.completion_rate ?? 0;
   const earlyPreview = isEarlyPreview(completionRate);
   const riskToneValue = riskToneForCompletion(report.risk_level, completionRate);
   const fallbackConfidence = scoreConfidenceLabel(completionRate).replace("Confidence ", "");
   const confidenceValue = report.overall_confidence || fallbackConfidence;
-  const confidenceText = earlyPreview
-    ? `${valueLabel(language, "Low")} ${t(language, "confidence").toLowerCase()}: ${
-        report.answered_questions ?? 0
-      } / ${report.total_questions ?? 0}.`
-    : `${t(language, "confidence")}: ${valueLabel(language, confidenceValue)}`;
   const sources = normalizeReportSources(report);
   const summaryText =
     language === "et" && report.summary
@@ -383,10 +430,14 @@ function ReportCockpit({
   const narrativeText =
     language === "et" && report.llm_report_text ? report.llm_report_text : report.llm_report_text || null;
 
-  const sortedDomains = [...domainEntries].sort(
-    (a, b) => Number(a[1]?.score ?? 0) - Number(b[1]?.score ?? 0),
+  const sortedDomains = useMemo(
+    () => [...domainEntries].sort((a, b) => Number(a[1]?.score ?? 0) - Number(b[1]?.score ?? 0)),
+    [domainEntries],
   );
-  const simulatorDomains = sortedDomains.slice(0, Math.min(4, sortedDomains.length));
+  const simulatorDomains = useMemo(
+    () => sortedDomains.slice(0, Math.min(4, sortedDomains.length)),
+    [sortedDomains],
+  );
 
   useEffect(() => {
     const nextAdjustments: Record<string, number> = {};
@@ -396,7 +447,7 @@ function ReportCockpit({
     setSimulatorAdjustments(nextAdjustments);
     setNarrativeOpen(false);
     setSourcesOpen(false);
-  }, [report]);
+  }, [report, simulatorDomains]);
 
   const criticalFindings: FindingLike[] = report.findings?.length
     ? [...report.findings]
@@ -441,7 +492,7 @@ function ReportCockpit({
       : (report.next_steps || []).slice(0, 4).map((step, index) => ({
           id: `${step}-${index}`,
           title: localizeKnownText(language, step),
-          meta: index === 0 ? "Immediate priority" : "Queued action",
+          meta: index === 0 ? r(language, "immediatePriority") : r(language, "queuedAction"),
           tone: index === 0 ? riskTone(report.risk_level) : "neutral",
         }));
 
@@ -465,126 +516,98 @@ function ReportCockpit({
     : officialScore;
   const simulatedRisk = advisoryRiskLevel(simulatedScore);
   const simulatorDelta = simulatedScore - officialScore;
-  const simulatedCount = useCountUp(simulatedScore, 900);
+  const topFinding = criticalFindings[0];
+  const topPriorityStep = prioritySteps[0];
+  const metricItems: MetricStripItem[] = [
+    {
+      label: r(language, "score"),
+      value: `${officialScore}/100`,
+      detail: r(language, "backendOwned"),
+    },
+    {
+      label: r(language, "risk"),
+      value: officialRisk,
+      detail: r(language, "backendRisk"),
+    },
+    {
+      label: r(language, "completion"),
+      value: `${completionRate}%`,
+      detail: `${r(language, "answered")} ${report.answered_questions ?? 0}/${report.total_questions ?? 0}`,
+    },
+    {
+      label: r(language, "confidence"),
+      value: valueLabel(language, confidenceValue),
+      detail: r(language, "separateSignal"),
+    },
+  ];
 
   return (
-    <div className="report-scene space-y-6 text-slate-100">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.34em] text-slate-400">
-            Official backend report
-          </p>
-          <h3 className="mt-3 text-[2rem] font-semibold tracking-[-0.03em] text-white">
-            Readiness Cockpit
-          </h3>
-        </div>
+    <div className="report-scene space-y-5 text-zinc-100">
+      <div className="flex justify-end">
         <Button
           type="button"
           disabled={!canGenerate || loading}
           onClick={onGenerate}
-          className="border-white/10 bg-white/[0.06] text-slate-100 shadow-[0_14px_34px_rgba(0,0,0,0.16)] hover:bg-white/[0.09]"
+          className="rounded-full border-white/10 bg-white/[0.08] px-5 text-zinc-100 shadow-none hover:bg-white/[0.14]"
         >
           <RefreshCw className="h-4 w-4" />
           {t(language, "refreshReport")}
         </Button>
       </div>
 
-      <section className="report-fade-up report-fade-up-delay-1 report-panel report-hero relative overflow-hidden rounded-[34px] px-7 py-7">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(255,255,255,0.09),transparent_22%),radial-gradient(circle_at_84%_12%,rgba(255,255,255,0.06),transparent_18%)] opacity-90" />
-        <div className="relative grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_272px] xl:items-center">
-          <div className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="neutral" className="border-white/8 bg-white/[0.045] text-slate-200">
-                {t(language, "officialScoreBackend")}
-              </Badge>
-              <Badge variant={report.score_status === "final" ? "success" : "warning"}>
-                {earlyPreview
-                  ? valueLabel(language, "preliminary")
-                  : valueLabel(language, report.score_status || "preliminary")}
-              </Badge>
-              <Badge variant={badgeVariantForTone(riskToneValue)}>{officialRisk}</Badge>
-              <Badge variant={report.is_complete ? "success" : "warning"}>
-                {completionRate}% {t(language, "completion").toLowerCase()}
-              </Badge>
-              <Badge variant="info">{confidenceText}</Badge>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(250px,0.85fr)]">
-              <div className="space-y-5">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-                    Executive summary
-                  </p>
-                  <p className="mt-3 max-w-2xl text-[15px] leading-8 text-slate-200/90">{summaryText}</p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="report-stat-slab report-hover-lift rounded-[24px] px-4 py-4">
-                    <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                      {t(language, "overallScore")}
-                    </div>
-                    <div className="mt-2 text-[2rem] font-semibold tracking-[-0.03em] text-white">{officialScore}</div>
-                    <div className="mt-2 text-sm text-slate-500">
-                      Backend-authoritative
-                    </div>
-                  </div>
-                  <div className="report-stat-slab report-hover-lift rounded-[24px] px-4 py-4">
-                    <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                      {t(language, "riskLevel")}
-                    </div>
-                    <div className="mt-2 text-[1.6rem] font-semibold tracking-[-0.03em] text-white">{officialRisk}</div>
-                    <div className="mt-2 text-sm text-slate-500">{t(language, "backend")}</div>
-                  </div>
-                  <div className="report-stat-slab report-hover-lift rounded-[24px] px-4 py-4">
-                    <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                      Signal
-                    </div>
-                    <div className="mt-2 text-[1.6rem] font-semibold tracking-[-0.03em] text-white">
-                      {valueLabel(language, confidenceValue)}
-                    </div>
-                    <div className="mt-2 text-sm text-slate-500">{t(language, "separateFromScore")}</div>
-                  </div>
-                </div>
-              </div>
-
-              <ScoreRing
-                value={officialScore}
-                tone={riskToneValue}
-                label="Official score"
-                caption="Animated display only. Numeric authority stays with the backend report."
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+      <ReportCockpitHero
+        summary={summaryText}
+        topFinding={
+          topFinding
+            ? {
+                title: topFinding.title,
+                meta: topFinding.domain ? domainLabel(language, topFinding.domain) : undefined,
+              }
+            : undefined
+        }
+        topAction={
+          topPriorityStep
+            ? {
+                title: topPriorityStep.title,
+                meta: topPriorityStep.meta,
+              }
+            : undefined
+        }
+        topFindingLabel={r(language, "topRisk")}
+        topActionLabel={r(language, "priorityAction")}
+        metrics={metricItems}
+        score={officialScore}
+        scoreTone={riskToneValue}
+        scoreLabel={r(language, "officialScore")}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="report-fade-up report-fade-up-delay-2 report-panel rounded-[30px] px-6 py-5">
+        <section className="report-panel rounded-[30px] px-5 py-5 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
                 <ShieldAlert className="h-5 w-5" />
               </span>
               <div>
-                <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
-                  Compact critical findings
-                </h4>
-                <p className="mt-2 text-sm text-slate-500">
-                  Short-form briefing from backend findings and top risks.
-                </p>
+              <h4 className="text-[13px] font-semibold text-slate-200">
+                {r(language, "criticalFindings")}
+              </h4>
+              <p className="mt-1 text-[14px] text-slate-500">
+                {r(language, "criticalFindingsDescription")}
+              </p>
               </div>
             </div>
             <Badge variant={criticalFindings.length ? badgeVariantForTone(riskToneValue) : "neutral"}>
-              {criticalFindings.length || 0} items
+              {criticalFindings.length || 0} {r(language, "items")}
             </Badge>
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-2.5">
             {criticalFindings.length ? (
               criticalFindings.map((finding) => (
                 <article
                   key={finding.id}
-                  className="report-row report-hover-lift rounded-[22px] px-4 py-3.5"
+                  className="report-row rounded-2xl px-4 py-3.5"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={badgeVariantForTone(riskTone(finding.severity))}>
@@ -596,9 +619,9 @@ function ReportCockpit({
                       </Badge>
                     ) : null}
                   </div>
-                  <h5 className="mt-3 text-[15px] font-semibold text-white">{finding.title}</h5>
+                  <h5 className="mt-3 text-lg font-semibold tracking-normal text-white">{finding.title}</h5>
                   {finding.summary ? (
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{finding.summary}</p>
+                    <p className="mt-2 text-[15px] leading-7 text-zinc-400">{finding.summary}</p>
                   ) : null}
                   {finding.action ? (
                     <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-slate-300">
@@ -610,33 +633,33 @@ function ReportCockpit({
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-white/8 bg-white/[0.02] p-4 text-sm leading-6 text-slate-500">
-                No compact findings available yet. Generate or refresh the backend report to populate this briefing.
+                {r(language, "noFindings")}
               </div>
             )}
           </div>
         </section>
 
-        <section className="report-fade-up report-fade-up-delay-3 report-panel rounded-[30px] px-6 py-5">
+        <section className="report-panel rounded-[30px] px-5 py-5 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
               <Target className="h-5 w-5" />
             </span>
             <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
-                Priority next steps
+              <h4 className="text-[13px] font-semibold text-slate-200">
+                {r(language, "prioritySteps")}
               </h4>
-              <p className="mt-2 text-sm text-slate-500">
-                Compact frontend layout of backend next actions.
+              <p className="mt-1 text-[14px] text-slate-500">
+                {r(language, "priorityStepsDescription")}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-2.5">
             {prioritySteps.length ? (
               prioritySteps.map((step, index) => (
                 <article
                   key={step.id}
-                  className="report-row report-hover-lift flex gap-4 rounded-[22px] px-4 py-3.5"
+                  className="report-row flex gap-3 rounded-2xl px-4 py-3.5"
                 >
                   <div className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold text-slate-950 shadow-[0_10px_20px_rgba(255,255,255,0.08)]",
@@ -645,37 +668,37 @@ function ReportCockpit({
                     {index + 1}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h5 className="text-[15px] font-semibold text-white">{step.title}</h5>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">{step.meta}</p>
+                    <h5 className="text-lg font-semibold tracking-normal text-white">{step.title}</h5>
+                    <p className="mt-1 text-[15px] leading-6 text-zinc-500">{step.meta}</p>
                   </div>
                 </article>
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-white/8 bg-white/[0.02] p-4 text-sm leading-6 text-slate-500">
-                No prioritized next steps available yet.
+                {r(language, "noSteps")}
               </div>
             )}
           </div>
         </section>
       </div>
 
-      <section className="report-fade-up report-fade-up-delay-4 report-panel rounded-[30px] px-6 py-5">
+      <section className="report-panel rounded-[30px] px-5 py-5 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
               <Radar className="h-5 w-5" />
             </span>
             <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
-                Domain risk map
+              <h4 className="text-[13px] font-semibold text-slate-200">
+                {r(language, "domainRiskMap")}
               </h4>
-              <p className="mt-2 text-sm text-slate-500">
-                Animated bars show backend domain scores only.
+              <p className="mt-1 text-[14px] text-slate-500">
+                {r(language, "domainRiskDescription")}
               </p>
             </div>
           </div>
           <Badge variant="neutral" className="border-white/8 bg-white/[0.04] text-slate-200">
-            {domainEntries.length} domains
+            {domainEntries.length} {r(language, "domains")}
           </Badge>
         </div>
 
@@ -686,38 +709,38 @@ function ReportCockpit({
             return (
               <article
                 key={domain}
-                className="report-row report-hover-lift rounded-[20px] px-4 py-3.5"
+                className="report-row rounded-2xl px-4 py-3"
                 style={{ animationDelay: `${120 + index * 60}ms` }}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h5 className="text-[15px] font-semibold text-white">{domainLabel(language, domain)}</h5>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {detail?.risk_level ? riskLabel(language, detail.risk_level) : "No risk label"}
+                    <h5 className="text-[15px] font-semibold tracking-normal text-white">{domainLabel(language, domain)}</h5>
+                    <p className="mt-0.5 text-[13px] text-slate-500">
+                      {detail?.risk_level ? riskLabel(language, detail.risk_level) : r(language, "noRiskLabel")}
                       {report.domain_confidence?.[domain]
                         ? ` - ${valueLabel(language, report.domain_confidence[domain])} ${t(language, "confidence").toLowerCase()}`
                         : ""}
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-[1.7rem] font-semibold tracking-[-0.03em] text-white">{score}</div>
+                    <div className="text-xl font-semibold tracking-normal text-white">{score}</div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">/100</div>
                   </div>
                 </div>
-                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/8">
+                <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/8">
                   <div
                     className={cn("report-bar-fill h-full rounded-full", toneTrack(domainTone))}
                     style={{ width: `${score}%` }}
                   />
                 </div>
-                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                   {detail?.answered_questions !== undefined && detail?.total_questions !== undefined ? (
                     <span>
-                      Coverage {detail.answered_questions}/{detail.total_questions}
+                      {r(language, "coverage")} {detail.answered_questions}/{detail.total_questions}
                     </span>
                   ) : null}
                   {detail?.critical_negative_answers?.length ? (
-                    <span>{detail.critical_negative_answers.length} critical negatives</span>
+                    <span>{detail.critical_negative_answers.length} {r(language, "criticalNegatives")}</span>
                   ) : null}
                 </div>
               </article>
@@ -726,24 +749,23 @@ function ReportCockpit({
         </div>
       </section>
 
-      <section className="report-fade-up report-fade-up-delay-5 report-panel rounded-[30px] px-6 py-5">
+      <section className="report-panel rounded-[30px] px-5 py-5 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-200">
               <Sparkles className="h-5 w-5" />
             </span>
             <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
-                What-if Simulator
+              <h4 className="text-[13px] font-semibold text-slate-200">
+                {r(language, "whatIf")}
               </h4>
-              <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">
-                Frontend-only scenario tool. It never changes backend score, session data, questions,
-                or the official report.
+              <p className="mt-1 max-w-2xl text-[14px] leading-6 text-slate-500">
+                {r(language, "whatIfDescription")}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="warning">Unofficial preview</Badge>
+            <Badge variant="warning">{r(language, "unofficialPreview")}</Badge>
             <Button
               type="button"
               variant="ghost"
@@ -755,33 +777,33 @@ function ReportCockpit({
               className="border border-white/8 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
             >
               <RotateCcw className="h-4 w-4" />
-              Reset
+              {r(language, "reset")}
             </Button>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]">
-          <div className="space-y-4">
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_280px]">
+          <div className="space-y-2.5">
             {simulatorDomains.length ? (
               simulatorDomains.map(([domain, detail]) => {
                 const baseScore = clamp(roundNumber(Number(detail?.score ?? 0)));
                 const simulatedValue = clamp(baseScore + (simulatorAdjustments[domain] || 0));
                 return (
-                  <div key={domain} className="report-row rounded-[20px] px-4 py-3.5">
+                  <div key={domain} className="report-row rounded-2xl px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="text-[15px] font-semibold text-white">
+                        <div className="text-[15px] font-semibold tracking-normal text-white">
                           {domainLabel(language, domain)}
                         </div>
-                        <div className="mt-1 text-sm text-slate-500">
-                          Base {baseScore} {"->"} Simulated {simulatedValue}
+                        <div className="mt-1 text-[13px] text-slate-500">
+                          {r(language, "base")} {baseScore} {"->"} {r(language, "simulated")} {simulatedValue}
                         </div>
                       </div>
                       <Badge variant={badgeVariantForTone(riskTone(advisoryRiskLevel(simulatedValue)))}>
                         +{simulatorAdjustments[domain] || 0}
                       </Badge>
                     </div>
-                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/8">
+                    <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/8">
                       <div
                         className="report-bar-fill h-full rounded-full bg-gradient-to-r from-amber-300 via-sky-300 to-emerald-300"
                         style={{ width: `${simulatedValue}%` }}
@@ -799,27 +821,27 @@ function ReportCockpit({
                           [domain]: Number(event.target.value),
                         }))
                       }
-                      className="mt-4 w-full accent-amber-300"
+                      className="mt-3 w-full accent-amber-300"
                     />
                   </div>
                 );
               })
             ) : (
               <div className="rounded-[22px] border border-dashed border-white/8 bg-white/[0.02] p-4 text-sm leading-6 text-slate-500">
-                Simulator becomes available once domain scores exist in the backend report.
+                {r(language, "simulatorUnavailable")}
               </div>
             )}
           </div>
 
-          <div className="report-panel-soft report-hover-lift rounded-[28px] px-5 py-5">
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400">
-              Advisory preview
+          <div className="report-panel-soft rounded-[26px] px-5 py-5">
+            <div className="text-[13px] font-semibold text-slate-500">
+              {r(language, "advisoryPreview")}
             </div>
             <div className="mt-4 flex items-end gap-3">
-              <div className="text-5xl font-semibold tracking-[-0.04em] text-white">{simulatedCount}</div>
-              <div className="pb-1 text-sm text-slate-500">simulated score</div>
+              <div className="text-5xl font-semibold tracking-normal text-white">{simulatedScore}</div>
+              <div className="pb-1 text-sm text-slate-500">{r(language, "simulatedScore")}</div>
             </div>
-            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/8">
+            <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/8">
               <div
                 className={cn(
                   "report-bar-fill h-full rounded-full bg-gradient-to-r",
@@ -834,12 +856,11 @@ function ReportCockpit({
               </Badge>
               <Badge variant={simulatorDelta > 0 ? "success" : "neutral"}>
                 {simulatorDelta >= 0 ? "+" : ""}
-                {simulatorDelta} vs official
+                {simulatorDelta} {r(language, "vsOfficial")}
               </Badge>
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-500">
-              This cockpit only previews a local scenario by lifting the weakest domain scores.
-              The official backend score remains {officialScore}/100.
+            <p className="mt-4 text-[14px] leading-6 text-slate-500">
+              {r(language, "simulationNote")} {officialScore}/100.
             </p>
           </div>
         </div>
@@ -847,8 +868,8 @@ function ReportCockpit({
 
       {narrativeText || report.external_exposure_self_check?.items?.length ? (
         <ReportDisclosure
-          title="Detailed narrative"
-          description={narrativeOpen ? "Expanded" : "Collapsed by default"}
+          title={r(language, "detailedNarrative")}
+          description={narrativeOpen ? r(language, "expanded") : r(language, "collapsed")}
           open={narrativeOpen}
           onOpenChange={setNarrativeOpen}
         >
@@ -886,40 +907,38 @@ function ReportCockpit({
 
       {sources.length ? (
         <ReportDisclosure
-          title="Sources used"
-          description={sourcesOpen ? "Expanded" : "Collapsed by default"}
+          title={r(language, "sourcesUsed")}
+          description={sourcesOpen ? r(language, "expanded") : r(language, "collapsed")}
           open={sourcesOpen}
           onOpenChange={setSourcesOpen}
         >
           <Separator className="mb-4 bg-white/6" />
-          <ScrollArea className="max-h-72 pr-3">
-            <div className="space-y-3">
-              {sources.map((source) => (
-                <article
-                  key={`${source.name}-${source.url || ""}`}
-                  className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3.5"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="neutral">Reference</Badge>
-                    {source.url ? (
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-cyan-300 transition-colors hover:text-cyan-200"
-                      >
-                        Open source
-                      </a>
-                    ) : null}
-                  </div>
-                  <h5 className="mt-3 text-[15px] font-semibold text-white">{source.name}</h5>
-                  {source.usedFor ? (
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{source.usedFor}</p>
+          <div className="space-y-3">
+            {sources.map((source) => (
+              <article
+                key={`${source.name}-${source.url || ""}`}
+                className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3.5"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="neutral">{r(language, "reference")}</Badge>
+                  {source.url ? (
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-cyan-300 transition-colors hover:text-cyan-200"
+                    >
+                      {r(language, "openSource")}
+                    </a>
                   ) : null}
-                </article>
-              ))}
-            </div>
-          </ScrollArea>
+                </div>
+                <h5 className="mt-3 text-[15px] font-semibold text-white">{source.name}</h5>
+                {source.usedFor ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{source.usedFor}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
         </ReportDisclosure>
       ) : null}
     </div>

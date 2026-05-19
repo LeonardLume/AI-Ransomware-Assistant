@@ -236,23 +236,75 @@ function messageFromError(error: unknown): string {
   return "Unexpected error while talking to the backend.";
 }
 
+const UI_STATE_KEY = "ransomware-readiness.ui-state";
+const artifactIds = new Set<ArtifactId>([
+  "readiness-report",
+  "action-plan",
+  "evidence-binder",
+  "skills",
+  "ransomware-playbook",
+  "technical-json",
+]);
+
+type PersistedUiState = {
+  activeSessionId: string | null;
+  activeView: AppView;
+  activeArtifact: ArtifactId;
+  artifactOverlayOpen: boolean;
+};
+
+function readPersistedUiState(): Partial<PersistedUiState> {
+  try {
+    const raw = window.localStorage.getItem(UI_STATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+    return {
+      activeSessionId: typeof parsed.activeSessionId === "string" ? parsed.activeSessionId : null,
+      activeView: parsed.activeView === "interview" ? "interview" : "home",
+      activeArtifact: artifactIds.has(parsed.activeArtifact) ? parsed.activeArtifact : "readiness-report",
+      artifactOverlayOpen: Boolean(parsed.artifactOverlayOpen),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function artifactNeedsReport(artifact: ArtifactId): boolean {
+  return artifact === "readiness-report" ||
+    artifact === "action-plan" ||
+    artifact === "evidence-binder" ||
+    artifact === "skills" ||
+    artifact === "ransomware-playbook";
+}
+
 export default function App() {
   const didInitialLoadRef = useRef(false);
+  const initialUiStateRef = useRef(readPersistedUiState());
   const [backendOnline, setBackendOnline] = useState(false);
   const [providerStatus, setProviderStatus] = useState<ProviderStatusResponse | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [technicalFlow, setTechnicalFlow] = useState<TechnicalFlowResponse | null>(null);
 
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(
+    initialUiStateRef.current.activeSessionId ?? null,
+  );
   const [sessionState, setSessionState] = useState<SessionStateResponse | null>(null);
   const [score, setScore] = useState<ScoreResponse | null>(null);
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
-  const [activeArtifact, setActiveArtifact] = useState<ArtifactId>("readiness-report");
-  const [artifactOverlayOpen, setArtifactOverlayOpen] = useState(false);
-  const [activeView, setActiveView] = useState<AppView>("home");
+  const [activeArtifact, setActiveArtifact] = useState<ArtifactId>(
+    initialUiStateRef.current.activeArtifact ?? "readiness-report",
+  );
+  const [artifactOverlayOpen, setArtifactOverlayOpen] = useState(
+    Boolean(initialUiStateRef.current.artifactOverlayOpen),
+  );
+  const [activeView, setActiveView] = useState<AppView>(
+    initialUiStateRef.current.activeView ?? "home",
+  );
   const [language, setLanguage] = useState<UiLanguage>(() => {
     const saved = window.localStorage.getItem("ransomware-readiness.language");
     return saved === "en" || saved === "ru" || saved === "et" ? saved : "et";
@@ -422,14 +474,19 @@ export default function App() {
 
   const selectSession = useCallback(
     async (sessionId: string) => {
+      const shouldKeepReport = sessionId === activeSessionId && Boolean(report);
+      const shouldLoadReport =
+        artifactOverlayOpen && artifactNeedsReport(activeArtifact);
       setError(null);
-      setReport(null);
+      if (!shouldKeepReport) {
+        setReport(null);
+      }
       setMessages([]);
       setActiveSessionId(sessionId);
       setActiveView("interview");
       setSidebarOpen(false);
       try {
-        await refreshBackendState(sessionId, { includeReport: false });
+        await refreshBackendState(sessionId, { includeReport: shouldLoadReport || shouldKeepReport });
       } catch (selectError) {
         if (selectError instanceof ApiError && selectError.status === 404) {
           setSessions(removeSession(sessionId));
@@ -447,7 +504,7 @@ export default function App() {
         setError(messageFromError(selectError));
       }
     },
-    [refreshBackendState],
+    [activeArtifact, activeSessionId, artifactOverlayOpen, refreshBackendState, report],
   );
 
   useEffect(() => {
@@ -458,10 +515,71 @@ export default function App() {
     const localSessions = getSessions();
     setSessions(localSessions);
     void bootstrap();
-    if (localSessions[0]?.id) {
-      void selectSession(localSessions[0].id);
+    const restored = initialUiStateRef.current;
+    const restoredSessionExists = localSessions.some((session) => session.id === restored.activeSessionId);
+    const sessionId = restoredSessionExists ? restored.activeSessionId : localSessions[0]?.id;
+
+    if (sessionId) {
+      setActiveSessionId(sessionId);
+      setActiveView(restored.activeView ?? "home");
+      setActiveArtifact(restored.activeArtifact ?? "readiness-report");
+      setArtifactOverlayOpen(Boolean(restored.artifactOverlayOpen));
+      void refreshBackendState(sessionId, {
+        includeReport: Boolean(
+          restored.artifactOverlayOpen &&
+          artifactNeedsReport(restored.activeArtifact ?? "readiness-report"),
+        ),
+      }).catch(async (restoreError) => {
+        if (restoreError instanceof ApiError && restoreError.status === 404) {
+          setSessions(removeSession(sessionId));
+          resetWorkspaceState();
+          return;
+        }
+        try {
+          await refreshBackendState(sessionId, { includeReport: false });
+        } catch (fallbackError) {
+          setBackendOnline(false);
+          setError(messageFromError(fallbackError));
+        }
+      });
     }
-  }, [bootstrap, selectSession]);
+  }, [bootstrap, refreshBackendState]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      UI_STATE_KEY,
+      JSON.stringify({
+        activeSessionId,
+        activeView,
+        activeArtifact,
+        artifactOverlayOpen,
+      } satisfies PersistedUiState),
+    );
+  }, [activeArtifact, activeSessionId, activeView, artifactOverlayOpen]);
+
+  const artifactOverlayVisible = activeView === "interview" && artifactOverlayOpen;
+
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+
+  useEffect(() => {
+    if (artifactOverlayVisible) {
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: "auto" }), 0);
+    }
+  }, [activeArtifact, artifactOverlayVisible, report]);
+
+  useEffect(() => {
+    document.body.classList.toggle("artifact-page-open", artifactOverlayVisible);
+    return () => document.body.classList.remove("artifact-page-open");
+  }, [artifactOverlayVisible]);
+
+  useEffect(() => {
+    document.body.classList.toggle("interview-page-open", activeView === "interview");
+    return () => document.body.classList.remove("interview-page-open");
+  }, [activeView]);
 
   async function startAssessment() {
     setSending(true);
@@ -696,6 +814,7 @@ export default function App() {
       providerStatus={providerStatus}
       lastResponse={lastResponse}
       activeView={activeView}
+      workspaceOverflowVisible={artifactOverlayVisible}
       language={language}
       sidebarOpen={sidebarOpen}
       sidebarCollapsed={sidebarCollapsed}
@@ -727,7 +846,12 @@ export default function App() {
           />
         ),
         interview: (
-          <section className="relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col overflow-hidden rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6">
+          <section
+            className={cn(
+              "relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
+              artifactOverlayOpen ? "bg-[#07090d] overflow-visible" : "overflow-hidden",
+            )}
+          >
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}
@@ -827,14 +951,14 @@ function ArtifactTopTabs({
   };
 
   return (
-    <div className="mb-4 rounded-2xl border border-white/10 bg-black/25 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-xl transition-all duration-300 ease-out hover:border-white/20">
+    <div className="mb-4 rounded-2xl border border-white/10 bg-black/30 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.2)]">
       <div className="flex flex-wrap items-center gap-2">
         <div className="scrollbar-slim flex min-w-0 flex-1 gap-1 overflow-x-auto">
           <button
             type="button"
             onClick={onChat}
             className={cn(
-              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ease-out hover:-translate-y-0.5",
+              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
               !artifactOverlayOpen
                 ? "bg-sky-500 text-white shadow-[0_12px_28px_rgba(14,165,233,0.22)]"
                 : "text-slate-400 hover:bg-white/10 hover:text-white",
@@ -853,7 +977,7 @@ function ArtifactTopTabs({
                 type="button"
                 onClick={() => onChange(tab.id)}
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ease-out hover:-translate-y-0.5",
+                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
                   active
                     ? "bg-sky-500 text-white shadow-[0_12px_28px_rgba(14,165,233,0.22)]"
                     : "text-slate-400 hover:bg-white/10 hover:text-white",

@@ -78,12 +78,12 @@ export default function ChatPanel({
   }, [updateScrollControls]);
 
   return (
-    <section className="chat-panel-shell relative flex min-h-[560px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[rgba(8,11,18,0.54)] shadow-[0_34px_90px_rgba(0,0,0,0.38)] backdrop-blur-[28px] lg:h-full lg:min-h-0">
+    <section className="chat-panel-shell relative flex min-h-[560px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[rgba(8,11,18,0.72)] shadow-[0_22px_58px_rgba(0,0,0,0.34)] lg:h-full lg:min-h-0">
       {showScrollUp ? (
         <button
           type="button"
           onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
-          className="absolute left-3 top-20 z-10 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[rgba(8,11,18,0.84)] text-slate-200 shadow-[0_18px_40px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:text-white"
+          className="absolute left-3 top-20 z-10 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[rgba(8,11,18,0.92)] text-slate-200 shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-colors hover:border-white/20 hover:text-white"
           aria-label="Scroll chat to top"
         >
           <ChevronUp className="h-5 w-5" />
@@ -93,7 +93,7 @@ export default function ChatPanel({
         <button
           type="button"
           onClick={() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })}
-          className="absolute bottom-24 left-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[rgba(8,11,18,0.84)] text-slate-200 shadow-[0_18px_40px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-all duration-300 hover:translate-y-0.5 hover:border-white/20 hover:text-white"
+          className="absolute bottom-24 left-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[rgba(8,11,18,0.92)] text-slate-200 shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-colors hover:border-white/20 hover:text-white"
           aria-label="Scroll chat to bottom"
         >
           <ChevronDown className="h-5 w-5" />

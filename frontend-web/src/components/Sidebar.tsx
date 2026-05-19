@@ -64,7 +64,7 @@ export default function Sidebar({
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-white/10 bg-[#0b0b0d] px-3 py-4 text-slate-100 shadow-[28px_0_80px_rgba(0,0,0,0.48)] transition-[width,transform] lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-white/10 bg-[#0b0b0d] px-3 py-4 text-slate-100 shadow-[28px_0_80px_rgba(0,0,0,0.48)] transition-[width,transform] lg:translate-x-0",
           collapsed && "lg:w-[72px] lg:px-2",
           open ? "translate-x-0" : "-translate-x-full",
         )}
@@ -218,6 +218,7 @@ export default function Sidebar({
             tone={fallbackUsed ? "warning" : "success"}
           />
         </div>
+        <div className="mb-1 mt-5 h-px w-full rounded-full bg-white/[0.14]" aria-hidden="true" />
       </aside>
     </>
   );

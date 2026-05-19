@@ -21,6 +21,7 @@ export default function Layout({
   sessions,
   activeSessionId,
   activeView,
+  workspaceOverflowVisible,
   language,
   pages,
   onViewChange,
@@ -39,6 +40,7 @@ export default function Layout({
   sessions: SessionSummary[];
   activeSessionId?: string | null;
   activeView: AppView;
+  workspaceOverflowVisible?: boolean;
   language: UiLanguage;
   pages: Record<AppView, ReactNode>;
   onViewChange: (view: AppView) => void;
@@ -53,10 +55,8 @@ export default function Layout({
     <div className="min-h-screen bg-[#08090c] text-slate-100">
       <div
         className={cn(
-          "grid min-h-screen transition-[grid-template-columns] duration-300",
-          sidebarCollapsed
-            ? "lg:grid-cols-[72px_minmax(0,1fr)]"
-            : "lg:grid-cols-[280px_minmax(0,1fr)]",
+          "min-h-screen transition-[padding] duration-300 ease-out",
+          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[280px]",
         )}
       >
         <Sidebar
@@ -77,10 +77,13 @@ export default function Layout({
           onDeleteSession={onDeleteSession}
         />
 
-        <main className="relative min-w-0 p-2 transition-all duration-300 ease-out sm:p-3 lg:p-4">
+        <main className="relative min-w-0 p-2 sm:p-3 lg:p-4">
           <section
             data-view={activeView}
-            className="main-workspace relative isolate flex min-h-[calc(100vh-1rem)] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-transparent shadow-[0_30px_90px_rgba(0,0,0,0.42)] transition-all duration-300 ease-out sm:min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2rem)]"
+            className={cn(
+              "main-workspace relative isolate flex min-h-[calc(100vh-1rem)] flex-col rounded-[30px] border border-white/10 bg-transparent shadow-[0_22px_64px_rgba(0,0,0,0.36)] sm:min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2rem)]",
+              workspaceOverflowVisible ? "overflow-visible" : "overflow-hidden",
+            )}
           >
             <Button
               type="button"
@@ -92,7 +95,10 @@ export default function Layout({
               <Menu className="h-5 w-5" />
             </Button>
 
-            <div key={activeView} className="view-transition relative z-10 min-h-0 flex-1 p-4 sm:p-5 lg:p-6">
+            <div
+              key={`${activeView}-${activeSessionId || "no-session"}`}
+              className="view-transition-soft relative z-10 min-h-0 flex-1 p-4 sm:p-5 lg:p-6"
+            >
               {pages[activeView]}
             </div>
           </section>
