@@ -11,6 +11,7 @@ from backend.config import (
     PROMPTS_DIR,
     get_llm_settings,
     has_real_openai_key,
+    openai_provider_config_error,
 )
 
 
@@ -48,6 +49,7 @@ def generate_text(
     openai_base_url = str(settings["openai_base_url"])
     request_timeout_seconds = float(settings["request_timeout_seconds"])
     safe_max_output_tokens = max(128, min(int(max_output_tokens), 1200))
+    provider_config_error = openai_provider_config_error(openai_api_key, openai_base_url)
 
     if provider == "ollama":
         try:
@@ -75,6 +77,16 @@ def generate_text(
                 used_real_llm=False,
                 error=str(exc),
             )
+
+    if provider == "openai" and provider_config_error:
+        fallback = fallback_text(prompt)
+        return LLMResult(
+            text=fallback,
+            provider="fallback_after_openai_config_error",
+            model="deterministic-template",
+            used_real_llm=False,
+            error=provider_config_error,
+        )
 
     if provider == "openai" and has_real_openai_key(openai_api_key):
         try:

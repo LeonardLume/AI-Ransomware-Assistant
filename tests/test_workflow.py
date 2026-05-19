@@ -6,8 +6,8 @@ os.environ["RRA_IGNORE_DOTENV"] = "1"
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.chat_interview import answer_client_question_with_llm, fallback_client_answer
 from backend.main import app
-from backend.chat_interview import fallback_client_answer
 from backend.redaction import has_sensitive_data, redact_sensitive_text
 from backend.report import generate_report
 from backend.scoring import calculate_scores
@@ -378,6 +378,9 @@ def test_current_question_term_question_is_clarification():
     assert data["extracted_answers"] == {}
     assert data["current_question_id"] == current_q
     assert "organisatsioon" in data["assistant_message"].lower()
+    assert data["assistant_transparency"]["answer_type"] == "client_question"
+    assert data["assistant_transparency"]["answer_status"] == "question_unchanged"
+    assert data["assistant_transparency"]["sources"]
 
     session = client.get(f"/session/{sid}").json()
     assert session["answers"] == {}
@@ -415,6 +418,53 @@ def test_fallback_clarification_explains_rag_term():
     assert "retrieval" in message or "allikainfo" in message
 
 
+def test_fallback_clarification_explains_rpo_term():
+    reply = fallback_client_answer(
+        "mis on rpo",
+        {
+            "id": "rto_rpo_known",
+            "question": "Kas on teada, kui kiiresti tuleb kriitilised süsteemid taastada ja kui palju andmekadu on lubatav?",
+            "domain": "backups",
+            "options": ["yes", "partial", "no", "unsure"],
+        },
+    )
+    message = reply["message"].lower()
+    assert "rpo" in message
+    assert "andmekadu" in message
+    assert "tuleme nüüd tagasi praeguse küsimuse juurde" in message
+
+
+def test_short_term_clarification_uses_deterministic_answer_even_when_provider_is_live(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        "backend.chat_interview.get_llm_settings",
+        lambda: {"provider": "openai"},
+    )
+
+    def fail_generate_text(*args, **kwargs):
+        raise AssertionError("generate_text should not be called for glossary clarification")
+
+    monkeypatch.setattr("backend.chat_interview.generate_text", fail_generate_text)
+
+    reply = answer_client_question_with_llm(
+        "mis on mfa",
+        {
+            "id": "backups_exist",
+            "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
+            "domain": "backups",
+            "options": ["yes", "partial", "no", "unsure"],
+        },
+        {},
+    )
+
+    message = reply["message"].lower()
+    assert reply["used_fallback"] is True
+    assert "mfa" in message
+    assert "mitmefaktor" in message
+    assert "varukoop" not in message[:160]
+
+
 def test_how_are_you_is_smalltalk_not_general_advisory():
     start = client.post("/chat", json={"message": ""}).json()
     sid = start["session_id"]
@@ -441,6 +491,45 @@ def test_current_question_importance_phrase_is_clarification():
     assert data["response_type"] == "client_question"
     assert data["extracted_answers"] == {}
     assert data["current_question_id"] == current_q
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+
+
+@pytest.mark.parametrize("message", ["where are we now", "где мы сейчас"])
+def test_short_interrogative_message_is_not_saved_as_assessment_answer(message: str):
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": message})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] != "answer"
+    assert data["response_type"] != "interview_answer"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+    assert session["current_question_id"] == current_q
+
+
+def test_current_question_practical_guidance_question_is_clarification():
+    start = client.post("/chat", json={"message": ""}).json()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "kuidas sellele vastata?"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "clarification"
+    assert data["response_type"] == "client_question"
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+    assert "yes" in data["assistant_message"].lower()
+    assert "partial" in data["assistant_message"].lower()
+    assert "kaardistatud" in data["assistant_message"].lower()
 
     session = client.get(f"/session/{sid}").json()
     assert session["answers"] == {}

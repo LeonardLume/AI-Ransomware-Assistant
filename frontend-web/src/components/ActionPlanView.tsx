@@ -14,21 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 import { riskTone } from "./ui-helpers";
 
-const fallbackPhases: Array<{ key: PhaseKey; items: string[] }> = [
-  {
-    key: "48h",
-    items: ["Confirm ransomware incident contacts", "Identify backup owner", "Review admin MFA coverage"],
-  },
-  {
-    key: "14d",
-    items: ["Run a backup restore test", "Document critical patch SLA", "Review privileged accounts"],
-  },
-  {
-    key: "30d",
-    items: ["Run a tabletop exercise", "Collect evidence binder items", "Finalize remediation owners"],
-  },
-];
-
 type PhaseKey = "48h" | "14d" | "30d";
 
 export default function ActionPlanView({
@@ -48,24 +33,6 @@ export default function ActionPlanView({
           <p className="mt-2 text-sm text-slate-400">
             {t(language, "actionPlanDescription")}
           </p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {fallbackPhases.map((phase) => (
-            <Card key={phase.key} className="border-white/10 bg-white/[0.07]">
-              <CardHeader className="pb-4">
-                <CardTitle>{phaseLabel(language, phase.key)}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3 text-sm leading-6 text-slate-300">
-                  {phase.items.map((item) => (
-                    <li key={item} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                      {localizeKnownText(language, item)}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ))}
         </div>
         <EmptyState
           title={t(language, "noActionPlanTitle")}

@@ -12,6 +12,7 @@ import type {
 import { t, type UiLanguage } from "../utils/i18n";
 import ActionPlanView from "./ActionPlanView";
 import EvidenceBinderView from "./EvidenceBinderView";
+import ReportRequiredState from "./ReportRequiredState";
 import ReportView from "./ReportView";
 import SkillsView from "./SkillsView";
 import TechnicalTransparencyView from "./TechnicalTransparencyView";
@@ -47,6 +48,7 @@ export default function SessionArtifactOverlay({
   loading,
   language = "et",
   onGenerateReport,
+  onOpenReport,
   onClose,
 }: {
   open: boolean;
@@ -64,6 +66,7 @@ export default function SessionArtifactOverlay({
   loading?: boolean;
   language?: UiLanguage;
   onGenerateReport: () => void;
+  onOpenReport: () => void;
   onClose: () => void;
 }) {
   if (!open) {
@@ -71,6 +74,12 @@ export default function SessionArtifactOverlay({
   }
 
   const selectedArtifact = normalizeArtifact(activeArtifact);
+  const reportRequired =
+    activeSessionId &&
+    !report &&
+    (selectedArtifact === "action-plan" ||
+      selectedArtifact === "evidence-binder" ||
+      selectedArtifact === "skills");
 
   return (
     <div className="artifact-overlay-enter absolute inset-0 z-30 overflow-hidden rounded-xl border border-white/10 bg-[#07090d]/95 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl">
@@ -110,13 +119,23 @@ export default function SessionArtifactOverlay({
               language={language}
             />
           ) : null}
-          {activeSessionId && selectedArtifact === "action-plan" ? (
+          {reportRequired ? (
+            <ReportRequiredState
+              title={artifactTitle(selectedArtifact, language)}
+              description={t(language, "noReportDescription")}
+              language={language}
+              loading={loading}
+              onGenerate={onGenerateReport}
+              onOpenReport={onOpenReport}
+            />
+          ) : null}
+          {activeSessionId && !reportRequired && selectedArtifact === "action-plan" ? (
             <ActionPlanView report={report} language={language} />
           ) : null}
-          {activeSessionId && selectedArtifact === "evidence-binder" ? (
+          {activeSessionId && !reportRequired && selectedArtifact === "evidence-binder" ? (
             <EvidenceBinderView report={report} language={language} />
           ) : null}
-          {activeSessionId && selectedArtifact === "skills" ? (
+          {activeSessionId && !reportRequired && selectedArtifact === "skills" ? (
             <SkillsView report={report} language={language} />
           ) : null}
           {activeSessionId && selectedArtifact === "technical-json" ? (

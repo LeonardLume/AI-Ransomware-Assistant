@@ -85,9 +85,45 @@ def get_security_settings() -> dict[str, object]:
     }
 
 
+def use_langgraph_dialog() -> bool:
+    return _parse_bool(get_config_value("USE_LANGGRAPH_DIALOG", "0"))
+
+
 def has_real_openai_key(value: str) -> bool:
     key = value.strip()
     return bool(key) and key.lower() not in OPENAI_KEY_PLACEHOLDERS
+
+
+def _provider_family_from_openai_key(value: str) -> str | None:
+    key = value.strip().lower()
+    if not key:
+        return None
+    if key.startswith("sk-or-v1"):
+        return "openrouter"
+    if key.startswith("sk-"):
+        return "openai"
+    return None
+
+
+def _provider_family_from_base_url(value: str) -> str | None:
+    base_url = value.strip().lower()
+    if not base_url:
+        return None
+    if "openrouter.ai" in base_url:
+        return "openrouter"
+    if "api.openai.com" in base_url:
+        return "openai"
+    return None
+
+
+def openai_provider_config_error(api_key: str, base_url: str) -> str | None:
+    key_provider = _provider_family_from_openai_key(api_key)
+    url_provider = _provider_family_from_base_url(base_url)
+    if key_provider == "openrouter" and url_provider == "openai":
+        return "OPENAI_API_KEY looks like an OpenRouter key, but OPENAI_BASE_URL points to api.openai.com."
+    if key_provider == "openai" and url_provider == "openrouter":
+        return "OPENAI_API_KEY looks like an OpenAI key, but OPENAI_BASE_URL points to openrouter.ai."
+    return None
 
 
 _SETTINGS = get_llm_settings()
@@ -104,14 +140,18 @@ def llm_status() -> dict[str, object]:
     settings = get_llm_settings()
     provider = str(settings["provider"])
     openai_api_key = str(settings["openai_api_key"])
+    openai_base_url = str(settings["openai_base_url"])
+    config_error = openai_provider_config_error(openai_api_key, openai_base_url)
     provider_ready = (
         provider == "fallback"
         or provider == "ollama"
-        or (provider == "openai" and has_real_openai_key(openai_api_key))
+        or (provider == "openai" and has_real_openai_key(openai_api_key) and not config_error)
     )
     reason = "ready"
     if provider == "openai" and not has_real_openai_key(openai_api_key):
         reason = "OPENAI_API_KEY is empty or still a placeholder; insert your key in .env."
+    elif provider == "openai" and config_error:
+        reason = config_error
     elif provider not in {"fallback", "ollama", "openai"}:
         reason = f"Unsupported LLM_PROVIDER: {provider}"
 

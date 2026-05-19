@@ -288,6 +288,17 @@ npm run build
 - `skills/` improve guidance and evidence recommendations, not the numeric score
 - the current main UI is React; Streamlit is legacy/fallback
 
+## Dialog Orchestration
+
+LangGraph is used only as a chat-routing and state-orchestration layer for `/chat`.
+
+- backend still controls answer persistence, progress, report generation, and official scoring
+- the LLM does not calculate or modify the official score
+- the LLM does not directly mutate session state
+- LangGraph routes a user message into assessment, clarification, grounded knowledge, advisory, report, smalltalk, or refusal paths
+- `USE_LANGGRAPH_DIALOG=1` enables the graph-backed path
+- `USE_LANGGRAPH_DIALOG=0` keeps the existing non-graph `/chat` path as a rollback option
+
 ## Limits
 
 - depends on user-provided answers

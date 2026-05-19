@@ -10,6 +10,7 @@ __pycache__/
 sessions.db
 *.log
 *.err.log
+data_runtime/ai_traces.jsonl
 frontend-web/node_modules/
 frontend-web/dist/
 frontend-web/*.tsbuildinfo

@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import unicodedata
+from time import perf_counter
 from typing import Any
 
+from backend.ai_trace import trace_llm_call as trace_llm_call_event, trace_retrieval as trace_retrieval_event
 from backend.config import get_llm_settings
+from backend.llm_contracts import (
+    validate_extracted_answer,
+    validate_grounded_answer_quality,
+    validate_intent_decision,
+)
 from backend.llm_client import generate_text, load_prompt, parse_json_from_llm
 from backend.questions import load_domain_metadata, load_questions, load_source_notes, question_map
 from backend.redaction import redact_sensitive_text
 from backend.skills import build_skill_context_for_domain
+
+LOGGER = logging.getLogger(__name__)
 
 Intent = str
 VALID_INTENTS = {"answer", "clarification", "general_advisory_chat", "report_request", "smalltalk", "unknown"}
@@ -50,6 +60,10 @@ REPORT_HINTS = [
     "покажи отчёт",
     "отчет",
     "отчёт",
+    "Ð³Ð´Ðµ",
+    "ÐºÐ¾Ð³Ð´Ð°",
+    "ÐºÐ°ÐºÐ¾Ð¹",
+    "ÐºÐ°ÐºÐ¸Ðµ",
 ]
 
 CLARIFICATION_HINTS = [
@@ -220,15 +234,27 @@ QUESTION_WORDS = [
     "mida",
     "miks",
     "kuidas",
+    "kus",
+    "millal",
+    "milline",
+    "millised",
     "kas",
     "what",
     "who",
     "why",
     "how",
+    "where",
+    "when",
+    "which",
     "что",
     "кто",
     "почему",
     "как",
+    "где",
+    "когда",
+    "какой",
+    "какая",
+    "какие",
 ]
 
 SMALLTALK_HINTS = [
@@ -471,7 +497,7 @@ def _legacy_classify_user_intent(message: str, current_question: dict[str, Any] 
 
     has_question_mark = "?" in raw or "？" in raw
     has_clarification_hint = _contains_any(text, CLARIFICATION_HINTS)
-    has_question_word = any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
+    has_question_word = _has_question_word(text)
     has_answer_signal = _has_answer_signal(text)
 
     if has_clarification_hint:
@@ -490,16 +516,56 @@ def answer_client_question_with_llm(
     current_question: dict[str, Any] | None,
     current_answers: dict[str, dict[str, Any]],
     org_info: dict[str, Any] | None = None,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     language = detect_language(user_message)
     q_context = current_question or next_missing_question(current_answers)
     if looks_like_offensive_request(user_message):
         return defensive_refusal(user_message, q_context)
 
-    if get_llm_settings()["provider"] == "fallback":
+    source_ids = _knowledge_source_ids()
+    _trace_retrieval(
+        trace_context,
+        intent="clarification",
+        response_type="client_question",
+        provider="knowledge_base",
+        used_fallback=False,
+        retrieved_source_count=len(source_ids),
+        knowledge_source_ids=source_ids,
+    )
+
+    if _should_use_deterministic_clarification(user_message):
+        _trace_llm_call(
+            trace_context,
+            intent="clarification",
+            response_type="client_question",
+            provider="deterministic_clarification",
+            used_fallback=True,
+            retrieved_source_count=len(source_ids),
+            knowledge_source_ids=source_ids,
+            latency_ms=0,
+        )
         fallback = fallback_client_answer(user_message, q_context)
         fallback["redactions_applied"] = []
         fallback["redacted_for_llm"] = False
+        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
+        return fallback
+
+    if get_llm_settings()["provider"] == "fallback":
+        _trace_llm_call(
+            trace_context,
+            intent="clarification",
+            response_type="client_question",
+            provider="fallback",
+            used_fallback=True,
+            retrieved_source_count=len(source_ids),
+            knowledge_source_ids=source_ids,
+            latency_ms=0,
+        )
+        fallback = fallback_client_answer(user_message, q_context)
+        fallback["redactions_applied"] = []
+        fallback["redacted_for_llm"] = False
+        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
         return fallback
 
     current_answer = _current_question_answer(q_context, current_answers)
@@ -515,16 +581,29 @@ def answer_client_question_with_llm(
         org_info=org_info or {},
     )
 
+    started = perf_counter()
     result = generate_text(
         prompt=json.dumps(context_payload, ensure_ascii=False, indent=2),
         system_prompt=load_prompt("advisor_prompt.txt"),
         temperature=0.25,
     )
+    latency_ms = (perf_counter() - started) * 1000
 
     if not result.used_real_llm or not result.text.strip():
+        _trace_llm_call(
+            trace_context,
+            intent="clarification",
+            response_type="client_question",
+            provider=result.provider,
+            used_fallback=True,
+            retrieved_source_count=len(source_ids),
+            knowledge_source_ids=source_ids,
+            latency_ms=latency_ms,
+        )
         fallback = fallback_client_answer(user_message, q_context)
         fallback["redactions_applied"] = redactions
         fallback["redacted_for_llm"] = bool(redactions)
+        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
         return fallback
 
     message = normalize_assistant_text(result.text.strip(), language, q_context, current_answer)
@@ -534,6 +613,16 @@ def answer_client_question_with_llm(
         message = _ensure_six_month_explanation(message)
     if _is_identity_question(user_message) and not _contains_any(_normalize(message), ["olen ransomware readiness", "i am ransomware readiness"]):
         message = f"{_identity_text(language)}\n\n{message}"
+    _trace_llm_call(
+        trace_context,
+        intent="clarification",
+        response_type="client_question",
+        provider=result.provider,
+        used_fallback=False,
+        retrieved_source_count=len(source_ids),
+        knowledge_source_ids=source_ids,
+        latency_ms=latency_ms,
+    )
 
     return {
         "message": message,
@@ -543,6 +632,7 @@ def answer_client_question_with_llm(
         "error": result.error,
         "redactions_applied": redactions,
         "redacted_for_llm": bool(redactions),
+        "grounded_answer_quality": _grounded_answer_quality(language, used_knowledge=True, safety_blocked=False),
     }
 
 
@@ -551,16 +641,39 @@ def answer_general_advisory_with_llm(
     current_question: dict[str, Any] | None,
     current_answers: dict[str, dict[str, Any]],
     org_info: dict[str, Any] | None = None,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     language = detect_language(user_message)
     q_context = current_question or next_missing_question(current_answers)
     if looks_like_offensive_request(user_message):
         return defensive_refusal(user_message, q_context)
 
+    source_ids = _knowledge_source_ids()
+    _trace_retrieval(
+        trace_context,
+        intent="general_advisory_chat",
+        response_type="general_advisory_chat",
+        provider="knowledge_base",
+        used_fallback=False,
+        retrieved_source_count=len(source_ids),
+        knowledge_source_ids=source_ids,
+    )
+
     if get_llm_settings()["provider"] == "fallback":
+        _trace_llm_call(
+            trace_context,
+            intent="general_advisory_chat",
+            response_type="general_advisory_chat",
+            provider="fallback",
+            used_fallback=True,
+            retrieved_source_count=len(source_ids),
+            knowledge_source_ids=source_ids,
+            latency_ms=0,
+        )
         fallback = fallback_general_advisory_answer(user_message, q_context, current_answers)
         fallback["redactions_applied"] = []
         fallback["redacted_for_llm"] = False
+        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
         return fallback
 
     redacted_message, message_redactions = redact_sensitive_text(user_message)
@@ -574,22 +687,45 @@ def answer_general_advisory_with_llm(
         org_info=org_info or {},
     )
 
+    started = perf_counter()
     result = generate_text(
         prompt=json.dumps(context_payload, ensure_ascii=False, indent=2),
         system_prompt=load_prompt("general_advisory_prompt.txt"),
         temperature=0.3,
     )
+    latency_ms = (perf_counter() - started) * 1000
 
     if not result.used_real_llm or not result.text.strip():
+        _trace_llm_call(
+            trace_context,
+            intent="general_advisory_chat",
+            response_type="general_advisory_chat",
+            provider=result.provider,
+            used_fallback=True,
+            retrieved_source_count=len(source_ids),
+            knowledge_source_ids=source_ids,
+            latency_ms=latency_ms,
+        )
         fallback = fallback_general_advisory_answer(user_message, q_context, current_answers)
         fallback["redactions_applied"] = redactions
         fallback["redacted_for_llm"] = bool(redactions)
         fallback["error"] = result.error
+        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
         return fallback
 
     message = normalize_general_advisory_text(result.text.strip())
     if not _is_identity_question(user_message):
         message = _strip_unrequested_identity(message)
+    _trace_llm_call(
+        trace_context,
+        intent="general_advisory_chat",
+        response_type="general_advisory_chat",
+        provider=result.provider,
+        used_fallback=False,
+        retrieved_source_count=len(source_ids),
+        knowledge_source_ids=source_ids,
+        latency_ms=latency_ms,
+    )
 
     return {
         "message": message,
@@ -599,6 +735,7 @@ def answer_general_advisory_with_llm(
         "error": result.error,
         "redactions_applied": redactions,
         "redacted_for_llm": bool(redactions),
+        "grounded_answer_quality": _grounded_answer_quality(language, used_knowledge=True, safety_blocked=False),
     }
 
 
@@ -634,6 +771,93 @@ def build_general_advisory_context(
             "If useful, include one short bridge back to the assessment context, but do not repeat the full active question.",
         ],
     }
+
+
+def _grounded_answer_quality(language: str, used_knowledge: bool, safety_blocked: bool) -> dict[str, Any]:
+    validated = validate_grounded_answer_quality(
+        {
+            "used_knowledge": used_knowledge,
+            "source_count": len(load_source_notes()),
+            "missing_context": False,
+            "safety_blocked": safety_blocked,
+            "answer_language": language,
+        }
+    )
+    if validated is None:
+        return {
+            "used_knowledge": used_knowledge,
+            "source_count": 0,
+            "missing_context": True,
+            "safety_blocked": safety_blocked,
+            "answer_language": language,
+        }
+    return validated.model_dump()
+
+
+def _knowledge_source_ids() -> list[str]:
+    return [str(item.get("name", "")) for item in load_source_notes() if str(item.get("name", "")).strip()]
+
+
+def _trace_retrieval(
+    trace_context: dict[str, Any] | None,
+    *,
+    intent: str,
+    response_type: str,
+    provider: str,
+    used_fallback: bool,
+    retrieved_source_count: int,
+    knowledge_source_ids: list[str],
+) -> None:
+    if not trace_context:
+        return
+    trace_retrieval_event(
+        session_id=str(trace_context.get("session_id", "")),
+        request_id=str(trace_context.get("request_id", "")),
+        intent=intent,
+        response_type=response_type,
+        provider=provider,
+        used_fallback=used_fallback,
+        current_question_id=trace_context.get("current_question_id"),
+        current_domain=trace_context.get("current_domain"),
+        user_message=str(trace_context.get("user_message", "")),
+        retrieved_source_count=retrieved_source_count,
+        knowledge_source_ids=knowledge_source_ids,
+    )
+
+
+def _trace_llm_call(
+    trace_context: dict[str, Any] | None,
+    *,
+    intent: str,
+    response_type: str,
+    provider: str,
+    used_fallback: bool,
+    should_save_answer: bool = False,
+    confidence: str | float | None = None,
+    retrieved_source_count: int = 0,
+    knowledge_source_ids: list[str] | None = None,
+    safety_blocked: bool = False,
+    latency_ms: float | int | None = None,
+) -> None:
+    if not trace_context:
+        return
+    trace_llm_call_event(
+        session_id=str(trace_context.get("session_id", "")),
+        request_id=str(trace_context.get("request_id", "")),
+        intent=intent,
+        response_type=response_type,
+        provider=provider,
+        used_fallback=used_fallback,
+        current_question_id=trace_context.get("current_question_id"),
+        current_domain=trace_context.get("current_domain"),
+        user_message=str(trace_context.get("user_message", "")),
+        should_save_answer=should_save_answer,
+        confidence=confidence,
+        retrieved_source_count=retrieved_source_count,
+        knowledge_source_ids=knowledge_source_ids or [],
+        safety_blocked=safety_blocked,
+        latency_ms=latency_ms,
+    )
 
 
 def build_advisor_context(
@@ -855,6 +1079,8 @@ def fallback_client_answer(user_message: str, current_question: dict[str, Any] |
         return defensive_refusal(user_message, current_question)
     if _is_identity_question(user_message):
         answer = _identity_text(language)
+    elif current_question and _looks_like_how_to_judge_current_question(text):
+        answer = _practical_answering_guidance(current_question, language)
     elif "organisatsioon" in text or "organization" in text or "organisation" in text:
         if language == "English":
             answer = (
@@ -889,6 +1115,8 @@ def fallback_client_answer(user_message: str, current_question: dict[str, Any] |
             "Sisselogimiseks on vaja ka teist kinnitust, näiteks telefonirakendust, turvavõtit või koodi.\n\n"
             "See vähendab riski, et varastatud parool annab ründajale kohe ligipääsu e-postile, VPN-ile või admin-kontole."
         )
+    elif re.search(r"\brto\b", text) or re.search(r"\brpo\b", text):
+        answer = _rto_rpo_term_explanation(text, language)
     elif re.search(r"\brag\b", text):
         answer = (
             "RAG ehk retrieval-augmented generation tähendab, et AI mudelile antakse enne vastamist juurde asjakohane allikainfo või dokumentide lõigud.\n\n"
@@ -941,6 +1169,150 @@ def fallback_client_answer(user_message: str, current_question: dict[str, Any] |
     return {"message": answer, "provider": "fallback", "used_fallback": True, "model": "deterministic-template", "error": None}
 
 
+def _looks_like_how_to_judge_current_question(text: str) -> bool:
+    return _contains_any(
+        text,
+        [
+            "kuidas ma saan aru",
+            "kuidas aru saada",
+            "mille jargi",
+            "mille järgi",
+            "kuidas hinnata",
+            "kuidas otsustada",
+            "kuidas sellele vastata",
+            "kuidas ma vastan",
+            "how do i know",
+            "how can i tell",
+            "how should i answer",
+            "what should count as",
+            "как понять",
+            "как оценить",
+            "как ответить",
+        ],
+    )
+
+
+def _should_use_deterministic_clarification(user_message: str) -> bool:
+    text = _normalize(user_message)
+    word_count = len(text.split())
+    if _looks_like_short_definition_question(text):
+        return True
+    if word_count > 6:
+        return False
+    return _contains_any(
+        text,
+        [
+            "mfa",
+            "mitmefaktor",
+            "vpn",
+            "rdp",
+            "rag",
+            "rto",
+            "rpo",
+            "organisatsioon",
+            "organization",
+            "organisation",
+            "backup",
+            "varukoop",
+            "restore",
+            "taast",
+            "incident response",
+            "intsident",
+            "patch",
+            "uuendus",
+            "admin",
+            "oigus",
+            "õigus",
+            "ransomware",
+            "lunavara",
+        ],
+    )
+
+
+def _practical_answering_guidance(current_question: dict[str, Any], language: str) -> str:
+    question_id = str(current_question.get("id") or "")
+
+    if question_id == "org_critical_systems_known":
+        if language == "English":
+            return (
+                "Use a business-impact lens: which systems or data would stop work quickly if they were unavailable tomorrow?\n\n"
+                "Typical examples are finance/accounting, customer data, email, identity access, file storage, production systems, and anything needed to deliver the core service.\n\n"
+                "A simple check is: if this were down for one working day, what would stop sales, customer service, payroll, operations, or legal obligations?\n\n"
+                "Answer `yes` if that list is known and people can point to it, `partial` if only some critical systems are identified, `no` if it is not mapped, and `unsure` if you do not know."
+            )
+        return (
+            "Vaata seda ärimõju kaudu: milliste süsteemide või andmete kadumine peataks töö juba homme?\n\n"
+            "Tüüpilised näited on raamatupidamine, kliendiandmed, e-post, identiteedid ja ligipääsud, failiserver, tootmissüsteemid ning muud teenused, ilma milleta põhitegevus seisab.\n\n"
+            "Lihtne kontrollküsimus on: kui see oleks ühe tööpäeva maas, mis peataks müügi, teeninduse, palgaarvestuse, tegevuse või seadusest tulenevad kohustused?\n\n"
+            "Vasta `yes`, kui see nimekiri on olemas ja inimesed oskavad sellele viidata; `partial`, kui ainult osa on läbi mõeldud; `no`, kui seda pole kaardistatud; ja `unsure`, kui sa ei tea."
+        )
+
+    if language == "English":
+        return (
+            "A practical way to answer is to check four things: whether the control really exists, how broadly it is used, whether it works consistently, and whether there is any proof.\n\n"
+            "Answer `yes` if it is in place for the important systems or users, `partial` if coverage is incomplete or inconsistent, `no` if it does not exist, and `unsure` if the status is not known."
+        )
+    return (
+        "Praktiline viis vastata on vaadata nelja asja: kas see kontroll on päriselt olemas, kui laialt see katab olulised süsteemid või kasutajad, kas see toimib järjepidevalt ning kas selle kohta on mingi tõend.\n\n"
+        "Vasta `yes`, kui see on olulises osas olemas ja toimib; `partial`, kui katvus on puudulik või ebaühtlane; `no`, kui seda praegu pole; ja `unsure`, kui tegelik seis pole teada."
+    )
+
+
+def _rto_rpo_term_explanation(text: str, language: str) -> str:
+    asks_rto = bool(re.search(r"\brto\b", text))
+    asks_rpo = bool(re.search(r"\brpo\b", text))
+
+    if language == "English":
+        if asks_rto and asks_rpo:
+            return (
+                "RTO means how quickly a critical system should be restored after an incident. "
+                "RPO means how much data loss is acceptable, for example whether losing the last 1 hour or 24 hours of changes would still be tolerable.\n\n"
+                "In this question, the practical point is whether the organization already knows those restoration and data-loss targets for critical systems."
+            )
+        if asks_rto:
+            return (
+                "RTO means Recovery Time Objective: how quickly a critical system should be restored after an incident.\n\n"
+                "In this question, the practical point is whether that target time is known for the systems that matter most."
+            )
+        return (
+            "RPO means Recovery Point Objective: how much data loss is acceptable, for example whether losing the last 1 hour or 24 hours of changes would still be tolerable.\n\n"
+            "In this question, the practical point is whether that acceptable data-loss target is known for critical systems."
+        )
+
+    if language == "Russian":
+        if asks_rto and asks_rpo:
+            return (
+                "RTO — это за какое время критичную систему нужно восстановить после инцидента. "
+                "RPO — это какой объём потери данных допустим, например можно ли пережить потерю последних 1 часа или 24 часов изменений.\n\n"
+                "С практической точки зрения вопрос здесь в том, знает ли организация эти целевые сроки восстановления и допустимую потерю данных для критичных систем."
+            )
+        if asks_rto:
+            return (
+                "RTO означает Recovery Time Objective: за какое время критичную систему нужно восстановить после инцидента.\n\n"
+                "Практический смысл этого вопроса — известно ли это целевое время для самых важных систем."
+            )
+        return (
+            "RPO означает Recovery Point Objective: какой объём потери данных допустим, например можно ли пережить потерю последних 1 часа или 24 часов изменений.\n\n"
+            "Практический смысл этого вопроса — известен ли этот допустимый предел потери данных для критичных систем."
+        )
+
+    if asks_rto and asks_rpo:
+        return (
+            "RTO tähendab, kui kiiresti peab kriitilise süsteemi pärast intsidenti taastama. "
+            "RPO tähendab, kui palju andmekadu on lubatav, näiteks kas viimase 1 tunni või 24 tunni muudatuste kaotus oleks veel talutav.\n\n"
+            "Selle küsimuse praktiline mõte on, kas organisatsioon juba teab neid taastamise sihtaegu ja lubatava andmekao piire kriitiliste süsteemide jaoks."
+        )
+    if asks_rto:
+        return (
+            "RTO tähendab Recovery Time Objective: kui kiiresti peab kriitilise süsteemi pärast intsidenti taastama.\n\n"
+            "Selle küsimuse praktiline mõte on, kas see sihtaeg on kõige olulisemate süsteemide jaoks teada."
+        )
+    return (
+        "RPO tähendab Recovery Point Objective: kui palju andmekadu on lubatav, näiteks kas viimase 1 tunni või 24 tunni muudatuste kaotus oleks veel talutav.\n\n"
+        "Selle küsimuse praktiline mõte on, kas see lubatav andmekao piir on kriitiliste süsteemide jaoks teada."
+    )
+
+
 def _append_practical_evidence_hint(text: str, answer: str) -> str:
     if "hea tõend" in _normalize(answer) or "hea toend" in _normalize(answer):
         return answer
@@ -980,6 +1352,7 @@ def answer_smalltalk_with_llm(
     current_question: dict[str, Any] | None,
     current_answers: dict[str, dict[str, Any]] | None = None,
     org_info: dict[str, Any] | None = None,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     current_answers = current_answers or {}
     org_info = org_info or {}
@@ -988,6 +1361,14 @@ def answer_smalltalk_with_llm(
         return defensive_refusal(message, current_question)
 
     if get_llm_settings()["provider"] == "fallback":
+        _trace_llm_call(
+            trace_context,
+            intent="smalltalk",
+            response_type="smalltalk",
+            provider="fallback",
+            used_fallback=True,
+            latency_ms=0,
+        )
         fallback = answer_smalltalk(message, current_question)
         fallback["redactions_applied"] = []
         fallback["redacted_for_llm"] = False
@@ -1004,12 +1385,22 @@ def answer_smalltalk_with_llm(
         current_answers=redacted_answers,
         org_info=org_info,
     )
+    started = perf_counter()
     result = generate_text(
         prompt=json.dumps(context_payload, ensure_ascii=False, indent=2),
         system_prompt=load_prompt("chat_turn_prompt.txt"),
         temperature=0.3,
     )
+    latency_ms = (perf_counter() - started) * 1000
     if not result.used_real_llm or not result.text.strip():
+        _trace_llm_call(
+            trace_context,
+            intent="smalltalk",
+            response_type="smalltalk",
+            provider=result.provider,
+            used_fallback=True,
+            latency_ms=latency_ms,
+        )
         fallback = answer_smalltalk(message, current_question)
         fallback["redactions_applied"] = redactions
         fallback["redacted_for_llm"] = bool(redactions)
@@ -1024,6 +1415,14 @@ def answer_smalltalk_with_llm(
     )
     if not _is_identity_question(message):
         normalized = _strip_unrequested_identity(normalized)
+    _trace_llm_call(
+        trace_context,
+        intent="smalltalk",
+        response_type="smalltalk",
+        provider=result.provider,
+        used_fallback=False,
+        latency_ms=latency_ms,
+    )
     return {
         "message": normalized,
         "provider": result.provider,
@@ -1040,12 +1439,22 @@ def extract_answers_with_llm(
     questions: list[dict[str, Any]],
     current_answers: dict[str, dict[str, Any]],
     current_question: dict[str, Any] | None,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     deterministic_intent = classify_user_intent(user_message, current_question)
     if deterministic_intent != "answer":
         return _empty_extraction(deterministic_intent)
 
     if get_llm_settings()["provider"] == "fallback":
+        _trace_llm_call(
+            trace_context,
+            intent="answer",
+            response_type="interview_answer",
+            provider="fallback",
+            used_fallback=True,
+            should_save_answer=True,
+            latency_ms=0,
+        )
         fallback = fallback_extract_answers(user_message, questions, current_question)
         fallback["redactions_applied"] = []
         fallback["redacted_for_llm"] = False
@@ -1079,13 +1488,24 @@ def extract_answers_with_llm(
             "clarification_question": "short Estonian question",
         },
     }
+    started = perf_counter()
     result = generate_text(
         prompt=json.dumps(prompt_payload, ensure_ascii=False, indent=2),
         system_prompt=load_prompt("extraction_prompt.txt"),
         temperature=0,
     )
+    latency_ms = (perf_counter() - started) * 1000
     parsed = parse_json_from_llm(result.text)
     if not result.used_real_llm or not parsed:
+        _trace_llm_call(
+            trace_context,
+            intent="answer",
+            response_type="interview_answer",
+            provider=result.provider,
+            used_fallback=True,
+            should_save_answer=True,
+            latency_ms=latency_ms,
+        )
         fallback = fallback_extract_answers(user_message, questions, current_question)
         fallback["llm_error"] = result.error or "LLM did not return valid extraction JSON."
         fallback["redactions_applied"] = redactions
@@ -1093,7 +1513,33 @@ def extract_answers_with_llm(
         return fallback
 
     parsed_intent = _normalize_intent(parsed.get("intent"), deterministic_intent)
+    decision = _validate_llm_intent_decision(parsed, parsed_intent)
+    if decision is None:
+        _trace_llm_call(
+            trace_context,
+            intent="unknown",
+            response_type="interview_answer",
+            provider=result.provider,
+            used_fallback=True,
+            should_save_answer=False,
+            latency_ms=latency_ms,
+        )
+        fallback = fallback_extract_answers(user_message, questions, current_question)
+        fallback["llm_error"] = "LLM intent decision failed structured validation."
+        fallback["redactions_applied"] = redactions
+        fallback["redacted_for_llm"] = bool(redactions)
+        return fallback
+
     if deterministic_intent == "answer" and parsed_intent != "answer":
+        _trace_llm_call(
+            trace_context,
+            intent=parsed_intent,
+            response_type="interview_answer",
+            provider=result.provider,
+            used_fallback=True,
+            should_save_answer=False,
+            latency_ms=latency_ms,
+        )
         guarded = fallback_extract_answers(user_message, questions, current_question)
         guarded["provider"] = result.provider
         guarded["used_fallback"] = False
@@ -1103,11 +1549,38 @@ def extract_answers_with_llm(
         return guarded
 
     validated = validate_extraction(parsed, questions, current_question, deterministic_intent)
+    if validated.get("contract_validation_failed"):
+        _trace_llm_call(
+            trace_context,
+            intent="answer",
+            response_type="interview_answer",
+            provider=result.provider,
+            used_fallback=True,
+            should_save_answer=False,
+            latency_ms=latency_ms,
+        )
+        guarded = fallback_extract_answers(user_message, questions, current_question)
+        guarded["provider"] = result.provider
+        guarded["used_fallback"] = False
+        guarded["llm_error"] = "LLM extracted answers failed structured validation."
+        guarded["redactions_applied"] = redactions
+        guarded["redacted_for_llm"] = bool(redactions)
+        return guarded
     validated["provider"] = result.provider
     validated["used_fallback"] = False
     validated["llm_error"] = result.error
     validated["redactions_applied"] = redactions
     validated["redacted_for_llm"] = bool(redactions)
+    _trace_llm_call(
+        trace_context,
+        intent=validated.get("intent", "answer"),
+        response_type="interview_answer",
+        provider=result.provider,
+        used_fallback=False,
+        should_save_answer=bool(validated.get("extracted_answers")),
+        confidence=max((validated.get("confidence") or {}).values(), default=None),
+        latency_ms=latency_ms,
+    )
     return validated
 
 
@@ -1125,6 +1598,7 @@ def validate_extraction(
     extracted: dict[str, str] = {}
     confidence: dict[str, float] = {}
     unclear: list[str] = []
+    contract_validation_failed = False
 
     raw_answers = parsed.get("extracted_answers", {})
     if isinstance(raw_answers, dict):
@@ -1137,8 +1611,23 @@ def validate_extraction(
             normalized_answer = str(answer).strip().lower()
             if normalized_answer in {"dont_know", "don't know", "unknown"}:
                 normalized_answer = "unsure"
-            if normalized_answer in qmap[qid].get("options", []):
-                extracted[qid] = normalized_answer
+            candidate = validate_extracted_answer(
+                {
+                    "question_id": qid,
+                    "answer": normalized_answer,
+                    "confidence": _raw_confidence_value(parsed.get("confidence", {}), qid),
+                    "details": "",
+                    "should_advance": True,
+                }
+            )
+            if candidate is None:
+                LOGGER.warning("Rejected extracted answer for question_id=%s due to contract validation failure.", qid)
+                unclear.append(qid)
+                contract_validation_failed = True
+                continue
+            if candidate.answer in qmap[qid].get("options", []):
+                extracted[qid] = candidate.answer
+                confidence[qid] = candidate.confidence
             else:
                 unclear.append(qid)
 
@@ -1151,7 +1640,7 @@ def validate_extraction(
     raw_confidence = parsed.get("confidence", {})
     if isinstance(raw_confidence, dict):
         for qid, value in raw_confidence.items():
-            if qid not in qmap:
+            if qid not in qmap or qid in confidence:
                 continue
             try:
                 confidence[qid] = float(value)
@@ -1175,7 +1664,46 @@ def validate_extraction(
         "provider": "fallback",
         "used_fallback": True,
         "llm_error": None,
+        "contract_validation_failed": contract_validation_failed,
     }
+
+
+def _validate_llm_intent_decision(parsed: dict[str, Any], parsed_intent: str) -> Any | None:
+    raw_intent = str(parsed.get("intent") or "").strip().lower()
+    raw_answers = parsed.get("extracted_answers", {})
+    first_question_id: str | None = None
+    first_answer: str | None = None
+    if isinstance(raw_answers, dict):
+        for qid, value in raw_answers.items():
+            first_question_id = str(qid).strip() or None
+            first_answer = str(value.get("answer") if isinstance(value, dict) else value).strip().lower() or None
+            break
+
+    contract_intent = "interview_answer" if raw_intent == "answer" else raw_intent
+    decision = validate_intent_decision(
+        {
+            "intent": contract_intent,
+            "should_save_answer": bool(raw_answers),
+            "question_id": first_question_id,
+            "answer": first_answer,
+            "confidence": _raw_confidence_value(parsed.get("confidence", {}), first_question_id),
+            "reason": str(parsed.get("clarification_question") or ""),
+            "needs_knowledge": parsed_intent in {"general_advisory_chat", "knowledge_grounded_answer"},
+        }
+    )
+    if decision is None:
+        LOGGER.warning("Rejected LLM intent decision due to contract validation failure.")
+    return decision
+
+
+def _raw_confidence_value(raw_confidence: Any, question_id: str | None) -> float:
+    if not isinstance(raw_confidence, dict) or not question_id:
+        return 0.0
+    value = raw_confidence.get(question_id)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def fallback_extract_answers(
@@ -1259,7 +1787,7 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
         if _contains_any(text, ["jah", "olemas", "kasutame", "koigil", "kõigil"]):
             return "yes", 0.84
 
-    if _contains_any(
+    if _contains_any_token_or_phrase(
         text,
         [
             "ei tea",
@@ -1276,7 +1804,7 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
         ],
     ) or re.search(r"\b(vist|ehk)\b", text):
         return "unsure", 0.9
-    if _contains_any(
+    if _contains_any_token_or_phrase(
         text,
         [
             "osaliselt",
@@ -1294,9 +1822,15 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
         ],
     ):
         return "partial", 0.82
-    if _contains_any(text, ["ei ole", "pole", "puudub", "ei kasuta", "ei tee", "ei test", "mitte", "no", "not", "нет"]) or re.search(r"\bei\b", text):
+    if _contains_any_token_or_phrase(
+        text,
+        ["ei ole", "pole", "puudub", "ei kasuta", "ei tee", "ei test", "mitte", "no", "not", "нет", "ei"],
+    ):
         return "no", 0.78
-    if _contains_any(text, ["jah", "yes", "да", "olemas", "kasutame", "teeme", "tehakse", "on olemas", "regulaars", "koik", "kõik", "testitud", "dokumenteeritud"]):
+    if _contains_any_token_or_phrase(
+        text,
+        ["jah", "yes", "да", "olemas", "kasutame", "teeme", "tehakse", "on olemas", "regulaars", "koik", "kõik", "testitud", "dokumenteeritud"],
+    ):
         return "yes", 0.78
     return None, 0.0
 
@@ -1304,8 +1838,17 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
 def generate_next_question(
     missing_question: dict[str, Any],
     current_context: dict[str, Any] | None = None,
+    trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if get_llm_settings()["provider"] == "fallback":
+        _trace_llm_call(
+            trace_context,
+            intent="unknown",
+            response_type="interview_question",
+            provider="fallback",
+            used_fallback=True,
+            latency_ms=0,
+        )
         return {"message": fallback_question_text(missing_question), "provider": "fallback", "used_fallback": True}
 
     payload = {
@@ -1313,14 +1856,32 @@ def generate_next_question(
         "current_context": current_context or {},
         "output": "Plain Estonian question only.",
     }
+    started = perf_counter()
     result = generate_text(
         prompt=json.dumps(payload, ensure_ascii=False, indent=2),
         system_prompt=load_prompt("interview_system_prompt.txt"),
         temperature=0.2,
     )
+    latency_ms = (perf_counter() - started) * 1000
     text = result.text.strip().strip('"')
     if not result.used_real_llm or not text or len(text) > 500:
+        _trace_llm_call(
+            trace_context,
+            intent="unknown",
+            response_type="interview_question",
+            provider=result.provider,
+            used_fallback=True,
+            latency_ms=latency_ms,
+        )
         return {"message": fallback_question_text(missing_question), "provider": "fallback", "used_fallback": True}
+    _trace_llm_call(
+        trace_context,
+        intent="unknown",
+        response_type="interview_question",
+        provider=result.provider,
+        used_fallback=False,
+        latency_ms=latency_ms,
+    )
     return {"message": text, "provider": result.provider, "used_fallback": False}
 
 
@@ -1605,7 +2166,7 @@ def looks_like_current_question_clarification(
     text = _normalize(message)
     words = text.split()
     has_question_mark = "?" in message or "ï¼Ÿ" in message
-    has_question_word = any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
+    has_question_word = _has_question_word(text)
     short = len(words) <= 10
 
     if _contains_any(text, CURRENT_QUESTION_CLARIFICATION_HINTS):
@@ -1616,6 +2177,9 @@ def looks_like_current_question_clarification(
         return True
 
     if _contains_any(text, ["how should i answer", "how do i answer", "kuidas sellele vastata", "kas vastus", "как ответить"]):
+        return True
+
+    if _looks_like_how_to_judge_current_question(text):
         return True
 
     current_topic = current_question.get("id", "") in _topic_question_ids(message)
@@ -1651,7 +2215,7 @@ def classify_user_intent(message: str, current_question: dict[str, Any] | None =
         return "clarification"
 
     has_question_mark = "?" in raw or "ï¼Ÿ" in raw
-    has_question_word = any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
+    has_question_word = _has_question_word(text)
     has_answer_signal = _has_answer_signal(text)
 
     if has_answer_signal and _looks_like_direct_answer(text, current_question):
@@ -1779,7 +2343,7 @@ def _is_acknowledgement(text: str) -> bool:
 
 
 def _has_answer_signal(text: str) -> bool:
-    return _is_short_yes(text) or _contains_any(text, ANSWER_HINTS)
+    return _is_short_yes(text) or _contains_any_token_or_phrase(text, ANSWER_HINTS)
 
 
 def _is_short_yes(text: str) -> bool:
@@ -1804,6 +2368,8 @@ def _looks_like_short_current_question_reply(
     if "?" in raw:
         return False
     if len(text.split()) > 3:
+        return False
+    if _has_question_word(text):
         return False
     if _is_smalltalk(text):
         return False
@@ -1941,3 +2507,19 @@ def _normalize(text: str) -> str:
 def _contains_any(text: str, phrases: list[str]) -> bool:
     normalized_phrases = [_normalize(phrase) for phrase in phrases]
     return any(phrase in text for phrase in normalized_phrases)
+
+
+def _contains_any_token(text: str, tokens: list[str]) -> bool:
+    normalized_tokens = {_normalize(token) for token in tokens if token}
+    text_tokens = set(_tokenize_normalized(text))
+    return bool(normalized_tokens & text_tokens)
+
+
+def _contains_any_token_or_phrase(text: str, hints: list[str]) -> bool:
+    token_hints = [hint for hint in hints if " " not in _normalize(hint)]
+    phrase_hints = [hint for hint in hints if " " in _normalize(hint)]
+    return _contains_any(text, phrase_hints) or _contains_any_token(text, token_hints)
+
+
+def _has_question_word(text: str) -> bool:
+    return any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)

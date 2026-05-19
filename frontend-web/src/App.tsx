@@ -115,6 +115,7 @@ function attachLatestAssistantMetadata(
       ? {
           ...message,
           technicalDetails: details,
+          assistantTransparency: response.assistant_transparency,
           openedArtifacts,
         }
       : message,
@@ -159,19 +160,6 @@ export default function App() {
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
-  const currentQuestion =
-    lastResponse?.current_question ||
-    questions.find((question) => question.id === sessionState?.current_question_id) ||
-    null;
-  const currentDomain =
-    sessionState?.current_domain || lastResponse?.current_domain || currentQuestion?.domain;
-  const quickActions = [
-    "Mida tähendab MFA?",
-    "Miks backup restore test on oluline?",
-    "Mis on incident response?",
-    "Koosta raport",
-  ];
-
   function resetWorkspaceState() {
     setActiveSessionId(null);
     setSessionState(null);
@@ -281,6 +269,7 @@ export default function App() {
           ...current,
           makeLocalMessage("assistant", response.assistant_message || "", {
             technicalDetails: buildTechnicalDetails(response, questions),
+            assistantTransparency: response.assistant_transparency,
             openedArtifacts: artifactsForResponse(response),
           }),
         ]);
@@ -505,6 +494,7 @@ export default function App() {
       setMessages([
         makeLocalMessage("assistant", assistantMessage, {
           technicalDetails: buildTechnicalDetails(demoResponse, questions),
+          assistantTransparency: demoResponse.assistant_transparency,
           openedArtifacts: artifactsForResponse(demoResponse),
         }),
       ]);
@@ -618,6 +608,7 @@ export default function App() {
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}
+              report={report}
               language={language}
               onLanguageChange={changeLanguage}
               onChat={() => setArtifactOverlayOpen(false)}
@@ -640,7 +631,6 @@ export default function App() {
                   setArtifactOverlayOpen(true);
                   setActiveView("interview");
                 }}
-                onCreateReport={generateReport}
               />
               <SessionArtifactOverlay
                 open={artifactOverlayOpen}
@@ -658,6 +648,7 @@ export default function App() {
                 loading={artifactLoading || sending}
                 language={language}
                 onGenerateReport={generateReport}
+                onOpenReport={() => setActiveArtifact("readiness-report")}
                 onClose={() => setArtifactOverlayOpen(false)}
               />
             </div>
@@ -691,6 +682,7 @@ const artifactTabs: Array<{
 function ArtifactTopTabs({
   activeArtifact,
   artifactOverlayOpen,
+  report,
   language,
   onLanguageChange,
   onChat,
@@ -698,12 +690,18 @@ function ArtifactTopTabs({
 }: {
   activeArtifact: ArtifactId;
   artifactOverlayOpen: boolean;
+  report?: ReportResponse | null;
   language: UiLanguage;
   onLanguageChange: (language: UiLanguage) => void;
   onChat: () => void;
   onChange: (artifact: ArtifactId) => void;
 }) {
   const selectedArtifact = activeArtifact === "ransomware-playbook" ? "skills" : activeArtifact;
+  const tabReadyState: Partial<Record<ArtifactId, boolean>> = {
+    "action-plan": Boolean(report?.action_plan?.length),
+    "evidence-binder": Boolean(report?.evidence_checklist?.length),
+    skills: Boolean(report?.skill_references?.length),
+  };
 
   return (
     <div className="mb-4 rounded-2xl border border-white/10 bg-black/25 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-xl transition-all duration-300 ease-out hover:border-white/20">
@@ -725,6 +723,7 @@ function ArtifactTopTabs({
           {artifactTabs.map((tab) => {
             const active = artifactOverlayOpen && selectedArtifact === tab.id;
             const label = tab.labelKey ? t(language, tab.labelKey) : tab.label || tab.id;
+            const showReadyNotice = Boolean(tabReadyState[tab.id]);
             return (
               <button
                 key={tab.id}
@@ -737,6 +736,11 @@ function ArtifactTopTabs({
                     : "text-slate-400 hover:bg-white/10 hover:text-white",
                 )}
               >
+                {showReadyNotice ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-amber-300/40 bg-amber-300/22 px-1.5 text-[10px] font-black leading-none text-amber-50 shadow-[0_10px_22px_rgba(251,191,36,0.26)] ring-1 ring-amber-200/10">
+                    !
+                  </span>
+                ) : null}
                 {tab.icon}
                 {label}
               </button>

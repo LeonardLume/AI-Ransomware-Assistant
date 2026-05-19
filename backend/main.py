@@ -13,6 +13,11 @@ from backend.adaptive import (
     get_next_required_question,
     make_followup_question,
 )
+from backend.ai_trace import (
+    trace_answer_saved,
+    trace_guardrail,
+    trace_intent_decision,
+)
 from backend.chat import ChatController
 from backend.chat_interview import (
     answer_client_question_with_llm,
@@ -27,7 +32,9 @@ from backend.chat_interview import (
     next_missing_question,
     should_generate_preliminary_report,
 )
-from backend.config import get_security_settings, llm_status
+from backend.config import get_security_settings, llm_status, use_langgraph_dialog
+from backend.dialog_contracts import DialogGraphState
+from backend.dialog_graph import run_dialog_graph
 from backend.exposure import build_external_exposure_self_check
 from backend.hygiene import load_employee_hygiene_checklist
 from backend.prompt_firewall import safe_prompt_injection_response
@@ -87,6 +94,7 @@ def handle_session_conflict(_: Request, exc: SessionConflictError):
 
 @app.middleware("http")
 async def protect_and_rate_limit(request: Request, call_next):
+    request.state.request_id = request.headers.get("X-Request-ID") or str(uuid4())
     if request.method == "OPTIONS":
         return await call_next(request)
 
@@ -208,10 +216,11 @@ def load_demo_profile(payload: DemoProfileIn):
 
 
 @app.post("/chat")
-def chat(payload: ChatIn):
+def chat(payload: ChatIn, request: Request):
     state, is_new = _get_or_create_chat_state(payload.session_id)
     message = payload.message.strip()
     user_message_recorded = False
+    request_id = getattr(request.state, "request_id", "")
 
     if is_new and message:
         state.chat_history.append({"role": "user", "content": message})
@@ -227,10 +236,33 @@ def chat(payload: ChatIn):
     if current_question is None or current_question["id"] in base_answers:
         current_question = next_missing_question(base_answers)
 
+    if use_langgraph_dialog():
+        return _chat_via_dialog_graph(
+            state=state,
+            is_new=is_new,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+        )
+
     decision = CHAT_CONTROLLER.decide_action(
         message=message,
         is_new_session=is_new,
         current_question=current_question,
+    )
+    trace_intent_decision(
+        session_id=state.session_id,
+        request_id=request_id,
+        intent=decision.intent,
+        response_type=decision.action,
+        provider="router",
+        used_fallback=False,
+        current_question_id=(current_question or {}).get("id"),
+        current_domain=(current_question or {}).get("domain"),
+        user_message=message,
+        should_save_answer=decision.action == "extract_answer",
+        confidence=decision.intent_confidence,
     )
 
     if decision.action == "prompt_injection_blocked":
@@ -240,6 +272,16 @@ def chat(payload: ChatIn):
                 "reason": decision.prompt_injection_reason,
                 "current_question_id": state.current_question_id,
             }
+        )
+        trace_guardrail(
+            session_id=state.session_id,
+            request_id=request_id,
+            response_type="prompt_injection_blocked",
+            provider="guardrail",
+            used_fallback=True,
+            current_question_id=(current_question or {}).get("id"),
+            current_domain=(current_question or {}).get("domain"),
+            user_message=message,
         )
         return _chat_response(
             state,
@@ -289,6 +331,16 @@ def chat(payload: ChatIn):
                 "provider": guardrail.get("provider", "guardrail"),
             }
         )
+        trace_guardrail(
+            session_id=state.session_id,
+            request_id=request_id,
+            response_type="guardrail",
+            provider=guardrail.get("provider", "guardrail"),
+            used_fallback=True,
+            current_question_id=(current_question or {}).get("id"),
+            current_domain=(current_question or {}).get("domain"),
+            user_message=message,
+        )
         return _chat_response(
             state,
             assistant_message=guardrail["message"],
@@ -328,6 +380,7 @@ def chat(payload: ChatIn):
             current_question=current_question,
             current_answers=base_answers,
             org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, current_question, message),
         )
         state.events.append(
             {
@@ -361,6 +414,7 @@ def chat(payload: ChatIn):
             current_question=current_question,
             current_answers=base_answers,
             org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, current_question, message),
         )
         state.events.append(
             {
@@ -394,6 +448,7 @@ def chat(payload: ChatIn):
             current_question,
             base_answers,
             state.org_info,
+            trace_context=_trace_context(state, request_id, current_question, message),
         )
         return _chat_response(
             state,
@@ -414,6 +469,7 @@ def chat(payload: ChatIn):
         questions=load_questions(),
         current_answers=base_answers,
         current_question=current_question,
+        trace_context=_trace_context(state, request_id, current_question, message),
     )
     extraction_intent = extraction.get("intent", intent)
     interpretation = CHAT_CONTROLLER.build_answer_interpretation(
@@ -430,6 +486,7 @@ def chat(payload: ChatIn):
             current_question=current_question,
             current_answers=base_answers,
             org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, current_question, message),
         )
         return _chat_response(
             state,
@@ -455,6 +512,7 @@ def chat(payload: ChatIn):
             current_question,
             base_answers,
             state.org_info,
+            trace_context=_trace_context(state, request_id, current_question, message),
         )
         return _chat_response(
             state,
@@ -494,6 +552,19 @@ def chat(payload: ChatIn):
                     "previous_answer": (previous or {}).get("answer"),
                     "confidence_score": (extraction.get("confidence", {}) or {}).get(qid),
                 }
+            )
+            trace_answer_saved(
+                session_id=state.session_id,
+                request_id=request_id,
+                intent=extraction.get("intent", intent),
+                response_type="interview_answer",
+                provider=extraction.get("provider", "fallback") if not extraction.get("used_fallback", True) else "fallback",
+                used_fallback=bool(extraction.get("used_fallback", True)),
+                current_question_id=qid,
+                current_domain=q.get("domain"),
+                user_message=message,
+                saved_answer={"question_id": qid, "answer": answer},
+                confidence=(extraction.get("confidence", {}) or {}).get(qid),
             )
             if qid in state.unclear_question_ids:
                 state.unclear_question_ids.remove(qid)
@@ -585,7 +656,7 @@ def chat(payload: ChatIn):
 
     state.current_question_id = next_q["id"]
     state.current_domain = next_q["domain"]
-    question_result = generate_next_question(next_q, {"answers": base_answers})
+    question_result = generate_next_question(next_q, {"answers": base_answers}, _trace_context(state, request_id, next_q, message))
     assistant_message = question_result["message"]
     acknowledgement = CHAT_CONTROLLER.build_answer_acknowledgement(interpretation)
     if acknowledgement:
@@ -606,6 +677,240 @@ def chat(payload: ChatIn):
         answer_confidence=interpretation.confidence_label if interpretation else "",
         redactions_applied=extraction.get("redactions_applied", []),
         redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
+    )
+
+
+def _chat_via_dialog_graph(
+    *,
+    state: SessionState,
+    is_new: bool,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any] | None,
+    base_answers: dict[str, dict[str, Any]],
+):
+    graph_state = run_dialog_graph(
+        DialogGraphState(
+            session_id=state.session_id,
+            message=message,
+            current_question_id=(current_question or {}).get("id"),
+            current_question_text=(current_question or {}).get("question"),
+            current_domain=(current_question or {}).get("domain"),
+            completion_rate=float(_progress(state)["completion_rate"]),
+            interview_complete=state.interview_complete,
+        )
+    )
+    decision = graph_state.decision
+    route = str(graph_state.route or (decision.route if decision else "smalltalk"))
+    intent = _intent_from_dialog_route(route)
+    intent_confidence = _dialog_confidence_label((decision.confidence if decision else 0.6))
+
+    trace_intent_decision(
+        session_id=state.session_id,
+        request_id=request_id,
+        intent=intent,
+        response_type=route,
+        provider=graph_state.provider or "dialog_graph",
+        used_fallback=graph_state.used_fallback,
+        current_question_id=(current_question or {}).get("id"),
+        current_domain=(current_question or {}).get("domain"),
+        user_message=message,
+        should_save_answer=bool(decision and decision.should_save_answer),
+        confidence=intent_confidence,
+    )
+
+    if route == "refuse":
+        if graph_state.error == "prompt_injection_blocked":
+            state.events.append(
+                {
+                    "type": "prompt_injection_blocked",
+                    "reason": (decision.reason if decision else ""),
+                    "current_question_id": state.current_question_id,
+                }
+            )
+            trace_guardrail(
+                session_id=state.session_id,
+                request_id=request_id,
+                response_type="prompt_injection_blocked",
+                provider="guardrail",
+                used_fallback=True,
+                current_question_id=(current_question or {}).get("id"),
+                current_domain=(current_question or {}).get("domain"),
+                user_message=message,
+            )
+            return _chat_response(
+                state,
+                assistant_message=safe_prompt_injection_response(_language_code(message)),
+                extracted_answers={},
+                score=None,
+                report=None,
+                provider="guardrail",
+                used_fallback=True,
+                response_type="prompt_injection_blocked",
+                intent="guardrail",
+                action="prompt_injection_blocked",
+                intent_confidence="high",
+                prompt_injection_blocked=True,
+                prompt_injection_reason=(decision.reason if decision else ""),
+                redactions_applied=[],
+                redacted_for_llm=False,
+            )
+
+        if current_question is not None:
+            state.current_question_id = current_question["id"]
+            state.current_domain = current_question["domain"]
+        guardrail = defensive_refusal(message, current_question)
+        state.events.append(
+            {
+                "type": "guardrail_refusal",
+                "current_question_id": (current_question or {}).get("id"),
+                "provider": guardrail.get("provider", "guardrail"),
+            }
+        )
+        trace_guardrail(
+            session_id=state.session_id,
+            request_id=request_id,
+            response_type="guardrail",
+            provider=guardrail.get("provider", "guardrail"),
+            used_fallback=True,
+            current_question_id=(current_question or {}).get("id"),
+            current_domain=(current_question or {}).get("domain"),
+            user_message=message,
+        )
+        return _chat_response(
+            state,
+            assistant_message=guardrail["message"],
+            extracted_answers={},
+            score=None,
+            report=None,
+            provider=guardrail.get("provider", "guardrail"),
+            used_fallback=True,
+            response_type="guardrail",
+            intent="guardrail",
+            action="guardrail_refusal",
+            intent_confidence="high",
+        )
+
+    if route == "ask_assessment_question":
+        if not base_answers:
+            return _ask_next_chat_question(
+                state,
+                greeting=True,
+                assistant_prefix="Tere! Viin sind lühidalt läbi lunavara valmisoleku intervjuu.",
+                intent=intent,
+                action="ask_next_question",
+                intent_confidence=intent_confidence,
+            )
+        return _ask_next_chat_question(
+            state,
+            greeting=False,
+            intent=intent,
+            action="ask_next_question",
+            intent_confidence=intent_confidence,
+        )
+
+    if route == "generate_report":
+        if current_question is None:
+            return _complete_chat(
+                state,
+                completion_mode="full",
+                intent="report_request",
+                action="complete_chat",
+                intent_confidence=intent_confidence,
+            )
+        return _finish_or_continue_chat(
+            state,
+            intent="report_request",
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+        )
+
+    if current_question is None:
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            intent=intent,
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+        )
+
+    if route == "answer_general_advisory":
+        return _handle_general_advisory_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent=intent,
+            action="answer_general_advisory",
+            intent_confidence=intent_confidence,
+        )
+
+    if route == "answer_grounded_knowledge":
+        return _handle_general_advisory_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="knowledge_grounded_answer",
+            action="answer_grounded_knowledge",
+            intent_confidence=intent_confidence,
+            knowledge_sources=graph_state.knowledge_sources,
+        )
+
+    if route == "explain_current_question":
+        return _handle_clarification_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="clarification",
+            action="answer_clarification",
+            intent_confidence=intent_confidence,
+        )
+
+    if route == "ask_clarifying_followup":
+        state.current_question_id = current_question["id"]
+        state.current_domain = current_question["domain"]
+        clarification_question = (decision.reason if decision else "").strip() or (
+            f"Kas saad täpsustada selle küsimuse kohta? Võid vastata yes, partial, no või unsure: {current_question['question']}"
+        )
+        return _chat_response(
+            state,
+            assistant_message=clarification_question,
+            extracted_answers={},
+            score=None,
+            report=None,
+            provider=graph_state.provider or "dialog_graph",
+            used_fallback=True,
+            response_type="clarification",
+            intent="clarification",
+            action="ask_clarifying_followup",
+            intent_confidence=intent_confidence,
+        )
+
+    if route == "smalltalk":
+        return _handle_smalltalk_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="smalltalk",
+            action="answer_smalltalk",
+            intent_confidence=intent_confidence,
+        )
+
+    return _handle_chat_answer_turn(
+        state=state,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        base_answers=base_answers,
+        intent="answer",
+        intent_confidence=intent_confidence,
     )
 
 
@@ -958,6 +1263,7 @@ def _chat_response(
     redacted_for_llm: bool = False,
     prompt_injection_blocked: bool = False,
     prompt_injection_reason: str = "",
+    knowledge_sources: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     state.chat_history.append({"role": "assistant", "content": assistant_message})
     save_session(state)
@@ -991,8 +1297,18 @@ def _chat_response(
         "redacted_for_llm": redacted_for_llm,
         "prompt_injection_blocked": prompt_injection_blocked,
         "prompt_injection_reason": prompt_injection_reason,
+        "knowledge_sources": knowledge_sources or [],
+        "assistant_transparency": _assistant_transparency(
+            response_type=response_type,
+            current_question=current_question,
+            current_question_id=state.current_question_id,
+            extracted_answers=extracted_answers or {},
+            knowledge_sources=knowledge_sources or [],
+            report=report,
+            prompt_injection_blocked=prompt_injection_blocked,
+        ),
         "chat_history": state.chat_history,
-}
+    }
 
 
 def _language_code(message: str) -> str:
@@ -1022,3 +1338,499 @@ def _progress(state: SessionState) -> dict[str, Any]:
         "followups_total": len(state.followups),
         "followups_answered": len([qid for qid in state.answers if qid.startswith("followup__")]),
     }
+
+
+def _question_source_entries(question: dict[str, Any] | None) -> list[dict[str, str]]:
+    if not question:
+        return []
+    return [
+        {"label": str(ref), "kind": "question_source"}
+        for ref in (question.get("source_refs") or [])
+        if str(ref).strip()
+    ]
+
+
+def _knowledge_source_entries(items: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for item in items or []:
+        label = str(item.get("name") or item.get("label") or "").strip()
+        if not label:
+            continue
+        entry = {"label": label, "kind": "knowledge_source"}
+        url = str(item.get("url") or "").strip()
+        if url:
+            entry["url"] = url
+        entries.append(entry)
+    return entries
+
+
+def _dedupe_source_entries(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+    seen: set[str] = set()
+    unique: list[dict[str, str]] = []
+    for entry in entries:
+        key = f"{entry.get('label', '').strip().lower()}|{entry.get('url', '').strip().lower()}"
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(entry)
+    return unique
+
+
+def _saved_answer_items(extracted_answers: dict[str, str] | None) -> list[dict[str, str]]:
+    return [
+        {"question_id": qid, "answer": answer}
+        for qid, answer in (extracted_answers or {}).items()
+        if str(qid).strip() and str(answer).strip()
+    ]
+
+
+def _saved_answer_source_entries(extracted_answers: dict[str, str] | None) -> list[dict[str, str]]:
+    qmap = question_map()
+    entries: list[dict[str, str]] = []
+    for qid in (extracted_answers or {}).keys():
+        entries.extend(_question_source_entries(qmap.get(qid)))
+    return _dedupe_source_entries(entries)
+
+
+def _assistant_answer_status(
+    *,
+    response_type: str,
+    current_question_id: str | None,
+    extracted_answers: dict[str, str] | None,
+    report: dict[str, Any] | None,
+    prompt_injection_blocked: bool,
+) -> str:
+    saved_answer_ids = list((extracted_answers or {}).keys())
+    if prompt_injection_blocked or response_type in {"guardrail", "prompt_injection_blocked", "report_request_blocked"}:
+        return "blocked"
+    if report:
+        return "report_ready"
+    if saved_answer_ids:
+        if current_question_id and current_question_id not in saved_answer_ids:
+            return "saved_and_advanced"
+        return "answer_saved"
+    if response_type == "clarification":
+        return "followup_requested"
+    if response_type in {"client_question", "general_advisory_chat", "knowledge_grounded_answer", "smalltalk"}:
+        return "question_unchanged"
+    if response_type == "interview_question":
+        return "question_presented"
+    return "info_only"
+
+
+def _assistant_source_entries(
+    *,
+    response_type: str,
+    current_question: dict[str, Any] | None,
+    extracted_answers: dict[str, str] | None,
+    knowledge_sources: list[dict[str, Any]] | None,
+) -> list[dict[str, str]]:
+    if response_type == "knowledge_grounded_answer":
+        entries = _knowledge_source_entries(knowledge_sources or load_source_notes())
+        return _dedupe_source_entries(entries)
+
+    if response_type in {"client_question", "general_advisory_chat"}:
+        entries = _question_source_entries(current_question)
+        if not entries:
+            entries = _knowledge_source_entries(load_source_notes())
+        return _dedupe_source_entries(entries)
+
+    if extracted_answers:
+        return _saved_answer_source_entries(extracted_answers)
+
+    if response_type == "interview_question":
+        return _question_source_entries(current_question)
+
+    return []
+
+
+def _assistant_transparency(
+    *,
+    response_type: str,
+    current_question: dict[str, Any] | None,
+    current_question_id: str | None,
+    extracted_answers: dict[str, str] | None,
+    knowledge_sources: list[dict[str, Any]] | None,
+    report: dict[str, Any] | None,
+    prompt_injection_blocked: bool,
+) -> dict[str, Any]:
+    return {
+        "answer_type": response_type,
+        "answer_status": _assistant_answer_status(
+            response_type=response_type,
+            current_question_id=current_question_id,
+            extracted_answers=extracted_answers,
+            report=report,
+            prompt_injection_blocked=prompt_injection_blocked,
+        ),
+        "sources": _assistant_source_entries(
+            response_type=response_type,
+            current_question=current_question,
+            extracted_answers=extracted_answers,
+            knowledge_sources=knowledge_sources,
+        ),
+        "saved_answers": _saved_answer_items(extracted_answers),
+    }
+
+
+def _trace_context(
+    state: SessionState,
+    request_id: str,
+    current_question: dict[str, Any] | None,
+    user_message: str,
+) -> dict[str, Any]:
+    return {
+        "session_id": state.session_id,
+        "request_id": request_id,
+        "current_question_id": (current_question or {}).get("id"),
+        "current_domain": (current_question or {}).get("domain"),
+        "user_message": user_message,
+    }
+
+
+def _intent_from_dialog_route(route: str) -> str:
+    return {
+        "save_assessment_answer": "answer",
+        "ask_assessment_question": "smalltalk",
+        "explain_current_question": "clarification",
+        "answer_general_advisory": "general_advisory_chat",
+        "answer_grounded_knowledge": "knowledge_grounded_answer",
+        "ask_clarifying_followup": "clarification",
+        "generate_report": "report_request",
+        "smalltalk": "smalltalk",
+        "refuse": "guardrail",
+    }.get(route, "unknown")
+
+
+def _dialog_confidence_label(confidence: float) -> str:
+    if confidence >= 0.85:
+        return "high"
+    if confidence >= 0.55:
+        return "medium"
+    return "low"
+
+
+def _handle_general_advisory_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+    base_answers: dict[str, dict[str, Any]],
+    intent: str,
+    action: str,
+    intent_confidence: str,
+    knowledge_sources: list[dict[str, Any]] | None = None,
+):
+    advisory = answer_general_advisory_with_llm(
+        user_message=message,
+        current_question=current_question,
+        current_answers=base_answers,
+        org_info=state.org_info,
+        trace_context=_trace_context(state, request_id, current_question, message),
+    )
+    state.events.append(
+        {
+            "type": intent,
+            "current_question_id": state.current_question_id,
+            "provider": advisory.get("provider", "fallback"),
+            "used_fallback": advisory.get("used_fallback", True),
+        }
+    )
+    return _chat_response(
+        state,
+        assistant_message=advisory["message"],
+        extracted_answers={},
+        score=None,
+        report=None,
+        provider=advisory.get("provider", "fallback"),
+        used_fallback=advisory.get("used_fallback", True),
+        response_type="general_advisory_chat",
+        intent=intent,
+        action=action,
+        intent_confidence=intent_confidence,
+        redactions_applied=advisory.get("redactions_applied", []),
+        redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
+        knowledge_sources=knowledge_sources or [],
+    )
+
+
+def _handle_clarification_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+    base_answers: dict[str, dict[str, Any]],
+    intent: str,
+    action: str,
+    intent_confidence: str,
+):
+    state.current_question_id = current_question["id"]
+    state.current_domain = current_question["domain"]
+    advisory = answer_client_question_with_llm(
+        user_message=message,
+        current_question=current_question,
+        current_answers=base_answers,
+        org_info=state.org_info,
+        trace_context=_trace_context(state, request_id, current_question, message),
+    )
+    state.events.append(
+        {
+            "type": "client_question_answered",
+            "current_question_id": current_question["id"],
+            "provider": advisory.get("provider", "fallback"),
+            "used_fallback": advisory.get("used_fallback", True),
+        }
+    )
+    return _chat_response(
+        state,
+        assistant_message=advisory["message"],
+        extracted_answers={},
+        score=None,
+        report=None,
+        provider=advisory.get("provider", "fallback"),
+        used_fallback=advisory.get("used_fallback", True),
+        response_type="client_question",
+        intent=intent,
+        action=action,
+        intent_confidence=intent_confidence,
+        redactions_applied=advisory.get("redactions_applied", []),
+        redacted_for_llm=bool(advisory.get("redacted_for_llm", False)),
+    )
+
+
+def _handle_smalltalk_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+    base_answers: dict[str, dict[str, Any]],
+    intent: str,
+    action: str,
+    intent_confidence: str,
+):
+    state.current_question_id = current_question["id"]
+    state.current_domain = current_question["domain"]
+    smalltalk = answer_smalltalk_with_llm(
+        message,
+        current_question,
+        base_answers,
+        state.org_info,
+        trace_context=_trace_context(state, request_id, current_question, message),
+    )
+    return _chat_response(
+        state,
+        assistant_message=smalltalk["message"],
+        extracted_answers={},
+        score=None,
+        report=None,
+        provider=smalltalk.get("provider", "fallback"),
+        used_fallback=smalltalk.get("used_fallback", True),
+        response_type=intent,
+        intent=intent,
+        action=action,
+        intent_confidence=intent_confidence,
+    )
+
+
+def _handle_chat_answer_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+    base_answers: dict[str, dict[str, Any]],
+    intent: str,
+    intent_confidence: str,
+):
+    qmap = question_map()
+    extraction = extract_answers_with_llm(
+        user_message=message,
+        questions=load_questions(),
+        current_answers=base_answers,
+        current_question=current_question,
+        trace_context=_trace_context(state, request_id, current_question, message),
+    )
+    extraction_intent = extraction.get("intent", intent)
+    interpretation = CHAT_CONTROLLER.build_answer_interpretation(
+        extraction.get("extracted_answers", {}) if isinstance(extraction.get("extracted_answers", {}), dict) else {},
+        extraction.get("confidence", {}),
+        load_questions(),
+    )
+
+    if extraction_intent == "clarification":
+        return _handle_clarification_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="clarification",
+            action="answer_clarification",
+            intent_confidence="medium",
+        )
+
+    if extraction_intent in {"smalltalk", "unknown"}:
+        return _handle_smalltalk_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent=extraction_intent,
+            action="answer_smalltalk",
+            intent_confidence="medium",
+        )
+
+    extracted_answers = extraction.get("extracted_answers", {})
+    if isinstance(extracted_answers, dict):
+        for qid, answer in extracted_answers.items():
+            q = qmap.get(qid)
+            if not q:
+                continue
+            if answer not in q.get("options", []):
+                continue
+            previous = state.answers.get(qid)
+            state.answers[qid] = {
+                "answer": answer,
+                "details": message,
+                "source": "ai_interview",
+            }
+            state.events.append(
+                {
+                    "type": "chat_answer_saved",
+                    "question_id": qid,
+                    "answer": answer,
+                    "details": message,
+                    "source": "ai_interview",
+                    "previous_answer": (previous or {}).get("answer"),
+                    "confidence_score": (extraction.get("confidence", {}) or {}).get(qid),
+                }
+            )
+            trace_answer_saved(
+                session_id=state.session_id,
+                request_id=request_id,
+                intent=extraction.get("intent", intent),
+                response_type="interview_answer",
+                provider=extraction.get("provider", "fallback") if not extraction.get("used_fallback", True) else "fallback",
+                used_fallback=bool(extraction.get("used_fallback", True)),
+                current_question_id=qid,
+                current_domain=q.get("domain"),
+                user_message=message,
+                saved_answer={"question_id": qid, "answer": answer},
+                confidence=(extraction.get("confidence", {}) or {}).get(qid),
+            )
+            if qid in state.unclear_question_ids:
+                state.unclear_question_ids.remove(qid)
+
+    unclear_questions = [
+        qid
+        for qid in extraction.get("unclear_questions", [])
+        if qid in qmap and qid not in _base_answers_only(state.answers)
+    ]
+    for qid in unclear_questions:
+        if qid not in state.unclear_question_ids:
+            state.unclear_question_ids.append(qid)
+
+    state.events.append(
+        {
+            "type": "chat_message_processed",
+            "intent": extraction.get("intent", intent),
+            "current_question_id": current_question["id"],
+            "extracted_answers": extracted_answers,
+            "unclear_questions": unclear_questions,
+            "provider": extraction.get("provider", "fallback"),
+            "used_fallback": extraction.get("used_fallback", True),
+        }
+    )
+
+    refreshed_answers = _base_answers_only(state.answers)
+    if not missing_required_question_ids(refreshed_answers):
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            extracted_answers=extracted_answers,
+            provider=extraction.get("provider", "fallback"),
+            used_fallback=extraction.get("used_fallback", True),
+            intent=extraction.get("intent", intent),
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
+            redactions_applied=extraction.get("redactions_applied", []),
+            redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
+        )
+
+    if extraction.get("needs_clarification") and unclear_questions:
+        target_id = unclear_questions[0]
+        target_question = qmap[target_id]
+        state.current_question_id = target_id
+        state.current_domain = target_question["domain"]
+        clarification_question = extraction.get("clarification_question") or (
+            f"Kas saad palun täpsustada: {target_question['question']}"
+        )
+        assistant_message = CHAT_CONTROLLER.build_clarification_message(
+            clarification_question=clarification_question,
+            interpretation=interpretation,
+        )
+        return _chat_response(
+            state,
+            assistant_message=assistant_message,
+            extracted_answers=extracted_answers,
+            score=None,
+            report=None,
+            provider=extraction.get("provider", "fallback"),
+            used_fallback=extraction.get("used_fallback", True),
+            response_type="clarification",
+            intent=extraction.get("intent", intent),
+            action="extract_answer",
+            intent_confidence=intent_confidence,
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
+            redactions_applied=extraction.get("redactions_applied", []),
+            redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
+        )
+
+    next_q = next_missing_question(refreshed_answers)
+    if next_q is None:
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            extracted_answers=extracted_answers,
+            provider=extraction.get("provider", "fallback"),
+            used_fallback=extraction.get("used_fallback", True),
+            intent=extraction.get("intent", intent),
+            action="complete_chat",
+            intent_confidence=intent_confidence,
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
+            redactions_applied=extraction.get("redactions_applied", []),
+            redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
+        )
+
+    state.current_question_id = next_q["id"]
+    state.current_domain = next_q["domain"]
+    question_result = generate_next_question(next_q, {"answers": refreshed_answers}, _trace_context(state, request_id, next_q, message))
+    assistant_message = question_result["message"]
+    acknowledgement = CHAT_CONTROLLER.build_answer_acknowledgement(interpretation)
+    if acknowledgement:
+        assistant_message = f"{acknowledgement}\n\nJärgmine küsimus: {assistant_message}"
+    return _chat_response(
+        state,
+        assistant_message=assistant_message,
+        extracted_answers=extracted_answers,
+        score=None,
+        report=None,
+        provider=extraction.get("provider") or question_result.get("provider", "fallback"),
+        used_fallback=bool(extraction.get("used_fallback", True) or question_result.get("used_fallback", True)),
+        response_type="interview_answer",
+        intent=extraction.get("intent", intent),
+        action="extract_answer",
+        intent_confidence=intent_confidence,
+        answer_interpretation=interpretation.summary if interpretation else "",
+        answer_confidence=interpretation.confidence_label if interpretation else "",
+        redactions_applied=extraction.get("redactions_applied", []),
+        redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
+    )

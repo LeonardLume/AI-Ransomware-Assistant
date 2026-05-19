@@ -63,6 +63,24 @@ export interface BackendChatMessage {
   timestamp?: string | number;
 }
 
+export interface AssistantSourceRef {
+  label: string;
+  url?: string;
+  kind?: string;
+}
+
+export interface AssistantSavedAnswer {
+  question_id: string;
+  answer: string;
+}
+
+export interface AssistantTransparency {
+  answer_type?: string;
+  answer_status?: string;
+  sources?: AssistantSourceRef[];
+  saved_answers?: AssistantSavedAnswer[];
+}
+
 export interface SessionStateResponse {
   session_id: string;
   org_info?: Record<string, unknown>;
@@ -221,6 +239,8 @@ export interface ChatResponse {
   redacted_for_llm?: boolean;
   prompt_injection_blocked?: boolean;
   prompt_injection_reason?: string;
+  knowledge_sources?: Array<Record<string, unknown>>;
+  assistant_transparency?: AssistantTransparency;
 }
 
 export interface SessionCreateResponse {
@@ -289,5 +309,6 @@ export interface UiMessage {
   content: string;
   timestamp: string;
   technicalDetails?: ChatTechnicalDetails;
+  assistantTransparency?: AssistantTransparency;
   openedArtifacts?: ArtifactId[];
 }
