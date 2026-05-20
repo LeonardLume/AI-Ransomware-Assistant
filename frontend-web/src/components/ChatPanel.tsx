@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ArtifactId, UiMessage } from "../types/api";
+import type { ArtifactId, ChatRequestOptions, Question, UiMessage } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
 import Composer from "./Composer";
 import MessageBubble from "./MessageBubble";
@@ -9,6 +9,7 @@ import { Alert, Button, EmptyState, LoadingSteps } from "./ui";
 export default function ChatPanel({
   messages,
   language = "et",
+  currentQuestion,
   sending,
   error,
   onStart,
@@ -18,10 +19,11 @@ export default function ChatPanel({
 }: {
   messages: UiMessage[];
   language?: UiLanguage;
+  currentQuestion?: Question | null;
   sending: boolean;
   error?: string | null;
   onStart: () => void;
-  onSend: (message: string) => void;
+  onSend: (message: string, options?: ChatRequestOptions) => void;
   onRetry: () => void;
   onOpenArtifact: (artifact: ArtifactId) => void;
 }) {
@@ -152,7 +154,12 @@ export default function ChatPanel({
 
       <div className="border-t border-white/8 bg-black/10 px-4 py-4 sm:px-6">
         <div className="mx-auto w-full max-w-5xl">
-          <Composer disabled={sending} language={language} onSend={onSend} />
+          <Composer
+            disabled={sending}
+            language={language}
+            currentQuestion={currentQuestion}
+            onSend={onSend}
+          />
         </div>
       </div>
     </section>

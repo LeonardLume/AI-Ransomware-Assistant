@@ -128,7 +128,7 @@ def test_invalid_llm_json_falls_back_without_crashing(monkeypatch: pytest.Monkey
 
     assert data["intent"] == "answer"
     assert data["extracted_answers"] == {"org_critical_systems_known": "yes"}
-    assert data["provider"] == "fallback"
+    assert data["provider"] == "router"
     assert _saved_base_answers(start["session_id"]) == {"org_critical_systems_known": "yes"}
 
 
@@ -150,5 +150,5 @@ def test_invalid_llm_fields_cannot_corrupt_assessment_state(monkeypatch: pytest.
 
     assert data["intent"] == "answer"
     assert data["extracted_answers"] == {"org_critical_systems_known": "yes"}
-    assert data["provider"] == "fallback"
+    assert data["provider"] == "router"
     assert _saved_base_answers(start["session_id"]) == {"org_critical_systems_known": "yes"}

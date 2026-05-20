@@ -1,5 +1,6 @@
 import type {
   AnswerSubmitResponse,
+  ChatRequestOptions,
   ChatResponse,
   DemoProfileResponse,
   HealthResponse,
@@ -149,12 +150,21 @@ export function getQuestions(): Promise<Question[]> {
   return request<Question[]>("/questions");
 }
 
-export function chat(sessionId: string | null, message: string): Promise<ChatResponse> {
+export function chat(
+  sessionId: string | null,
+  message: string,
+  options: ChatRequestOptions = {},
+): Promise<ChatResponse> {
   return request<ChatResponse>(
     "/chat",
     {
       method: "POST",
-      body: JSON.stringify({ session_id: sessionId, message }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        message,
+        intent_mode: options.intent_mode,
+        selected_answer: options.selected_answer,
+      }),
     },
     60_000,
   );

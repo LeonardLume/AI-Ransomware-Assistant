@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -36,6 +37,7 @@ from backend.chat_interview import (
 from backend.config import get_security_settings, llm_status, use_langgraph_dialog
 from backend.dialog_contracts import DialogGraphState
 from backend.dialog_graph import run_dialog_graph
+from backend.dialog_intent import classify_dialog_intent
 from backend.exposure import build_external_exposure_self_check
 from backend.hygiene import load_employee_hygiene_checklist
 from backend.prompt_firewall import safe_prompt_injection_response
@@ -154,6 +156,8 @@ class DemoProfileIn(BaseModel):
 class ChatIn(BaseModel):
     session_id: str | None = None
     message: str = ""
+    intent_mode: str | None = None
+    selected_answer: str | None = None
 
 
 @app.get("/")
@@ -236,6 +240,19 @@ def chat(payload: ChatIn, request: Request):
     current_question = qmap.get(state.current_question_id or "")
     if current_question is None or current_question["id"] in base_answers:
         current_question = next_missing_question(base_answers)
+
+    routed_response = _handle_preclassified_dialog_intent(
+        state=state,
+        is_new=is_new,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        base_answers=base_answers,
+        intent_mode=payload.intent_mode or "auto",
+        selected_answer=payload.selected_answer,
+    )
+    if routed_response is not None:
+        return routed_response
 
     if use_langgraph_dialog():
         return _chat_via_dialog_graph(
@@ -978,6 +995,8 @@ def get_session(session_id: str):
         "followups": state.followups,
         "events": state.events,
         "chat_history": state.chat_history,
+        "context_notes": state.context_notes,
+        "pending_answer": state.pending_answer,
         "unclear_question_ids": state.unclear_question_ids,
         "current_question_id": state.current_question_id,
         "current_domain": state.current_domain,
@@ -1194,6 +1213,103 @@ def _complete_chat(
     )
 
 
+def _handle_preclassified_dialog_intent(
+    *,
+    state: SessionState,
+    is_new: bool,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any] | None,
+    base_answers: dict[str, dict[str, Any]],
+    intent_mode: str,
+    selected_answer: str | None,
+) -> dict[str, Any] | None:
+    if is_new and not message and intent_mode in {"", "auto", None}:
+        return None
+
+    decision = classify_dialog_intent(
+        message=message,
+        current_question=current_question,
+        chat_context=state.chat_history,
+        intent_mode=intent_mode or "auto",
+        selected_answer=selected_answer,
+    )
+
+    if decision.route == "report_request":
+        if current_question is None:
+            return _complete_chat(
+                state,
+                completion_mode="full",
+                intent="report_request",
+                action="complete_chat",
+                intent_confidence=_dialog_confidence_label(decision.confidence),
+            )
+        return _finish_or_continue_chat(
+            state,
+            intent="report_request",
+            action="complete_chat",
+            intent_confidence=_dialog_confidence_label(decision.confidence),
+        )
+
+    if current_question is None:
+        return None
+
+    if decision.route == "direct_assessment_answer" and decision.should_save_answer and decision.suggested_answer:
+        return _handle_direct_answer_turn(
+            state=state,
+            message=message or decision.suggested_answer,
+            request_id=request_id,
+            current_question=current_question,
+            answer=decision.suggested_answer,
+            confidence=decision.confidence,
+        )
+
+    if decision.route == "clarification_current_question":
+        return _handle_clarification_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="clarification",
+            action="answer_clarification",
+            intent_confidence=_dialog_confidence_label(decision.confidence),
+        )
+
+    if decision.route == "context_note":
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            intent_confidence=_dialog_confidence_label(decision.confidence),
+        )
+
+    if decision.route in {"general_advisory_chat", "knowledge_grounded_answer"}:
+        return _handle_general_advisory_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="knowledge_grounded_answer" if decision.route == "knowledge_grounded_answer" else "general_advisory_chat",
+            action="answer_grounded_knowledge" if decision.route == "knowledge_grounded_answer" else "answer_general_advisory",
+            intent_confidence=_dialog_confidence_label(decision.confidence),
+            knowledge_sources=load_source_notes() if decision.route == "knowledge_grounded_answer" else None,
+        )
+
+    if decision.route == "ambiguous_needs_confirmation":
+        return _handle_pending_answer_confirmation_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            suggested_answer=decision.suggested_answer,
+            reason=decision.reason,
+            intent_confidence=_dialog_confidence_label(decision.confidence),
+        )
+
+    return None
+
+
 def _chat_response(
     state: SessionState,
     assistant_message: str,
@@ -1242,6 +1358,8 @@ def _chat_response(
         "current_question": current_question,
         "current_domain": state.current_domain,
         "completion_mode": state.completion_mode,
+        "context_notes": state.context_notes,
+        "pending_answer": state.pending_answer,
         "redactions_applied": redactions_applied or [],
         "redacted_for_llm": redacted_for_llm,
         "prompt_injection_blocked": prompt_injection_blocked,
@@ -1553,6 +1671,211 @@ def _handle_smalltalk_turn(
         intent=intent,
         action=action,
         intent_confidence=intent_confidence,
+    )
+
+
+def _handle_direct_answer_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+    answer: str,
+    confidence: float,
+):
+    state.current_question_id = current_question["id"]
+    state.current_domain = current_question["domain"]
+    state.pending_answer = None
+    qmap = question_map()
+    extraction = {
+        "intent": "answer",
+        "extracted_answers": {current_question["id"]: answer},
+        "unclear_questions": [],
+        "confidence": {current_question["id"]: confidence},
+        "needs_clarification": False,
+        "clarification_question": "",
+        "provider": "router",
+        "used_fallback": False,
+    }
+    interpretation = CHAT_CONTROLLER.build_answer_interpretation(
+        extraction["extracted_answers"],
+        extraction["confidence"],
+        load_questions(),
+    )
+    extracted_answers, _ = _apply_chat_extraction(
+        state=state,
+        extraction=extraction,
+        qmap=qmap,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        intent="answer",
+    )
+    refreshed_answers = _base_answers_only(state.answers)
+
+    if not missing_required_question_ids(refreshed_answers):
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            extracted_answers=extracted_answers,
+            provider="router",
+            used_fallback=False,
+            intent="answer",
+            action="complete_chat",
+            intent_confidence=_dialog_confidence_label(confidence),
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
+        )
+
+    next_q = next_missing_question(refreshed_answers)
+    if next_q is None:
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            extracted_answers=extracted_answers,
+            provider="router",
+            used_fallback=False,
+            intent="answer",
+            action="complete_chat",
+            intent_confidence=_dialog_confidence_label(confidence),
+            answer_interpretation=interpretation.summary if interpretation else "",
+            answer_confidence=interpretation.confidence_label if interpretation else "",
+        )
+
+    state.current_question_id = next_q["id"]
+    state.current_domain = next_q["domain"]
+    question_result = generate_next_question(next_q, {"answers": refreshed_answers}, _trace_context(state, request_id, next_q, message))
+    acknowledgement = CHAT_CONTROLLER.build_answer_acknowledgement(interpretation)
+    assistant_message = question_result["message"]
+    if acknowledgement:
+        assistant_message = f"{acknowledgement}\n\nJÃ¤rgmine kÃ¼simus: {assistant_message}"
+    return _chat_response(
+        state,
+        assistant_message=assistant_message,
+        extracted_answers=extracted_answers,
+        score=None,
+        report=None,
+        provider="router",
+        used_fallback=False,
+        response_type="interview_answer",
+        intent="answer",
+        action="extract_answer",
+        intent_confidence=_dialog_confidence_label(confidence),
+        answer_interpretation=interpretation.summary if interpretation else "",
+        answer_confidence=interpretation.confidence_label if interpretation else "",
+    )
+
+
+def _handle_context_note_turn(
+    *,
+    state: SessionState,
+    message: str,
+    current_question: dict[str, Any],
+    intent_confidence: str,
+):
+    state.current_question_id = current_question["id"]
+    state.current_domain = current_question["domain"]
+    note = {
+        "id": str(uuid4()),
+        "question_id": current_question["id"],
+        "domain": current_question["domain"],
+        "text": message,
+        "created_at": datetime.now(UTC).isoformat(),
+        "source": "user",
+    }
+    state.context_notes.append(note)
+    state.events.append({"type": "context_note_added", **note})
+    assistant_message = _context_note_message(_language_code(message))
+    return _chat_response(
+        state,
+        assistant_message=assistant_message,
+        extracted_answers={},
+        score=None,
+        report=None,
+        provider="router",
+        used_fallback=False,
+        response_type="context_note",
+        intent="context_note",
+        action="record_context_note",
+        intent_confidence=intent_confidence,
+    )
+
+
+def _handle_pending_answer_confirmation_turn(
+    *,
+    state: SessionState,
+    message: str,
+    current_question: dict[str, Any],
+    suggested_answer: str | None,
+    reason: str,
+    intent_confidence: str,
+):
+    state.current_question_id = current_question["id"]
+    state.current_domain = current_question["domain"]
+    state.pending_answer = {
+        "question_id": current_question["id"],
+        "domain": current_question["domain"],
+        "answer": suggested_answer,
+        "details": message,
+        "reason": reason,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    state.events.append(
+        {
+            "type": "pending_answer_confirmation",
+            "question_id": current_question["id"],
+            "suggested_answer": suggested_answer,
+            "reason": reason,
+        }
+    )
+    assistant_message = _pending_confirmation_message(_language_code(message), suggested_answer)
+    return _chat_response(
+        state,
+        assistant_message=assistant_message,
+        extracted_answers={},
+        score=None,
+        report=None,
+        provider="router",
+        used_fallback=False,
+        response_type="pending_answer_confirmation",
+        intent="ambiguous_needs_confirmation",
+        action="ask_answer_confirmation",
+        intent_confidence=intent_confidence,
+    )
+
+
+def _context_note_message(language: str) -> str:
+    if language == "ru":
+        return (
+            "Я сохранил это как контекст к текущему вопросу. Это пока не меняет score.\n\n"
+            "Для оценки выбери: yes, partial, no или unsure."
+        )
+    if language == "en":
+        return (
+            "I kept this as context for the current question. It does not change the score yet.\n\n"
+            "For scoring, choose yes, partial, no, or unsure."
+        )
+    return (
+        "Panin selle praeguse kÃ¼simuse kontekstina kirja. See ei muuda skoori.\n\n"
+        "Skoorimiseks vali: yes, partial, no vÃµi unsure."
+    )
+
+
+def _pending_confirmation_message(language: str, suggested_answer: str | None) -> str:
+    suggestion = suggested_answer or "partial"
+    if language == "ru":
+        return (
+            f"Я не буду сохранять это автоматически. Похоже, это может быть `{suggestion}`.\n\n"
+            "Сохранить так или оставить как контекст?"
+        )
+    if language == "en":
+        return (
+            f"I will not save this automatically. It might be `{suggestion}`.\n\n"
+            "Should I save it that way, or keep it as context?"
+        )
+    return (
+        f"Ma ei salvesta seda automaatselt. See vÃµib olla `{suggestion}`.\n\n"
+        "Kas salvestan nii vÃµi jÃ¤tan kontekstiks?"
     )
 
 

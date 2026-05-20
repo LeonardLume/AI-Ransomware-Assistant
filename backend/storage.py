@@ -38,6 +38,8 @@ class SessionState:
     followups: list[dict[str, Any]] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     chat_history: list[dict[str, Any]] = field(default_factory=list)
+    context_notes: list[dict[str, Any]] = field(default_factory=list)
+    pending_answer: dict[str, Any] | None = None
     unclear_question_ids: list[str] = field(default_factory=list)
     current_question_id: str | None = None
     current_domain: str | None = None

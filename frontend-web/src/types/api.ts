@@ -1,6 +1,8 @@
 export type ProviderName = "openai" | "ollama" | "fallback" | "guardrail" | string;
 export type RiskLevel = "Low" | "Medium" | "High" | "Critical" | string;
 export type ScoreStatus = "preliminary" | "final" | "not ready" | string;
+export type ChatIntentMode = "auto" | "direct_answer" | "clarification" | "context_note" | "advisory";
+export type AssessmentAnswer = "yes" | "partial" | "no" | "unsure";
 export type ArtifactId =
   | "readiness-report"
   | "action-plan"
@@ -88,6 +90,8 @@ export interface SessionStateResponse {
   followups?: Array<Record<string, unknown>>;
   events?: Array<Record<string, unknown>>;
   chat_history?: BackendChatMessage[];
+  context_notes?: Array<Record<string, unknown>>;
+  pending_answer?: Record<string, unknown> | null;
   unclear_question_ids?: string[];
   current_question_id?: string | null;
   current_domain?: string | null;
@@ -234,6 +238,8 @@ export interface ChatResponse {
   current_question?: Question | null;
   current_domain?: string | null;
   completion_mode?: string | null;
+  context_notes?: Array<Record<string, unknown>>;
+  pending_answer?: Record<string, unknown> | null;
   chat_history?: BackendChatMessage[];
   redactions_applied?: string[];
   redacted_for_llm?: boolean;
@@ -241,6 +247,11 @@ export interface ChatResponse {
   prompt_injection_reason?: string;
   knowledge_sources?: Array<Record<string, unknown>>;
   assistant_transparency?: AssistantTransparency;
+}
+
+export interface ChatRequestOptions {
+  intent_mode?: ChatIntentMode;
+  selected_answer?: AssessmentAnswer;
 }
 
 export interface SessionCreateResponse {

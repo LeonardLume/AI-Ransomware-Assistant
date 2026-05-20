@@ -43,6 +43,7 @@ import {
 import type {
   ArtifactId,
   BackendChatMessage,
+  ChatRequestOptions,
   ChatResponse,
   ProviderStatusResponse,
   Question,
@@ -188,6 +189,8 @@ function buildSessionSnapshot(
     followups: sameSession ? previous?.followups || [] : [],
     events: sameSession ? previous?.events || [] : [],
     chat_history: response.chat_history || previous?.chat_history || [],
+    context_notes: response.context_notes || (sameSession ? previous?.context_notes || [] : []),
+    pending_answer: response.pending_answer ?? (sameSession ? previous?.pending_answer ?? null : null),
     unclear_question_ids: response.unclear_questions || [],
     current_question_id: response.current_question_id,
     current_domain: response.current_domain,
@@ -316,6 +319,7 @@ export default function App() {
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  const [lastUserOptions, setLastUserOptions] = useState<ChatRequestOptions>({});
   function resetWorkspaceState() {
     setActiveSessionId(null);
     setSessionState(null);
@@ -324,6 +328,7 @@ export default function App() {
     setLastResponse(null);
     setMessages([]);
     setLastUserMessage(null);
+    setLastUserOptions({});
     setActiveArtifact("readiness-report");
     setArtifactOverlayOpen(false);
     setActiveView("home");
@@ -620,7 +625,7 @@ export default function App() {
     }
   }
 
-  async function sendMessage(message: string) {
+  async function sendMessage(message: string, options: ChatRequestOptions = {}) {
     if (!message.trim()) {
       await startAssessment();
       return;
@@ -629,6 +634,7 @@ export default function App() {
     setSending(true);
     setError(null);
     setLastUserMessage(message);
+    setLastUserOptions(options);
     setArtifactOverlayOpen(false);
     setActiveView("interview");
 
@@ -641,7 +647,7 @@ export default function App() {
       }
 
       setMessages((current) => [...current, makeLocalMessage("user", message)]);
-      const response = await chat(sessionId, message);
+      const response = await chat(sessionId, message, options);
       await applyChatResponse(response);
     } catch (sendError) {
       if (sendError instanceof ApiError && sendError.status === 404 && activeSessionId) {
@@ -652,7 +658,7 @@ export default function App() {
           const startResponse = await chat(null, "");
           await applyChatResponse(startResponse);
           setMessages((current) => [...current, makeLocalMessage("user", message)]);
-          const response = await chat(startResponse.session_id, message);
+          const response = await chat(startResponse.session_id, message, options);
           await applyChatResponse(response);
           return;
         } catch (retryError) {
@@ -702,7 +708,7 @@ export default function App() {
 
   async function retryLastMessage() {
     if (lastUserMessage) {
-      await sendMessage(lastUserMessage);
+      await sendMessage(lastUserMessage, lastUserOptions);
     } else {
       await startAssessment();
     }
@@ -829,6 +835,11 @@ export default function App() {
     }
   }
 
+  const currentQuestion =
+    lastResponse?.current_question ||
+    questions.find((question) => question.id === sessionState?.current_question_id) ||
+    null;
+
   return (
     <Layout
       backendOnline={backendOnline}
@@ -890,6 +901,7 @@ export default function App() {
               <ChatPanel
                 messages={messages}
                 language={language}
+                currentQuestion={currentQuestion}
                 sending={sending}
                 error={error}
                 onStart={startAssessment}

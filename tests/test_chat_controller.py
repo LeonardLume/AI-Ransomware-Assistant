@@ -65,6 +65,38 @@ def test_chat_controller_routes_short_contextual_replies_as_answers():
     assert decision.intent_confidence == "medium"
 
 
+def test_chat_controller_does_not_score_freeform_code_request():
+    controller = ChatController()
+
+    decision = controller.decide_action(
+        message="write java code",
+        is_new_session=False,
+        current_question={
+            "id": "backups_exist",
+            "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
+        },
+    )
+
+    assert decision.intent != "answer"
+    assert decision.action != "extract_answer"
+
+
+def test_chat_controller_does_not_score_arbitrary_short_text():
+    controller = ChatController()
+
+    decision = controller.decide_action(
+        message="hea",
+        is_new_session=False,
+        current_question={
+            "id": "backups_exist",
+            "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
+        },
+    )
+
+    assert decision.intent == "unknown"
+    assert decision.action == "answer_smalltalk"
+
+
 def test_short_definition_question_routes_to_clarification():
     assert (
         classify_user_intent(

@@ -74,6 +74,34 @@ def test_graph_routes_restore_not_done_to_save_no():
     assert result.decision.answer == "no"
 
 
+def test_graph_does_not_save_freeform_code_request():
+    result = run_dialog_graph(
+        _graph_state(
+            "write java code",
+            current_question_id="backups_exist",
+            current_question_text="Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
+            current_domain="backups",
+        )
+    )
+    assert result.route == "answer_general_advisory"
+    assert result.decision is not None
+    assert result.decision.should_save_answer is False
+
+
+def test_graph_does_not_save_arbitrary_short_text():
+    result = run_dialog_graph(
+        _graph_state(
+            "hea",
+            current_question_id="backups_exist",
+            current_question_text="Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
+            current_domain="backups",
+        )
+    )
+    assert result.route != "save_assessment_answer"
+    assert result.decision is not None
+    assert result.decision.should_save_answer is False
+
+
 def test_graph_routes_evidence_question_to_grounded_knowledge():
     result = run_dialog_graph(_graph_state("What evidence proves backup works?"))
     assert result.route == "answer_grounded_knowledge"
@@ -153,3 +181,20 @@ def test_advisory_and_grounded_routes_do_not_move_current_question():
     grounded = client.post("/chat", json={"session_id": sid, "message": "What evidence proves backup works?"}).json()
     assert grounded["current_question_id"] == current_q
     assert grounded["knowledge_sources"]
+
+
+def test_chat_endpoint_freeform_request_does_not_save_or_advance():
+    start = client.post("/chat", json={"message": ""})
+    sid = start.json()["session_id"]
+    current_q = start.json()["current_question_id"]
+
+    response = client.post("/chat", json={"session_id": sid, "message": "write java code"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["extracted_answers"] == {}
+    assert data["current_question_id"] == current_q
+    assert data["completion_rate"] == 0
+
+    session = client.get(f"/session/{sid}").json()
+    assert session["answers"] == {}
+    assert session["current_question_id"] == current_q

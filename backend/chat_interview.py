@@ -1762,6 +1762,16 @@ def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, 
     if _is_short_yes(text):
         return "yes", 0.86
 
+    if question_id == "org_critical_systems_known":
+        if _contains_any_token_or_phrase(text, ["teab", "teada", "kaardistatud", "known", "identified"]):
+            return "yes", 0.84
+        if _contains_any_token_or_phrase(text, ["ei tea", "pole teada", "not known", "not identified"]):
+            return "no", 0.82
+
+    if question_id in {"backups_exist", "backup_frequency_defined"}:
+        if _contains_any_token_or_phrase(text, ["toimub", "toimuvad"]):
+            return "yes", 0.78
+
     if question_id == "backups_exist" and _contains_any(text, ["backup", "varukoop", "koopiad"]):
         if _contains_any(text, ["olemas", "teeme", "tehakse", "jah", "regulaarselt", "iga paev", "iga nadal", "daily", "weekly"]):
             return "yes", 0.9
@@ -2213,7 +2223,6 @@ def classify_user_intent(message: str, current_question: dict[str, Any] | None =
         return "clarification"
     if _looks_like_short_definition_question(text):
         return "clarification"
-
     has_question_mark = "?" in raw or "ï¼Ÿ" in raw
     has_question_word = _has_question_word(text)
     has_answer_signal = _has_answer_signal(text)
@@ -2383,7 +2392,8 @@ def _looks_like_short_current_question_reply(
         return False
     if _contains_any(text, REPORT_HINTS):
         return False
-    return True
+    answer, _ = infer_answer(raw, current_question.get("id", ""))
+    return answer is not None
 
 
 def _tokenize_normalized(text: str) -> list[str]:
@@ -2414,15 +2424,7 @@ def _semantic_short_reply_answer(
     if re.search(r"\b(vist|ehk)\b", text) or "voib olla" in text or "voib-olla" in text or "maybe" in text:
         return "unsure", 0.76
 
-    reply_tokens = {token for token in _tokenize_normalized(text) if len(token) >= 4}
-    if not reply_tokens:
-        return "yes", 0.58
-
-    overlap = reply_tokens & _current_question_tokens(current_question)
-    if overlap:
-        return "yes", 0.72
-
-    return "yes", 0.58
+    return None, 0.0
 
 
 def _looks_like_correction_turn(text: str, raw: str) -> bool:

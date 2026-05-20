@@ -103,6 +103,10 @@ def _answer_status(
         if current_question_id and current_question_id not in saved_answer_ids:
             return "saved_and_advanced"
         return "answer_saved"
+    if response_type == "context_note":
+        return "context_recorded"
+    if response_type == "pending_answer_confirmation":
+        return "needs_confirmation"
     if response_type == "clarification":
         return "followup_requested"
     if response_type in {"client_question", "general_advisory_chat", "knowledge_grounded_answer", "smalltalk"}:
@@ -123,7 +127,7 @@ def _source_entries(
         entries = _knowledge_source_entries(knowledge_sources or load_source_notes())
         return _dedupe_source_entries(entries)
 
-    if response_type in {"client_question", "general_advisory_chat"}:
+    if response_type in {"client_question", "general_advisory_chat", "context_note", "pending_answer_confirmation"}:
         entries = _question_source_entries(current_question)
         if not entries:
             entries = _knowledge_source_entries(load_source_notes())
