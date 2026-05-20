@@ -543,7 +543,7 @@ function ReportCockpit({
 
   return (
     <div className="report-scene space-y-5 text-zinc-100">
-      <div className="flex justify-end">
+      <div className="flex justify-end pr-7 pt-4 sm:pr-10">
         <Button
           type="button"
           disabled={!canGenerate || loading}
@@ -556,7 +556,6 @@ function ReportCockpit({
       </div>
 
       <ReportCockpitHero
-        summary={summaryText}
         topFinding={
           topFinding
             ? {
@@ -579,6 +578,7 @@ function ReportCockpit({
         score={officialScore}
         scoreTone={riskToneValue}
         scoreLabel={r(language, "officialScore")}
+        riskLabel={officialRisk}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">

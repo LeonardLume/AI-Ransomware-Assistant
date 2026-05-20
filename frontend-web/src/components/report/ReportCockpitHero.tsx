@@ -9,7 +9,6 @@ export type CockpitHighlight = {
 };
 
 export default function ReportCockpitHero({
-  summary,
   topFinding,
   topAction,
   topFindingLabel,
@@ -18,8 +17,8 @@ export default function ReportCockpitHero({
   score,
   scoreTone,
   scoreLabel,
+  riskLabel,
 }: {
-  summary: string;
   topFinding?: CockpitHighlight;
   topAction?: CockpitHighlight;
   topFindingLabel: string;
@@ -28,48 +27,49 @@ export default function ReportCockpitHero({
   score: number;
   scoreTone: Tone;
   scoreLabel: string;
+  riskLabel?: string;
 }) {
   return (
     <section className="report-hero relative px-0 py-0">
-      <div className="relative space-y-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-center">
-          <div className="space-y-6">
-            <p className="max-w-4xl text-xl font-semibold leading-9 tracking-normal text-slate-200">
-              {summary}
-            </p>
-            <div className="grid gap-5 md:grid-cols-2">
-              {topFinding ? (
-                <div>
-                  <div className="flex items-start gap-3">
-                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-                    <div className="min-w-0">
-                      <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        {topFindingLabel}
-                      </div>
-                      <div className="mt-1 text-[15px] font-semibold text-white">{topFinding.title}</div>
-                      {topFinding.meta ? <div className="mt-1 text-sm text-slate-500">{topFinding.meta}</div> : null}
-                    </div>
+      <div className="relative space-y-4">
+        <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.82fr)_minmax(360px,1.18fr)] xl:items-center">
+          <div className="space-y-6 pl-2 sm:pl-4 xl:-mt-5 xl:max-w-[38rem] xl:pl-7">
+            {topFinding ? (
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="mt-1 h-5 w-5 shrink-0 text-amber-300" />
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    {topFindingLabel}
                   </div>
+                  <div className="mt-1 text-lg font-semibold leading-7 text-white">{topFinding.title}</div>
+                  {topFinding.meta ? <div className="mt-1 text-base text-slate-400">{topFinding.meta}</div> : null}
                 </div>
-              ) : null}
-              {topAction ? (
-                <div>
-                  <div className="flex items-start gap-3">
-                    <Target className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
-                    <div className="min-w-0">
-                      <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        {topActionLabel}
-                      </div>
-                      <div className="mt-1 text-[15px] font-semibold text-white">{topAction.title}</div>
-                      {topAction.meta ? <div className="mt-1 text-sm text-slate-500">{topAction.meta}</div> : null}
-                    </div>
+              </div>
+            ) : null}
+
+            {topAction ? (
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
+                  <Target className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    {topActionLabel}
                   </div>
+                  <div className="mt-1 text-lg font-semibold leading-7 text-white">{topAction.title}</div>
+                  {topAction.meta ? <div className="mt-1 text-base text-slate-400">{topAction.meta}</div> : null}
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
 
-          <ScoreRing value={score} tone={scoreTone} label={scoreLabel} className="mx-auto w-full max-w-[18rem]" />
+          <ScoreRing
+            value={score}
+            tone={scoreTone}
+            label={scoreLabel}
+            riskLabel={riskLabel}
+            className="mx-auto w-full max-w-[31rem] xl:ml-8 xl:mr-auto"
+          />
         </div>
 
         <MetricStrip items={metrics} />
