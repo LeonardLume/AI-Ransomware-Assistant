@@ -1,7 +1,7 @@
 export type ProviderName = "openai" | "ollama" | "fallback" | "guardrail" | string;
 export type RiskLevel = "Low" | "Medium" | "High" | "Critical" | string;
 export type ScoreStatus = "preliminary" | "final" | "not ready" | string;
-export type ChatIntentMode = "auto" | "direct_answer" | "clarification" | "context_note" | "advisory";
+export type ChatIntentMode = "direct_answer";
 export type AssessmentAnswer = "yes" | "partial" | "no" | "unsure";
 export type ArtifactId =
   | "readiness-report"

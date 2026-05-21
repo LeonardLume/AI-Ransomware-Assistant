@@ -127,14 +127,11 @@ def _source_entries(
         entries = _knowledge_source_entries(knowledge_sources or load_source_notes())
         return _dedupe_source_entries(entries)
 
-    if response_type in {"client_question", "general_advisory_chat", "context_note", "pending_answer_confirmation"}:
-        entries = _question_source_entries(current_question)
-        if not entries:
-            entries = _knowledge_source_entries(load_source_notes())
-        return _dedupe_source_entries(entries)
+    if response_type in {"client_question", "general_advisory_chat", "context_note", "pending_answer_confirmation", "smalltalk"}:
+        return []
 
     if extracted_answers:
-        return _saved_answer_source_entries(extracted_answers)
+        return []
 
     if response_type == "interview_question":
         return _question_source_entries(current_question)

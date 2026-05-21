@@ -25,22 +25,28 @@ from backend.chat_interview import (
     answer_client_question_with_llm,
     answer_general_advisory_with_llm,
     answer_smalltalk_with_llm,
+    decide_chat_turn_with_llm,
     defensive_refusal,
     detect_language,
     extract_answers_with_llm,
     generate_next_question,
+    infer_explicit_short_answer,
+    looks_like_offensive_request,
     missing_domain_labels,
     missing_required_question_ids,
     next_missing_question,
     should_generate_preliminary_report,
 )
-from backend.config import get_security_settings, llm_status, use_langgraph_dialog
+from backend.config import ai_fallback_user_visible, allow_scripted_ai_fallback, get_security_settings, llm_status
 from backend.dialog_contracts import DialogGraphState
-from backend.dialog_graph import run_dialog_graph
+try:
+    from backend.dialog_graph import run_dialog_graph
+except ModuleNotFoundError:
+    run_dialog_graph = None
 from backend.dialog_intent import classify_dialog_intent
 from backend.exposure import build_external_exposure_self_check
 from backend.hygiene import load_employee_hygiene_checklist
-from backend.prompt_firewall import safe_prompt_injection_response
+from backend.prompt_firewall import detect_prompt_injection, safe_prompt_injection_response
 from backend.questions import (
     load_demo_profiles,
     load_questions,
@@ -240,6 +246,20 @@ def chat(payload: ChatIn, request: Request):
     current_question = qmap.get(state.current_question_id or "")
     if current_question is None or current_question["id"] in base_answers:
         current_question = next_missing_question(base_answers)
+
+    simplified_response = _chat_simplified_flow(
+        state=state,
+        is_new=is_new,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        base_answers=base_answers,
+        intent_mode=payload.intent_mode,
+        selected_answer=payload.selected_answer,
+    )
+    if simplified_response is None:
+        raise RuntimeError("Simplified chat flow did not return a response.")
+    return simplified_response
 
     routed_response = _handle_preclassified_dialog_intent(
         state=state,
@@ -623,8 +643,8 @@ def chat(payload: ChatIn, request: Request):
     state.current_question_id = next_q["id"]
     state.current_domain = next_q["domain"]
     question_result = generate_next_question(next_q, {"answers": base_answers}, _trace_context(state, request_id, next_q, message))
-    assistant_message = question_result["message"]
-    acknowledgement = CHAT_CONTROLLER.build_answer_acknowledgement(interpretation)
+    assistant_message = _saved_answer_message(_language_code(message), question_result["message"])
+    assistant_message = _saved_answer_message(_language_code(message), question_result["message"])
     if acknowledgement:
         assistant_message = f"{acknowledgement}\n\nJärgmine küsimus: {assistant_message}"
     return _chat_response(
@@ -643,6 +663,298 @@ def chat(payload: ChatIn, request: Request):
         answer_confidence=interpretation.confidence_label if interpretation else "",
         redactions_applied=extraction.get("redactions_applied", []),
         redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
+    )
+
+
+def _chat_simplified_flow(
+    *,
+    state: SessionState,
+    is_new: bool,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any] | None,
+    base_answers: dict[str, dict[str, Any]],
+    intent_mode: str | None,
+    selected_answer: str | None,
+) -> dict[str, Any] | None:
+    if is_new and not message:
+        return _ask_next_chat_question(state, greeting=True)
+
+    if message:
+        firewall = detect_prompt_injection(message)
+        if firewall["detected"]:
+            state.events.append(
+                {
+                    "type": "prompt_injection_blocked",
+                    "reason": str(firewall.get("reason", "")),
+                    "current_question_id": state.current_question_id,
+                }
+            )
+            trace_guardrail(
+                session_id=state.session_id,
+                request_id=request_id,
+                response_type="prompt_injection_blocked",
+                provider="guardrail",
+                used_fallback=False,
+                current_question_id=(current_question or {}).get("id"),
+                current_domain=(current_question or {}).get("domain"),
+                user_message=message,
+            )
+            return _chat_response(
+                state,
+                assistant_message=safe_prompt_injection_response(_language_code(message)),
+                extracted_answers={},
+                score=None,
+                report=None,
+                provider="guardrail",
+                used_fallback=False,
+                response_type="prompt_injection_blocked",
+                intent="guardrail",
+                action="refuse",
+                intent_confidence="high",
+                prompt_injection_blocked=True,
+                prompt_injection_reason=str(firewall.get("reason", "")),
+            )
+
+        if current_question is not None and looks_like_offensive_request(message):
+            state.current_question_id = current_question["id"]
+            state.current_domain = current_question["domain"]
+            guardrail = defensive_refusal(message, current_question)
+            state.events.append(
+                {
+                    "type": "guardrail_refusal",
+                    "current_question_id": current_question["id"],
+                    "provider": guardrail.get("provider", "guardrail"),
+                }
+            )
+            trace_guardrail(
+                session_id=state.session_id,
+                request_id=request_id,
+                response_type="guardrail",
+                provider=guardrail.get("provider", "guardrail"),
+                used_fallback=False,
+                current_question_id=current_question["id"],
+                current_domain=current_question.get("domain"),
+                user_message=message,
+            )
+            return _chat_response(
+                state,
+                assistant_message=guardrail["message"],
+                extracted_answers={},
+                score=None,
+                report=None,
+                provider=guardrail.get("provider", "guardrail"),
+                used_fallback=False,
+                response_type="guardrail",
+                intent="guardrail",
+                action="refuse",
+                intent_confidence="high",
+            )
+
+    if intent_mode == "direct_answer" and selected_answer and current_question is not None:
+        return _handle_direct_answer_turn(
+            state=state,
+            message=message or selected_answer,
+            request_id=request_id,
+            current_question=current_question,
+            answer=selected_answer,
+            confidence=1.0,
+            answer_source="quick_answer",
+        )
+
+    if state.pending_answer and current_question is not None and message:
+        pending_response = _handle_pending_answer_resolution_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+        )
+        if pending_response is not None:
+            return pending_response
+
+    if current_question is not None and message:
+        explicit_answer, explicit_confidence = infer_explicit_short_answer(message)
+        if explicit_answer in {"yes", "partial", "no", "unsure"}:
+            trace_intent_decision(
+                session_id=state.session_id,
+                request_id=request_id,
+                intent="answer",
+                response_type="save_answer",
+                provider="router",
+                used_fallback=False,
+                current_question_id=current_question["id"],
+                current_domain=current_question.get("domain"),
+                user_message=message,
+                should_save_answer=True,
+                confidence=_dialog_confidence_label(explicit_confidence),
+            )
+            return _handle_direct_answer_turn(
+                state=state,
+                message=message,
+                request_id=request_id,
+                current_question=current_question,
+                answer=explicit_answer,
+                confidence=explicit_confidence,
+                answer_source="router",
+            )
+
+    if current_question is None:
+        return _complete_chat(
+            state,
+            completion_mode="full",
+            intent="report_request",
+            action="complete_chat",
+            intent_confidence="high",
+        )
+
+    if not message:
+        return _ask_next_chat_question(state, greeting=not base_answers)
+
+    decision_result = decide_chat_turn_with_llm(
+        user_message=message,
+        current_question=current_question,
+        current_answers=base_answers,
+        pending_answer=state.pending_answer,
+        org_info=state.org_info,
+        trace_context=_trace_context(state, request_id, current_question, message),
+    )
+    decision = decision_result.get("decision")
+    provider = str(decision_result.get("provider") or "fallback")
+    used_fallback = bool(decision_result.get("used_fallback", False))
+
+    if not decision_result.get("available", False) or not isinstance(decision, dict):
+        return _ai_unavailable_response(state, current_question, provider=provider)
+
+    action = str(decision.get("action") or "smalltalk")
+    confidence = float(decision.get("confidence") or 0.0)
+    normalized_answer = decision.get("normalized_answer")
+    intent_confidence = _dialog_confidence_label(confidence)
+    intent = _intent_from_chat_action(action)
+
+    trace_intent_decision(
+        session_id=state.session_id,
+        request_id=request_id,
+        intent=intent,
+        response_type=action,
+        provider=provider,
+        used_fallback=used_fallback,
+        current_question_id=current_question["id"],
+        current_domain=current_question.get("domain"),
+        user_message=message,
+        should_save_answer=bool(decision.get("should_save_answer", False)),
+        confidence=intent_confidence,
+    )
+
+    if action == "generate_report":
+        return _finish_or_continue_chat(
+            state,
+            intent="report_request",
+            action="generate_report",
+            intent_confidence=intent_confidence,
+        )
+
+    if action == "refuse":
+        guardrail = defensive_refusal(message, current_question)
+        return _chat_response(
+            state,
+            assistant_message=guardrail["message"],
+            extracted_answers={},
+            score=None,
+            report=None,
+            provider=guardrail.get("provider", "guardrail"),
+            used_fallback=False,
+            response_type="guardrail",
+            intent="guardrail",
+            action="refuse",
+            intent_confidence="high",
+        )
+
+    if action == "save_answer" and normalized_answer in {"yes", "partial", "no", "unsure"}:
+        if confidence >= 0.75:
+            return _handle_direct_answer_turn(
+                state=state,
+                message=message,
+                request_id=request_id,
+                current_question=current_question,
+                answer=normalized_answer,
+                confidence=confidence,
+                answer_source="ai_interview",
+            )
+        if confidence >= 0.45:
+            return _handle_pending_answer_confirmation_turn(
+                state=state,
+                message=message,
+                current_question=current_question,
+                suggested_answer=normalized_answer,
+                confidence=confidence,
+                reason=str(decision.get("reason") or ""),
+                intent_confidence=intent_confidence,
+            )
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            intent_confidence=intent_confidence,
+            assistant_message=_soft_bridge_message(_language_code(message)),
+        )
+
+    if action == "ask_confirmation":
+        return _handle_pending_answer_confirmation_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            suggested_answer=normalized_answer if normalized_answer in {"yes", "partial", "no", "unsure"} else None,
+            confidence=confidence,
+            reason=str(decision.get("reason") or ""),
+            intent_confidence=intent_confidence,
+        )
+
+    if action == "keep_context":
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            intent_confidence=intent_confidence,
+            assistant_message=_decision_response_text(
+                decision,
+                fallback=_context_saved_message(_language_code(message)),
+            ),
+        )
+
+    if action == "answer_clarification":
+        return _handle_clarification_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="clarification",
+            action="answer_clarification",
+            intent_confidence=intent_confidence,
+        )
+
+    if action == "answer_advisory":
+        return _handle_general_advisory_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            base_answers=base_answers,
+            intent="general_advisory_chat",
+            action="answer_advisory",
+            intent_confidence=intent_confidence,
+        )
+
+    return _handle_smalltalk_turn(
+        state=state,
+        message=message,
+        request_id=request_id,
+        current_question=current_question,
+        base_answers=base_answers,
+        intent="smalltalk",
+        action="smalltalk",
+        intent_confidence=intent_confidence,
+        is_new_session=is_new,
     )
 
 
@@ -914,7 +1226,12 @@ def submit_answer(payload: AnswerIn):
     if payload.answer not in allowed:
         raise HTTPException(status_code=400, detail=f"Invalid answer. Allowed options: {allowed}")
 
-    state.answers[payload.question_id] = {"answer": payload.answer, "details": payload.details}
+    state.answers[payload.question_id] = {
+        "answer": payload.answer,
+        "details": payload.details,
+        "source": "manual",
+        "confidence": 1.0,
+    }
     followup_decision = decide_followup(q, payload.answer, payload.details)
 
     generated_followup = None
@@ -1149,9 +1466,9 @@ def _finish_or_continue_chat(
     state.current_domain = q["domain"]
     question_result = generate_next_question(q, {"answers": base_answers})
     assistant_message = (
-        "Raporti jaoks on veel liiga vähe infot. "
-        f"Puudu on vähemalt üks vastus nendes domeenides: {missing_domains}. "
-        f"Jätkame ühe küsimusega: {question_result['message']}"
+        "There is not enough information yet to generate a report. "
+        f"At least one answer is still missing in these domains: {missing_domains}. "
+        f"Let us continue with one more question: {question_result['message']}"
     )
     return _chat_response(
         state,
@@ -1262,6 +1579,7 @@ def _handle_preclassified_dialog_intent(
             current_question=current_question,
             answer=decision.suggested_answer,
             confidence=decision.confidence,
+            answer_source="router",
         )
 
     if decision.route == "clarification_current_question":
@@ -1303,6 +1621,7 @@ def _handle_preclassified_dialog_intent(
             message=message,
             current_question=current_question,
             suggested_answer=decision.suggested_answer,
+            confidence=decision.confidence,
             reason=decision.reason,
             intent_confidence=_dialog_confidence_label(decision.confidence),
         )
@@ -1403,6 +1722,7 @@ def _apply_chat_extraction(
     request_id: str,
     current_question: dict[str, Any],
     intent: str,
+    answer_source: str = "ai_interview",
 ) -> tuple[dict[str, str], list[str]]:
     extracted_answers = _extracted_answer_map(extraction)
     confidence = _extraction_confidence(extraction)
@@ -1415,10 +1735,12 @@ def _apply_chat_extraction(
             continue
 
         previous = state.answers.get(qid)
+        confidence_score = _coerce_confidence_score(confidence.get(qid))
         state.answers[qid] = {
             "answer": answer,
             "details": message,
-            "source": "ai_interview",
+            "source": answer_source,
+            "confidence": confidence_score,
         }
         state.events.append(
             {
@@ -1426,9 +1748,9 @@ def _apply_chat_extraction(
                 "question_id": qid,
                 "answer": answer,
                 "details": message,
-                "source": "ai_interview",
+                "source": answer_source,
                 "previous_answer": (previous or {}).get("answer"),
-                "confidence_score": confidence.get(qid),
+                "confidence_score": confidence_score,
             }
         )
         trace_answer_saved(
@@ -1442,7 +1764,7 @@ def _apply_chat_extraction(
             current_domain=q.get("domain"),
             user_message=message,
             saved_answer={"question_id": qid, "answer": answer},
-            confidence=confidence.get(qid),
+            confidence=confidence_score,
         )
         if qid in state.unclear_question_ids:
             state.unclear_question_ids.remove(qid)
@@ -1476,6 +1798,14 @@ def _extracted_answer_map(extraction: dict[str, Any]) -> dict[str, str]:
 def _extraction_confidence(extraction: dict[str, Any]) -> dict[str, Any]:
     confidence = extraction.get("confidence", {})
     return confidence if isinstance(confidence, dict) else {}
+
+
+def _coerce_confidence_score(value: Any) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(1.0, numeric))
 
 
 def _sync_unclear_questions(
@@ -1576,9 +1906,16 @@ def _handle_general_advisory_turn(
             "used_fallback": advisory.get("used_fallback", True),
         }
     )
+    if advisory.get("available") is False:
+        return _ai_unavailable_response(state, current_question, provider=str(advisory.get("provider", "fallback")))
+    if _should_hide_scripted_ai_response(advisory):
+        return _ai_unavailable_response(state, current_question, provider=str(advisory.get("provider", "fallback")))
     return _chat_response(
         state,
-        assistant_message=advisory["message"],
+        assistant_message=_with_soft_bridge(
+            advisory["message"],
+            _soft_bridge_message(_language_code(message)),
+        ),
         extracted_answers={},
         score=None,
         report=None,
@@ -1622,9 +1959,16 @@ def _handle_clarification_turn(
             "used_fallback": advisory.get("used_fallback", True),
         }
     )
+    if advisory.get("available") is False:
+        return _ai_unavailable_response(state, current_question, provider=str(advisory.get("provider", "fallback")))
+    if _should_hide_scripted_ai_response(advisory):
+        return _ai_unavailable_response(state, current_question, provider=str(advisory.get("provider", "fallback")))
     return _chat_response(
         state,
-        assistant_message=advisory["message"],
+        assistant_message=_with_soft_bridge(
+            advisory["message"],
+            _soft_bridge_message(_language_code(message)),
+        ),
         extracted_answers={},
         score=None,
         report=None,
@@ -1649,6 +1993,7 @@ def _handle_smalltalk_turn(
     intent: str,
     action: str,
     intent_confidence: str,
+    is_new_session: bool = False,
 ):
     state.current_question_id = current_question["id"]
     state.current_domain = current_question["domain"]
@@ -1657,11 +2002,20 @@ def _handle_smalltalk_turn(
         current_question,
         base_answers,
         state.org_info,
+        chat_history=state.chat_history,
+        is_new_session=is_new_session,
         trace_context=_trace_context(state, request_id, current_question, message),
     )
+    if smalltalk.get("available") is False:
+        return _ai_unavailable_response(state, current_question, provider=str(smalltalk.get("provider", "fallback")))
+    if _should_hide_scripted_ai_response(smalltalk):
+        return _ai_unavailable_response(state, current_question, provider=str(smalltalk.get("provider", "fallback")))
     return _chat_response(
         state,
-        assistant_message=smalltalk["message"],
+        assistant_message=_decision_response_text(
+            {"user_visible_response": smalltalk["message"]},
+            fallback=_soft_bridge_message(_language_code(message)),
+        ),
         extracted_answers={},
         score=None,
         report=None,
@@ -1682,6 +2036,7 @@ def _handle_direct_answer_turn(
     current_question: dict[str, Any],
     answer: str,
     confidence: float,
+    answer_source: str,
 ):
     state.current_question_id = current_question["id"]
     state.current_domain = current_question["domain"]
@@ -1696,12 +2051,8 @@ def _handle_direct_answer_turn(
         "clarification_question": "",
         "provider": "router",
         "used_fallback": False,
+        "answer_source": answer_source,
     }
-    interpretation = CHAT_CONTROLLER.build_answer_interpretation(
-        extraction["extracted_answers"],
-        extraction["confidence"],
-        load_questions(),
-    )
     extracted_answers, _ = _apply_chat_extraction(
         state=state,
         extraction=extraction,
@@ -1710,6 +2061,7 @@ def _handle_direct_answer_turn(
         request_id=request_id,
         current_question=current_question,
         intent="answer",
+        answer_source=answer_source,
     )
     refreshed_answers = _base_answers_only(state.answers)
 
@@ -1723,8 +2075,6 @@ def _handle_direct_answer_turn(
             intent="answer",
             action="complete_chat",
             intent_confidence=_dialog_confidence_label(confidence),
-            answer_interpretation=interpretation.summary if interpretation else "",
-            answer_confidence=interpretation.confidence_label if interpretation else "",
         )
 
     next_q = next_missing_question(refreshed_answers)
@@ -1738,17 +2088,12 @@ def _handle_direct_answer_turn(
             intent="answer",
             action="complete_chat",
             intent_confidence=_dialog_confidence_label(confidence),
-            answer_interpretation=interpretation.summary if interpretation else "",
-            answer_confidence=interpretation.confidence_label if interpretation else "",
         )
 
     state.current_question_id = next_q["id"]
     state.current_domain = next_q["domain"]
     question_result = generate_next_question(next_q, {"answers": refreshed_answers}, _trace_context(state, request_id, next_q, message))
-    acknowledgement = CHAT_CONTROLLER.build_answer_acknowledgement(interpretation)
-    assistant_message = question_result["message"]
-    if acknowledgement:
-        assistant_message = f"{acknowledgement}\n\nJÃ¤rgmine kÃ¼simus: {assistant_message}"
+    assistant_message = _saved_answer_message(_language_code(message), question_result["message"])
     return _chat_response(
         state,
         assistant_message=assistant_message,
@@ -1761,8 +2106,6 @@ def _handle_direct_answer_turn(
         intent="answer",
         action="extract_answer",
         intent_confidence=_dialog_confidence_label(confidence),
-        answer_interpretation=interpretation.summary if interpretation else "",
-        answer_confidence=interpretation.confidence_label if interpretation else "",
     )
 
 
@@ -1772,6 +2115,7 @@ def _handle_context_note_turn(
     message: str,
     current_question: dict[str, Any],
     intent_confidence: str,
+    assistant_message: str | None = None,
 ):
     state.current_question_id = current_question["id"]
     state.current_domain = current_question["domain"]
@@ -1784,11 +2128,11 @@ def _handle_context_note_turn(
         "source": "user",
     }
     state.context_notes.append(note)
+    state.pending_answer = None
     state.events.append({"type": "context_note_added", **note})
-    assistant_message = _context_note_message(_language_code(message))
     return _chat_response(
         state,
-        assistant_message=assistant_message,
+        assistant_message=assistant_message or _context_note_message(_language_code(message)),
         extracted_answers={},
         score=None,
         report=None,
@@ -1807,6 +2151,7 @@ def _handle_pending_answer_confirmation_turn(
     message: str,
     current_question: dict[str, Any],
     suggested_answer: str | None,
+    confidence: float,
     reason: str,
     intent_confidence: str,
 ):
@@ -1815,8 +2160,8 @@ def _handle_pending_answer_confirmation_turn(
     state.pending_answer = {
         "question_id": current_question["id"],
         "domain": current_question["domain"],
-        "answer": suggested_answer,
-        "details": message,
+        "suggested_answer": suggested_answer,
+        "confidence": confidence,
         "reason": reason,
         "created_at": datetime.now(UTC).isoformat(),
     }
@@ -1825,10 +2170,11 @@ def _handle_pending_answer_confirmation_turn(
             "type": "pending_answer_confirmation",
             "question_id": current_question["id"],
             "suggested_answer": suggested_answer,
+            "confidence": confidence,
             "reason": reason,
         }
     )
-    assistant_message = _pending_confirmation_message(_language_code(message), suggested_answer)
+    assistant_message = _pending_confirmation_message_plain(_language_code(message), suggested_answer)
     return _chat_response(
         state,
         assistant_message=assistant_message,
@@ -1845,38 +2191,204 @@ def _handle_pending_answer_confirmation_turn(
 
 
 def _context_note_message(language: str) -> str:
-    if language == "ru":
-        return (
-            "Я сохранил это как контекст к текущему вопросу. Это пока не меняет score.\n\n"
-            "Для оценки выбери: yes, partial, no или unsure."
-        )
-    if language == "en":
-        return (
-            "I kept this as context for the current question. It does not change the score yet.\n\n"
-            "For scoring, choose yes, partial, no, or unsure."
-        )
+    _ = language
     return (
-        "Panin selle praeguse kÃ¼simuse kontekstina kirja. See ei muuda skoori.\n\n"
-        "Skoorimiseks vali: yes, partial, no vÃµi unsure."
+        "I kept this as context for the current question. It does not change the score.\n\n"
+        "When you are ready, answer yes, partial, no, or unsure."
     )
 
 
 def _pending_confirmation_message(language: str, suggested_answer: str | None) -> str:
     suggestion = suggested_answer or "partial"
-    if language == "ru":
-        return (
-            f"Я не буду сохранять это автоматически. Похоже, это может быть `{suggestion}`.\n\n"
-            "Сохранить так или оставить как контекст?"
-        )
-    if language == "en":
-        return (
-            f"I will not save this automatically. It might be `{suggestion}`.\n\n"
-            "Should I save it that way, or keep it as context?"
-        )
+    _ = language
     return (
-        f"Ma ei salvesta seda automaatselt. See vÃµib olla `{suggestion}`.\n\n"
-        "Kas salvestan nii vÃµi jÃ¤tan kontekstiks?"
+        f"I think this may be a `{suggestion}` answer, but I do not want to save it automatically.\n\n"
+        f"Should I save it as `{suggestion}`, or keep it only as context?"
     )
+
+
+def _pending_confirmation_message_plain(language: str, suggested_answer: str | None) -> str:
+    suggestion = suggested_answer or "partial"
+    _ = language
+    return (
+        f"I think this may be a `{suggestion}` answer, but I do not want to save it automatically.\n\n"
+        f"Should I save it as `{suggestion}`, or keep it only as context?"
+    )
+
+
+def _handle_pending_answer_resolution_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+) -> dict[str, Any] | None:
+    pending = state.pending_answer or {}
+    suggested_answer = str(pending.get("suggested_answer") or "").strip().lower() or None
+    confidence = float(pending.get("confidence") or 0.6)
+    resolution = _pending_answer_resolution(message)
+    if resolution == "confirm" and suggested_answer in {"yes", "partial", "no", "unsure"}:
+        state.pending_answer = None
+        return _handle_direct_answer_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=current_question,
+            answer=suggested_answer,
+            confidence=confidence,
+            answer_source="ai_interview",
+        )
+    if resolution == "reject":
+        state.pending_answer = None
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            intent_confidence="medium",
+            assistant_message=_context_saved_message(_language_code(message)),
+        )
+    if suggested_answer in {"yes", "partial", "no", "unsure"}:
+        decision_result = decide_chat_turn_with_llm(
+            user_message=message,
+            current_question=current_question,
+            current_answers=_base_answers_only(state.answers),
+            pending_answer=pending,
+            org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, current_question, message),
+        )
+        decision = decision_result.get("decision")
+        if decision_result.get("available", False) and isinstance(decision, dict):
+            action = str(decision.get("action") or "")
+            normalized_answer = str(decision.get("normalized_answer") or "").strip().lower() or None
+            if action == "save_answer" and normalized_answer == suggested_answer:
+                state.pending_answer = None
+                return _handle_direct_answer_turn(
+                    state=state,
+                    message=message,
+                    request_id=request_id,
+                    current_question=current_question,
+                    answer=suggested_answer,
+                    confidence=max(confidence, float(decision.get("confidence") or 0.0)),
+                    answer_source="ai_interview",
+                )
+            if action == "keep_context":
+                state.pending_answer = None
+                return _handle_context_note_turn(
+                    state=state,
+                    message=message,
+                    current_question=current_question,
+                    intent_confidence="medium",
+                    assistant_message=_context_saved_message(_language_code(message)),
+                )
+    return None
+
+
+def _pending_answer_resolution(message: str) -> str | None:
+    text = message.strip().lower()
+    confirm_values = {
+        "yes",
+        "y",
+        "save",
+        "save it",
+        "yes save",
+        "yes, save",
+        "yes save it",
+        "yes, save it",
+        "confirm",
+        "ok save",
+        "okay save",
+        "ok, save it",
+        "okay, save it",
+        "jah",
+        "salvesta",
+    }
+    reject_values = {
+        "no",
+        "n",
+        "keep as context",
+        "context",
+        "do not save",
+        "ei",
+        "ara salvesta",
+        "kontekst",
+    }
+    if text in confirm_values:
+        return "confirm"
+    if text in reject_values:
+        return "reject"
+    return None
+
+
+def _context_saved_message(language: str) -> str:
+    _ = language
+    return "I kept it as context only. When you are ready, answer yes, partial, no, or unsure."
+
+
+def _soft_bridge_message(language: str) -> str:
+    _ = language
+    return "When you are ready, answer yes, partial, no, or unsure."
+
+
+def _saved_answer_message(language: str, next_question_text: str) -> str:
+    _ = language
+    return f"Saved.\n\nNext question: {next_question_text}"
+
+
+def _decision_response_text(decision: dict[str, Any], fallback: str) -> str:
+    text = str(decision.get("user_visible_response") or "").strip()
+    return text or fallback
+
+
+def _with_soft_bridge(message: str, bridge: str) -> str:
+    clean = message.strip()
+    if not clean:
+        return bridge
+    if bridge and bridge not in clean:
+        return f"{clean}\n\n{bridge}"
+    return clean
+
+
+def _ai_unavailable_response(
+    state: SessionState,
+    current_question: dict[str, Any],
+    *,
+    provider: str,
+) -> dict[str, Any]:
+    state.current_question_id = current_question["id"]
+    state.current_domain = current_question["domain"]
+    return _chat_response(
+        state,
+        assistant_message=(
+            "AI provider is unavailable. You can still continue the structured assessment using the quick answer buttons, "
+            "but free-text advisory chat is disabled until a real LLM provider is configured."
+        ),
+        extracted_answers={},
+        score=None,
+        report=None,
+        provider=provider,
+        used_fallback=False,
+        response_type="ai_unavailable",
+        intent="ai_unavailable",
+        action="ai_unavailable",
+        intent_confidence="high",
+    )
+
+
+def _should_hide_scripted_ai_response(result: dict[str, Any]) -> bool:
+    return bool(result.get("used_fallback")) and not (allow_scripted_ai_fallback() and ai_fallback_user_visible())
+
+
+def _intent_from_chat_action(action: str) -> str:
+    return {
+        "save_answer": "answer",
+        "answer_clarification": "clarification",
+        "answer_advisory": "general_advisory_chat",
+        "keep_context": "context_note",
+        "ask_confirmation": "ambiguous_needs_confirmation",
+        "generate_report": "report_request",
+        "smalltalk": "smalltalk",
+        "refuse": "guardrail",
+    }.get(action, "unknown")
 
 
 def _handle_chat_answer_turn(

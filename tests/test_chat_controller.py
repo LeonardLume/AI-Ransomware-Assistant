@@ -1,8 +1,7 @@
 from backend.chat import ChatController
-from backend.chat_interview import classify_user_intent
 
 
-def test_chat_controller_routes_prompt_injection_before_other_actions():
+def test_chat_controller_blocks_prompt_injection():
     controller = ChatController()
 
     decision = controller.decide_action(
@@ -11,113 +10,59 @@ def test_chat_controller_routes_prompt_injection_before_other_actions():
         current_question={"id": "backups_exist", "question": "Do backups exist?"},
     )
 
-    assert decision.action == "prompt_injection_blocked"
+    assert decision.action == "refuse"
     assert decision.intent == "guardrail"
     assert decision.intent_confidence == "high"
     assert decision.prompt_injection_reason
 
 
-def test_chat_controller_separates_report_intent_from_action():
+def test_chat_controller_defaults_to_legacy_placeholder_for_non_guardrail_text():
     controller = ChatController()
 
     decision = controller.decide_action(
-        message="tee raport",
+        message="What does this question mean?",
         is_new_session=False,
         current_question={"id": "backups_exist", "question": "Do backups exist?"},
     )
 
-    assert decision.intent == "report_request"
-    assert decision.action == "finish_or_continue_report"
+    assert decision.action == "smalltalk"
+    assert decision.intent == "unknown"
+    assert decision.should_save_answer is False
 
 
 def test_chat_controller_builds_human_readable_answer_interpretation():
     controller = ChatController()
+
     interpretation = controller.build_answer_interpretation(
         extracted_answers={"backups_exist": "yes", "restore_tested": "no"},
         confidence={"backups_exist": 0.91, "restore_tested": 0.88},
         questions=[
-            {"id": "backups_exist", "question": "Kas varukoopiad on olemas?"},
-            {"id": "restore_tested", "question": "Kas taastamist on testitud?"},
+            {"id": "backups_exist", "question": "Do backups exist?"},
+            {"id": "restore_tested", "question": "Were restores tested?"},
         ],
     )
 
     assert interpretation is not None
-    assert "Tõlgendasin sinu vastuse nii:" in interpretation.summary
-    assert "Kas varukoopiad on olemas: jah" in interpretation.summary
-    assert "Kas taastamist on testitud: ei" in interpretation.summary
+    assert "I interpreted your answer as:" in interpretation.summary
+    assert "Do backups exist: yes" in interpretation.summary
+    assert "Were restores tested: no" in interpretation.summary
     assert interpretation.confidence_label == "High"
 
 
-def test_chat_controller_routes_short_contextual_replies_as_answers():
+def test_chat_controller_formats_clarification_and_ack_messages():
     controller = ChatController()
 
-    decision = controller.decide_action(
-        message="teab",
-        is_new_session=False,
-        current_question={
-            "id": "org_critical_systems_known",
-            "question": "Kas organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad?",
-        },
+    interpretation = controller.build_answer_interpretation(
+        extracted_answers={"backups_exist": "partial"},
+        confidence={"backups_exist": 0.72},
+        questions=[{"id": "backups_exist", "question": "Do backups exist?"}],
     )
 
-    assert decision.intent == "answer"
-    assert decision.action == "extract_answer"
-    assert decision.intent_confidence == "medium"
-
-
-def test_chat_controller_does_not_score_freeform_code_request():
-    controller = ChatController()
-
-    decision = controller.decide_action(
-        message="write java code",
-        is_new_session=False,
-        current_question={
-            "id": "backups_exist",
-            "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
-        },
+    clarification = controller.build_clarification_message(
+        clarification_question="Can you clarify backup coverage?",
+        interpretation=interpretation,
     )
+    acknowledgement = controller.build_answer_acknowledgement(interpretation)
 
-    assert decision.intent != "answer"
-    assert decision.action != "extract_answer"
-
-
-def test_chat_controller_does_not_score_arbitrary_short_text():
-    controller = ChatController()
-
-    decision = controller.decide_action(
-        message="hea",
-        is_new_session=False,
-        current_question={
-            "id": "backups_exist",
-            "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
-        },
-    )
-
-    assert decision.intent == "unknown"
-    assert decision.action == "answer_smalltalk"
-
-
-def test_short_definition_question_routes_to_clarification():
-    assert (
-        classify_user_intent(
-            "mis on vpn",
-            {
-                "id": "mfa_remote_access",
-                "question": "Kas MFA on kasutusel VPN-i, RDP, pilvekonsoolide või muu kaugligipääsu puhul?",
-            },
-        )
-        == "clarification"
-    )
-
-
-def test_social_how_are_you_routes_to_smalltalk():
-    assert (
-        classify_user_intent(
-            "kuidas läheb",
-            {
-                "id": "org_critical_systems_known",
-                "question": "Kas organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad?",
-            },
-        )
-        == "smalltalk"
-    )
+    assert "Can you clarify backup coverage?" in clarification
+    assert "Saved." in acknowledgement

@@ -8,8 +8,15 @@ from time import perf_counter
 from typing import Any
 
 from backend.ai_trace import trace_llm_call as trace_llm_call_event, trace_retrieval as trace_retrieval_event
-from backend.config import get_llm_settings
+from backend.config import (
+    ai_fallback_user_visible,
+    allow_scripted_ai_fallback,
+    get_app_env,
+    get_llm_settings,
+    is_real_llm_configured,
+)
 from backend.llm_contracts import (
+    validate_chat_decision,
     validate_extracted_answer,
     validate_grounded_answer_quality,
     validate_intent_decision,
@@ -533,40 +540,18 @@ def answer_client_question_with_llm(
         retrieved_source_count=len(source_ids),
         knowledge_source_ids=source_ids,
     )
-
-    if _should_use_deterministic_clarification(user_message):
+    if not is_real_llm_configured():
         _trace_llm_call(
             trace_context,
             intent="clarification",
-            response_type="client_question",
-            provider="deterministic_clarification",
-            used_fallback=True,
+            response_type="ai_unavailable",
+            provider=str(get_llm_settings()["provider"]),
+            used_fallback=False,
             retrieved_source_count=len(source_ids),
             knowledge_source_ids=source_ids,
             latency_ms=0,
         )
-        fallback = fallback_client_answer(user_message, q_context)
-        fallback["redactions_applied"] = []
-        fallback["redacted_for_llm"] = False
-        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
-        return fallback
-
-    if get_llm_settings()["provider"] == "fallback":
-        _trace_llm_call(
-            trace_context,
-            intent="clarification",
-            response_type="client_question",
-            provider="fallback",
-            used_fallback=True,
-            retrieved_source_count=len(source_ids),
-            knowledge_source_ids=source_ids,
-            latency_ms=0,
-        )
-        fallback = fallback_client_answer(user_message, q_context)
-        fallback["redactions_applied"] = []
-        fallback["redacted_for_llm"] = False
-        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
-        return fallback
+        return _unavailable_chat_reply(provider=str(get_llm_settings()["provider"]), error="Real LLM provider is not configured.")
 
     current_answer = _current_question_answer(q_context, current_answers)
     advisory_focus = _advisory_focus(user_message, q_context)
@@ -593,18 +578,14 @@ def answer_client_question_with_llm(
         _trace_llm_call(
             trace_context,
             intent="clarification",
-            response_type="client_question",
+            response_type="ai_unavailable",
             provider=result.provider,
-            used_fallback=True,
+            used_fallback=False,
             retrieved_source_count=len(source_ids),
             knowledge_source_ids=source_ids,
             latency_ms=latency_ms,
         )
-        fallback = fallback_client_answer(user_message, q_context)
-        fallback["redactions_applied"] = redactions
-        fallback["redacted_for_llm"] = bool(redactions)
-        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
-        return fallback
+        return _unavailable_chat_reply(provider=result.provider, error=result.error or "Real LLM provider call failed.")
 
     message = normalize_assistant_text(result.text.strip(), language, q_context, current_answer)
     if not _is_identity_question(user_message):
@@ -632,7 +613,7 @@ def answer_client_question_with_llm(
         "error": result.error,
         "redactions_applied": redactions,
         "redacted_for_llm": bool(redactions),
-        "grounded_answer_quality": _grounded_answer_quality(language, used_knowledge=True, safety_blocked=False),
+        "grounded_answer_quality": _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False),
     }
 
 
@@ -658,23 +639,18 @@ def answer_general_advisory_with_llm(
         retrieved_source_count=len(source_ids),
         knowledge_source_ids=source_ids,
     )
-
-    if get_llm_settings()["provider"] == "fallback":
+    if not is_real_llm_configured():
         _trace_llm_call(
             trace_context,
             intent="general_advisory_chat",
-            response_type="general_advisory_chat",
-            provider="fallback",
-            used_fallback=True,
+            response_type="ai_unavailable",
+            provider=str(get_llm_settings()["provider"]),
+            used_fallback=False,
             retrieved_source_count=len(source_ids),
             knowledge_source_ids=source_ids,
             latency_ms=0,
         )
-        fallback = fallback_general_advisory_answer(user_message, q_context, current_answers)
-        fallback["redactions_applied"] = []
-        fallback["redacted_for_llm"] = False
-        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
-        return fallback
+        return _unavailable_chat_reply(provider=str(get_llm_settings()["provider"]), error="Real LLM provider is not configured.")
 
     redacted_message, message_redactions = redact_sensitive_text(user_message)
     redacted_answers, answer_redactions = _redact_answer_records(current_answers)
@@ -699,19 +675,14 @@ def answer_general_advisory_with_llm(
         _trace_llm_call(
             trace_context,
             intent="general_advisory_chat",
-            response_type="general_advisory_chat",
+            response_type="ai_unavailable",
             provider=result.provider,
-            used_fallback=True,
+            used_fallback=False,
             retrieved_source_count=len(source_ids),
             knowledge_source_ids=source_ids,
             latency_ms=latency_ms,
         )
-        fallback = fallback_general_advisory_answer(user_message, q_context, current_answers)
-        fallback["redactions_applied"] = redactions
-        fallback["redacted_for_llm"] = bool(redactions)
-        fallback["error"] = result.error
-        fallback["grounded_answer_quality"] = _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False)
-        return fallback
+        return _unavailable_chat_reply(provider=result.provider, error=result.error or "Real LLM provider call failed.")
 
     message = normalize_general_advisory_text(result.text.strip())
     if not _is_identity_question(user_message):
@@ -735,7 +706,7 @@ def answer_general_advisory_with_llm(
         "error": result.error,
         "redactions_applied": redactions,
         "redacted_for_llm": bool(redactions),
-        "grounded_answer_quality": _grounded_answer_quality(language, used_knowledge=True, safety_blocked=False),
+        "grounded_answer_quality": _grounded_answer_quality(language, used_knowledge=False, safety_blocked=False),
     }
 
 
@@ -759,7 +730,6 @@ def build_general_advisory_context(
         "answered_question_ids": list(current_answers.keys()),
         "organization_info": org_info,
         "domain_metadata": load_domain_metadata(),
-        "trusted_sources_used_for_project": load_source_notes(),
         "conversation_rules": [
             "Answer the user's general advisory question directly.",
             "Do not treat this as a questionnaire answer.",
@@ -777,7 +747,7 @@ def _grounded_answer_quality(language: str, used_knowledge: bool, safety_blocked
     validated = validate_grounded_answer_quality(
         {
             "used_knowledge": used_knowledge,
-            "source_count": len(load_source_notes()),
+            "source_count": len(load_source_notes()) if used_knowledge else 0,
             "missing_context": False,
             "safety_blocked": safety_blocked,
             "answer_language": language,
@@ -884,13 +854,12 @@ def build_advisor_context(
         "answered_question_ids": list(current_answers.keys()),
         "organization_info": org_info,
         "domain_metadata": load_domain_metadata(),
-        "trusted_sources_used_for_project": load_source_notes(),
         "conversation_rules": [
             "Answer the client question first.",
             "Do not treat clarification questions as questionnaire answers.",
             "Do not introduce yourself unless the user asks who you are.",
             "If the user writes only 'mida', interpret it as: explain the current question in simpler words.",
-            "If the user asks for examples or 'näidised', give 2-4 concrete examples for the current question.",
+            "If the user asks for examples, give 2-4 concrete examples for the current question.",
             "If advisory_focus is six_month_restore_test, explain why a recent restore test such as 6 months is used as a practical freshness check.",
             "Use defensive_skill_context for practical explanations, follow-up questions, recommended actions, and evidence examples.",
             "Explain what evidence would prove readiness, for example a restore test date and result for backup questions.",
@@ -900,7 +869,7 @@ def build_advisor_context(
             "Use simple business language for impact and next steps.",
             "Do not claim this is a full audit.",
             "Do not ask whether the user wants to move on.",
-            "Return to the active interview question at the end.",
+            "If useful, add one short bridge that the user can answer with yes, partial, no, or unsure.",
         ],
     }
 
@@ -911,12 +880,18 @@ def build_chat_turn_context(
     current_question: dict[str, Any] | None,
     current_answers: dict[str, dict[str, Any]],
     org_info: dict[str, Any],
+    chat_history: list[dict[str, Any]] | None = None,
+    is_new_session: bool = False,
 ) -> dict[str, Any]:
     advisory_domain = _advisory_domain(user_message, current_question)
+    text = _normalize(user_message)
     return {
         "user_message": user_message,
         "response_language": language,
         "turn_kind": "smalltalk_or_unknown",
+        "is_new_session": is_new_session,
+        "message_kind": "acknowledgement" if _is_acknowledgement(text) else "smalltalk_or_unknown",
+        "recent_chat_history": (chat_history or [])[-6:],
         "current_interview_question": current_question,
         "current_question_text": get_current_question_text(current_question),
         "current_question_answer": _current_question_answer(current_question, current_answers),
@@ -925,9 +900,10 @@ def build_chat_turn_context(
         "answered_question_ids": list(current_answers.keys()),
         "organization_info": org_info,
         "domain_metadata": load_domain_metadata(),
-        "trusted_sources_used_for_project": load_source_notes(),
         "conversation_rules": [
             "Reply conversationally and briefly to the user's latest message.",
+            "Do not greet the user again unless this is the first assistant message in a new session.",
+            "For acknowledgements, respond briefly and do not restart the interview.",
             "If the message is a greeting or thanks, acknowledge it naturally in one short sentence.",
             "If the message is ambiguous, do not invent an answer; explain briefly what kind of answer fits the active question.",
             "Use the active interview question and defensive_skill_context to stay on topic.",
@@ -935,7 +911,7 @@ def build_chat_turn_context(
             "Do not move the interview forward.",
             "Do not introduce yourself unless asked.",
             "Keep the tone calm, practical, and concise.",
-            "End by gently returning to the active interview question if one exists.",
+            "Do not repeat or ask the current interview question again in the assistant text because the frontend already shows it.",
         ],
     }
 
@@ -946,6 +922,7 @@ def normalize_assistant_text(
     current_question: dict[str, Any] | None,
     current_answer: dict[str, Any] | None = None,
 ) -> str:
+    del language, current_question
     cleaned = text.strip()
     cleaned = re.sub(
         r"^(Of course|Certainly|Sure|Absolutely|Loomulikult|Kindlasti|Jah, muidugi)[,!\s]+",
@@ -954,219 +931,17 @@ def normalize_assistant_text(
         flags=re.IGNORECASE,
     )
     cleaned = cleaned.replace("```", "").strip()
-    cleaned = re.sub(r"Kas soovite liikuda järgmise küsimuse juurde\?\s*", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"Kas soovite jätkata järgmise küsimusega\?\s*", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"Jätkame nüüd küsimusega:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL).strip()
     if current_answer is None:
         cleaned = re.sub(r"Teie vastus on [^.?!]+[.?!]\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"Kuna olete öelnud[^.?!]+[.?!]\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    if current_question and _return_to_question_line(language, current_question) not in cleaned:
-        cleaned = f"{cleaned}\n\n{_return_to_question_line(language, current_question)}"
     return cleaned.strip()
 
 
 def normalize_general_advisory_text(text: str) -> str:
     cleaned = text.strip().replace("```", "").strip()
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    cleaned = re.sub(r"Let's return to the current question:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
-    cleaned = re.sub(r"Tuleme nÃ¼Ã¼d tagasi praeguse kÃ¼simuse juurde:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
-    cleaned = re.sub(r"Верн[её]мся к текущему вопросу:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
-    cleaned = re.sub(r"Kas soovite liikuda jÃ¤rgmise kÃ¼simuse juurde\?\s*", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"Do you want to continue\?\s*", "", cleaned, flags=re.IGNORECASE)
     return cleaned.strip()
-
-
-def fallback_general_advisory_answer(
-    user_message: str,
-    current_question: dict[str, Any] | None,
-    current_answers: dict[str, dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    text = _normalize(user_message)
-    language = detect_language(user_message)
-
-    if looks_like_offensive_request(user_message):
-        return defensive_refusal(user_message, current_question)
-
-    if _contains_any(text, ["backup", "varukoop", "restore", "taast", "rpo", "rto", "cloud backup", "local backup"]):
-        if language == "English":
-            answer = (
-                "For a small company, a good backup strategy is simple but layered: regular automatic backups, at least one copy that ransomware cannot easily delete or encrypt, and periodic restore tests.\n\n"
-                "Cloud backup can be safer than local-only backup if access is protected with MFA, separate admin rights, retention, and immutability. Local backup can still be useful for fast recovery, but it should not be the only copy.\n\n"
-                "The business goal is not just having backups; it is knowing how quickly critical work can be restored and how much data loss is acceptable."
-            )
-        else:
-            answer = (
-                "VÃ¤ikesele organisatsioonile on hea backup-strateegia lihtne, aga kihiline: automaatsed regulaarsed varukoopiad, vÃ¤hemalt Ã¼ks koopia mida lunavara ei saa lihtsalt kustutada vÃµi krÃ¼pteerida, ning perioodilised taastamistestid.\n\n"
-                "Pilvebackup vÃµib olla turvalisem kui ainult kohalik backup, kui ligipÃ¤Ã¤s on kaitstud MFA, eraldi admin-Ãµiguste, retention'i ja immutable seadistusega. Kohalik koopia on kasulik kiireks taastamiseks, aga see ei tohiks olla ainus koopia.\n\n"
-                "Ã„riline eesmÃ¤rk ei ole lihtsalt backupi olemasolu, vaid teadmine, kui kiiresti tÃ¶Ã¶ taastub ja kui palju andmekadu on lubatav.\n\n"
-                "Hea tõend on viimase restore testi kuupäev, tulemus ja taastamiseks kulunud aeg."
-            )
-    elif _contains_any(text, ["mfa", "2fa", "mitmefaktor", "vpn", "rdp", "remote access"]):
-        if language == "English":
-            answer = (
-                "MFA is one of the highest-impact controls, but it is not enough by itself to stop ransomware.\n\n"
-                "It reduces the chance that a stolen password gives immediate access, especially for email, VPN, cloud admin portals, and privileged accounts. It still needs patching, least privilege, backups, monitoring, and an incident-response plan around it.\n\n"
-                "For management, the practical question is coverage: where MFA is mandatory, where exceptions exist, and who reviews those exceptions."
-            )
-        else:
-            answer = (
-                "MFA on Ã¼ks mÃµjusamaid kaitsemeetmeid, kuid Ã¼ksi see lunavara ei peata.\n\n"
-                "See vÃ¤hendab riski, et varastatud parool annab kohe ligipÃ¤Ã¤su e-postile, VPN-ile, pilve admin-portaalidele vÃµi privilegeeritud kontodele. Selle kÃµrvale on vaja patchimist, least privilege'i, varukoopiaid, monitooringut ja incident response plaani.\n\n"
-                "Juhtkonna jaoks on praktiline kÃ¼simus katvus: kus MFA on kohustuslik, kus on erandid ja kes neid erandeid Ã¼le vaatab."
-            )
-    elif _contains_any(text, ["incident", "intsident", "ir plan", "ir plaan", "response", "tabletop", "management", "juhtkond"]):
-        if language == "English":
-            answer = (
-                "Yes, a small company still benefits from an incident-response plan. It does not need to be a huge document.\n\n"
-                "The useful version says who makes decisions, who contacts the IT provider, how affected systems are isolated, where offline contacts are stored, and when legal, insurance, or national CERT support should be involved.\n\n"
-                "During ransomware, the first management job is to slow the damage, preserve evidence, keep communications clear, and avoid improvised decisions under pressure."
-            )
-        else:
-            answer = (
-                "Jah, ka vÃ¤ike firma vajab incident response plaani. See ei pea olema suur dokument.\n\n"
-                "Kasulik plaan Ã¼tleb, kes otsustab, kes helistab IT-partnerile, kuidas mÃµjutatud sÃ¼steemid eraldatakse, kus on offline kontaktid ning millal kaasata jurist, kindlustus vÃµi CERT.\n\n"
-                "Lunavara ajal on juhtkonna esimene roll kahju piirata, tÃµendeid sÃ¤ilitada, suhtlus selge hoida ja vÃ¤ltida paanikas improviseeritud otsuseid."
-            )
-    elif _contains_any(text, ["patch", "uuendus", "vulnerability", "haavatav", "unsupported", "internet-facing"]):
-        answer = (
-            "Patchimise eesmÃ¤rk on sulgeda teadaolevad haavatavused enne, kui neid kasutatakse sisenemiseks vÃµi levimiseks.\n\n"
-            "Praktiline lÃ¤henemine on hoida nimekirja internetist ligipÃ¤Ã¤setavatest sÃ¼steemidest, paigaldada kriitilised parandused kiiresti ning eraldi mÃ¤rkida tootjatoeta sÃ¼steemid.\n\n"
-            "Hea tÃµend on patch report, riskinimekiri ja omanik iga erandi jaoks."
-        )
-    elif _contains_any(text, ["admin", "privilege", "least privilege", "oigus", "õigus", "third party"]):
-        answer = (
-            "Admin-Ãµigused mÃ¤Ã¤ravad, kui suureks rÃ¼nnaku mÃµju kasvada saab.\n\n"
-            "Hea tava on anda admin-Ãµigus ainult neile, kellel seda pÃ¤riselt vaja on, kasutada eraldi admin-kontosid ja vaadata Ãµiguseid regulaarselt Ã¼le.\n\n"
-            "Kolmandate osapoolte ligipÃ¤Ã¤s peaks olema piiratud, jÃ¤lgitav ja eemaldatav."
-        )
-    elif _contains_any(text, ["log", "monitor", "edr", "alert", "hoiatus", "failed login", "sisselogim"]):
-        answer = (
-            "Kui logisid ei koguta ega vaadata, on lunavara puhul probleem selles, et organisatsioon ei pruugi mÃ¤rgata varajasi hoiatusmÃ¤rke ega hiljem aru saada, mis juhtus.\n\n"
-            "VÃ¤ikese firma jaoks piisab alguses praktilisest vaatest: identiteedilogid, VPN/RDP ligipÃ¤Ã¤s, endpoint security hoiatused ja kriitiliste serverite sÃ¼ndmused.\n\n"
-            "Oluline on omanik: keegi peab teadma, milline hoiatus vajab tegutsemist."
-        )
-    elif _contains_any(text, ["evidence", "toend", "tõend", "prove", "audit", "report", "raport"]):
-        answer = (
-            "Valmisoleku tÃµend peaks olema midagi kontrollitavat, mitte ainult suuline kinnitus.\n\n"
-            "NÃ¤iteks backupi puhul sobib taastamistesti kuupÃ¤ev ja tulemus, MFA puhul katvuse raport, patchimise puhul viimase uuendusringi raport ning IR puhul plaan ja harjutuse mÃ¤rkmed.\n\n"
-            "See ei tee hindamisest tÃ¤ielikku auditit, aga muudab enesehindamise usaldusvÃ¤Ã¤rsemaks."
-        )
-    elif _contains_any(text, ["business", "impact", "risk", "juht", "executive", "survive"]):
-        answer = (
-            "Lunavara on Ã¤ririsk, mitte ainult IT-probleem. MÃµju vÃµib olla seisak, tellimuste viivitus, andmekadu, mainekahju ja lisakulud partneritele vÃµi klientidele selgitamiseks.\n\n"
-            "Juhtkonnale tasub seda selgitada kolme kÃ¼simusega: kui kaua saame tÃ¶Ã¶ta ilma kriitilise sÃ¼steemita, kui palju andmeid vÃµime kaotada ja kes otsustab kriisi ajal.\n\n"
-            "Head kaitsemeetmed muudavad kriisi lÃ¼hemaks ja otsused rahulikumaks."
-        )
-    else:
-        answer = (
-            "Hea lunavara-valmisolek on kombinatsioon ennetusest, taastamisest ja otsustamisest.\n\n"
-            "Praktiliselt tÃ¤hendab see MFA-d olulistel kontodel, testitud varukoopiaid, kiiret patchimist, piiratud admin-Ãµiguseid, monitooringut ja lÃ¼hikest incident response plaani.\n\n"
-            "See vestlus ei ole tÃ¤ielik audit; see aitab leida esmased nÃµrgad kohad ja tÃµendid, mida kontrollida."
-        )
-
-    bridge = _general_advisory_bridge(language, current_question)
-    if bridge:
-        answer = f"{answer}\n\n{bridge}"
-    return {"message": answer, "provider": "fallback", "used_fallback": True, "model": "deterministic-template", "error": None}
-
-
-def fallback_client_answer(user_message: str, current_question: dict[str, Any] | None) -> dict[str, Any]:
-    text = _normalize(user_message)
-    language = detect_language(user_message)
-
-    if looks_like_offensive_request(user_message):
-        return defensive_refusal(user_message, current_question)
-    if _is_identity_question(user_message):
-        answer = _identity_text(language)
-    elif current_question and _looks_like_how_to_judge_current_question(text):
-        answer = _practical_answering_guidance(current_question, language)
-    elif "organisatsioon" in text or "organization" in text or "organisation" in text:
-        if language == "English":
-            answer = (
-                "Here, organization means your company, agency, school, nonprofit, or other workplace being assessed.\n\n"
-                "In this question, the practical point is whether that organization knows which systems and data are most critical for keeping work going."
-            )
-        else:
-            answer = (
-                "Siin tähendab organisatsioon sinu ettevõtet, asutust, MTÜ-d, kooli või muud töökohta, mida hinnatakse.\n\n"
-                "Selle küsimuse mõte on praktiline: kas see organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad."
-            )
-    elif _contains_any(text, ["vpn", "rdp", "kaugligipaas", "kaugligipaas", "remote access", "pilvekonsool", "cloud console"]):
-        if language == "English":
-            answer = (
-                "VPN is a remote-access connection that lets a user enter the organization's internal network from outside the office. "
-                "RDP is Microsoft's remote desktop protocol, which lets someone open and control another computer over the network.\n\n"
-                "In ransomware readiness, both matter because stolen passwords on VPN, RDP, or cloud admin access can give an attacker a direct path into important systems. "
-                "That is why MFA is especially important on these access paths."
-            )
-        else:
-            answer = (
-                "VPN on turvaline kaugligipääsu ühendus, mille kaudu inimene saab väljastpoolt kontorit organisatsiooni sisevõrku sisse minna. "
-                "RDP on Microsofti kaugtöölaua protokoll, mille abil saab võrgu kaudu teist arvutit avada ja juhtida.\n\n"
-                "Lunavara valmisolekus on need tähtsad, sest varastatud parool VPN-i, RDP või pilve admin-konsooli jaoks võib anda ründajale otsese tee oluliste süsteemideni. "
-                "Sellepärast on MFA just nende ligipääsuteede puhul eriti oluline."
-            )
-    elif _is_example_request(text) and current_question:
-        answer = _examples_for_question(current_question)
-    elif "mfa" in text or "mitmefaktor" in text:
-        answer = (
-            "MFA ehk mitmefaktoriline autentimine tähendab, et paroolist üksi ei piisa. "
-            "Sisselogimiseks on vaja ka teist kinnitust, näiteks telefonirakendust, turvavõtit või koodi.\n\n"
-            "See vähendab riski, et varastatud parool annab ründajale kohe ligipääsu e-postile, VPN-ile või admin-kontole."
-        )
-    elif re.search(r"\brto\b", text) or re.search(r"\brpo\b", text):
-        answer = _rto_rpo_term_explanation(text, language)
-    elif re.search(r"\brag\b", text):
-        answer = (
-            "RAG ehk retrieval-augmented generation tähendab, et AI mudelile antakse enne vastamist juurde asjakohane allikainfo või dokumentide lõigud.\n\n"
-            "Praktiliselt aitab see vastata täpsemalt ja olemasolevatele allikatele toetudes, selle asemel et tugineda ainult mudeli üldteadmistele."
-        )
-    elif "taast" in text or "restore" in text:
-        answer = (
-            "Varukoopia taastamist peab testima, sest backup on kasulik ainult siis, kui sellest saab päriselt süsteemi või andmed tagasi.\n\n"
-            "Lihtne test võib olla ühe kriitilise kausta või väiksema süsteemi taastamine ning aja ja probleemide kirja panemine."
-        )
-    elif "backup" in text or "varukoop" in text or "резерв" in text:
-        answer = (
-            "Varukoopiad on lunavara korral üks tähtsamaid kaitsekihte. Kui põhisüsteemid krüpteeritakse, aitab toimiv backup töö taastada.\n\n"
-            "Oluline on, et vähemalt üks koopia oleks ründajale raskesti kättesaadav: näiteks offline, immutable või eraldi õigustega."
-        )
-    elif "incident" in text or "intsident" in text or "ir" in text or "план" in text:
-        answer = (
-            "Incident response tähendab kokkulepet, mida teha siis, kui rünnak või tõsine intsident päriselt toimub.\n\n"
-            "Väikeses organisatsioonis piisab alustuseks lühikesest plaanist: kes otsustab, kellele helistada, kuidas süsteeme eraldada ja millal kaasata partnerid."
-        )
-    elif "patch" in text or "uuendus" in text or "обнов" in text:
-        answer = (
-            "Patchimine tähendab turvauuenduste paigaldamist. See sulgeb teadaolevaid haavatavusi, mida ründajad muidu kasutada saaksid.\n\n"
-            "Praktiline eesmärk on teada, kes uuenduste eest vastutab ja kui kiiresti kriitilised parandused paigaldatakse."
-        )
-    elif "admin" in text or "õigus" in text or "oigus" in text or "прав" in text:
-        answer = (
-            "Administraatoriõigused annavad kasutajale või kontole väga suure mõju. Kui selline konto satub ründaja kätte, võib kahju kiiresti kasvada.\n\n"
-            "Hea lähtekoht on least privilege: admin-õigused ainult neile, kellel neid päriselt vaja on, ja eraldi admin-kontod igapäevatööst lahus."
-        )
-    elif "ransomware" in text or "lunavara" in text:
-        answer = (
-            "Lunavara on rünnak, kus andmed või süsteemid muudetakse kasutajale kättesaamatuks ja nõutakse lunaraha.\n\n"
-            "Readiness tähendab, et organisatsioon suudab rünnakut ennetada, mõju piirata ja töö võimalikult kiiresti taastada."
-        )
-    elif "partial" in text or "yes" in text or "vahe" in text:
-        answer = (
-            "`yes` tähendab, et kontroll on sisuliselt olemas ja toimib enamiku asjakohaste süsteemide või kasutajate puhul.\n\n"
-            "`partial` tähendab, et midagi on tehtud, aga katvus, regulaarsus või tõendus on puudulik. Näiteks MFA on ainult adminidel, kuid mitte kõigil olulistel pilvekontodel."
-        )
-    else:
-        answer = (
-            "See tööriist annab esmase enesehindamise, mitte täieliku auditi. "
-            "Võid küsida mõisteid lihtsas keeles ning mina seon vastuse tagasi praeguse intervjuuküsimusega."
-        )
-
-    answer = _append_practical_evidence_hint(text, answer)
-    if current_question:
-        answer = f"{answer}\n\n{_return_to_question_line(language, current_question)}"
-    return {"message": answer, "provider": "fallback", "used_fallback": True, "model": "deterministic-template", "error": None}
 
 
 def _looks_like_how_to_judge_current_question(text: str) -> bool:
@@ -1191,42 +966,6 @@ def _looks_like_how_to_judge_current_question(text: str) -> bool:
         ],
     )
 
-
-def _should_use_deterministic_clarification(user_message: str) -> bool:
-    text = _normalize(user_message)
-    word_count = len(text.split())
-    if _looks_like_short_definition_question(text):
-        return True
-    if word_count > 6:
-        return False
-    return _contains_any(
-        text,
-        [
-            "mfa",
-            "mitmefaktor",
-            "vpn",
-            "rdp",
-            "rag",
-            "rto",
-            "rpo",
-            "organisatsioon",
-            "organization",
-            "organisation",
-            "backup",
-            "varukoop",
-            "restore",
-            "taast",
-            "incident response",
-            "intsident",
-            "patch",
-            "uuendus",
-            "admin",
-            "oigus",
-            "õigus",
-            "ransomware",
-            "lunavara",
-        ],
-    )
 
 
 def _practical_answering_guidance(current_question: dict[str, Any], language: str) -> str:
@@ -1334,24 +1073,13 @@ def _append_practical_evidence_hint(text: str, answer: str) -> str:
     return f"{answer}\n\n{hint}" if hint else answer
 
 
-def answer_smalltalk(message: str, current_question: dict[str, Any] | None) -> dict[str, Any]:
-    language = detect_language(message)
-    if language == "Russian":
-        answer = "Хорошо, продолжим спокойно и по шагам."
-    elif language == "English":
-        answer = "Sure. We can continue step by step."
-    else:
-        answer = "Jah, jätkame rahulikult samm-sammult."
-    if current_question:
-        answer = f"{answer}\n\n{_return_to_question_line(language, current_question)}"
-    return {"message": answer, "provider": "fallback", "used_fallback": True, "model": "deterministic-template", "error": None}
-
-
 def answer_smalltalk_with_llm(
     message: str,
     current_question: dict[str, Any] | None,
     current_answers: dict[str, dict[str, Any]] | None = None,
     org_info: dict[str, Any] | None = None,
+    chat_history: list[dict[str, Any]] | None = None,
+    is_new_session: bool = False,
     trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     current_answers = current_answers or {}
@@ -1359,20 +1087,16 @@ def answer_smalltalk_with_llm(
 
     if looks_like_offensive_request(message):
         return defensive_refusal(message, current_question)
-
-    if get_llm_settings()["provider"] == "fallback":
+    if not is_real_llm_configured():
         _trace_llm_call(
             trace_context,
             intent="smalltalk",
-            response_type="smalltalk",
-            provider="fallback",
-            used_fallback=True,
+            response_type="ai_unavailable",
+            provider=str(get_llm_settings()["provider"]),
+            used_fallback=False,
             latency_ms=0,
         )
-        fallback = answer_smalltalk(message, current_question)
-        fallback["redactions_applied"] = []
-        fallback["redacted_for_llm"] = False
-        return fallback
+        return _unavailable_chat_reply(provider=str(get_llm_settings()["provider"]), error="Real LLM provider is not configured.")
 
     language = detect_language(message)
     redacted_message, message_redactions = redact_sensitive_text(message)
@@ -1384,6 +1108,8 @@ def answer_smalltalk_with_llm(
         current_question=current_question,
         current_answers=redacted_answers,
         org_info=org_info,
+        chat_history=chat_history,
+        is_new_session=is_new_session,
     )
     started = perf_counter()
     result = generate_text(
@@ -1396,22 +1122,18 @@ def answer_smalltalk_with_llm(
         _trace_llm_call(
             trace_context,
             intent="smalltalk",
-            response_type="smalltalk",
+            response_type="ai_unavailable",
             provider=result.provider,
-            used_fallback=True,
+            used_fallback=False,
             latency_ms=latency_ms,
         )
-        fallback = answer_smalltalk(message, current_question)
-        fallback["redactions_applied"] = redactions
-        fallback["redacted_for_llm"] = bool(redactions)
-        fallback["error"] = result.error
-        return fallback
+        return _unavailable_chat_reply(provider=result.provider, error=result.error or "Real LLM provider call failed.")
 
-    normalized = normalize_assistant_text(
+    normalized = normalize_smalltalk_text(
         result.text.strip(),
-        language,
-        current_question,
-        _current_question_answer(current_question, current_answers),
+        language=language,
+        is_new_session=is_new_session,
+        is_acknowledgement=_is_acknowledgement(_normalize(message)),
     )
     if not _is_identity_question(message):
         normalized = _strip_unrequested_identity(normalized)
@@ -1706,6 +1428,225 @@ def _raw_confidence_value(raw_confidence: Any, question_id: str | None) -> float
         return 0.0
 
 
+def decide_chat_turn_with_llm(
+    *,
+    user_message: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]],
+    pending_answer: dict[str, Any] | None = None,
+    org_info: dict[str, Any] | None = None,
+    trace_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    language = detect_language(user_message)
+    if looks_like_offensive_request(user_message):
+        return {
+            "available": True,
+            "provider": "guardrail",
+            "used_fallback": False,
+            "decision": {
+                "action": "refuse",
+                "normalized_answer": None,
+                "confidence": 1.0,
+                "reason": "Unsafe or offensive request.",
+                "user_visible_response": "",
+                "should_advance_question": False,
+                "should_save_answer": False,
+            },
+            "llm_error": None,
+        }
+
+    app_env = get_app_env()
+    fallback_allowed = ai_fallback_user_visible() and (
+        app_env == "test" or (app_env == "development" and allow_scripted_ai_fallback())
+    )
+    if not is_real_llm_configured():
+        if fallback_allowed:
+            return {
+                "available": True,
+                "provider": "fallback",
+                "used_fallback": True,
+                "decision": _fallback_chat_decision(user_message, current_question, language),
+                "llm_error": None,
+            }
+        return {
+            "available": False,
+            "provider": "fallback",
+            "used_fallback": False,
+            "decision": None,
+            "llm_error": "Real LLM provider is not configured.",
+        }
+
+    prompt_payload = {
+        "user_message": user_message,
+        "response_language": language,
+        "current_question": current_question or {},
+        "current_answers": current_answers,
+        "pending_answer": pending_answer or None,
+        "org_info": org_info or {},
+    }
+    started = perf_counter()
+    result = generate_text(
+        prompt=json.dumps(prompt_payload, ensure_ascii=False, indent=2),
+        system_prompt=load_prompt("chat_decision_prompt.txt"),
+        temperature=0,
+    )
+    latency_ms = (perf_counter() - started) * 1000
+    parsed = parse_json_from_llm(result.text)
+    decision = validate_chat_decision(parsed) if isinstance(parsed, dict) else None
+
+    if not result.used_real_llm:
+        if fallback_allowed:
+            return {
+                "available": True,
+                "provider": result.provider,
+                "used_fallback": True,
+                "decision": _fallback_chat_decision(user_message, current_question, language),
+                "llm_error": result.error,
+            }
+        _trace_llm_call(
+            trace_context,
+            intent="unknown",
+            response_type="ai_unavailable",
+            provider=result.provider,
+            used_fallback=False,
+            should_save_answer=False,
+            latency_ms=latency_ms,
+        )
+        return {
+            "available": False,
+            "provider": result.provider,
+            "used_fallback": False,
+            "decision": None,
+            "llm_error": result.error or "Real LLM provider call failed.",
+        }
+
+    if decision is None:
+        _trace_llm_call(
+            trace_context,
+            intent="unknown",
+            response_type="ai_unavailable",
+            provider=result.provider,
+            used_fallback=False,
+            should_save_answer=False,
+            latency_ms=latency_ms,
+        )
+        return {
+            "available": False,
+            "provider": result.provider,
+            "used_fallback": False,
+            "decision": None,
+            "llm_error": "LLM did not return a valid chat decision JSON payload.",
+        }
+
+    _trace_llm_call(
+        trace_context,
+        intent=decision.action,
+        response_type="chat_decision",
+        provider=result.provider,
+        used_fallback=False,
+        should_save_answer=decision.should_save_answer,
+        confidence=decision.confidence,
+        latency_ms=latency_ms,
+    )
+    return {
+        "available": True,
+        "provider": result.provider,
+        "used_fallback": False,
+        "decision": decision.model_dump(),
+        "llm_error": result.error,
+    }
+
+
+def _fallback_chat_decision(
+    user_message: str,
+    current_question: dict[str, Any] | None,
+    language: str,
+) -> dict[str, Any]:
+    intent = classify_user_intent(user_message, current_question)
+    if intent == "report_request":
+        return {
+            "action": "generate_report",
+            "normalized_answer": None,
+            "confidence": 0.95,
+            "reason": "Deterministic fallback recognized a report request.",
+            "user_visible_response": "",
+            "should_advance_question": True,
+            "should_save_answer": False,
+        }
+    if intent == "clarification" or looks_like_current_question_clarification(user_message, current_question):
+        return {
+            "action": "answer_clarification",
+            "normalized_answer": None,
+            "confidence": 0.8,
+            "reason": "Deterministic fallback recognized a clarification request.",
+            "user_visible_response": _fallback_bridge(language),
+            "should_advance_question": False,
+            "should_save_answer": False,
+        }
+    if intent == "general_advisory_chat":
+        return {
+            "action": "answer_advisory",
+            "normalized_answer": None,
+            "confidence": 0.8,
+            "reason": "Deterministic fallback recognized an advisory question.",
+            "user_visible_response": _fallback_bridge(language),
+            "should_advance_question": False,
+            "should_save_answer": False,
+        }
+    if current_question:
+        answer, confidence = infer_answer(user_message, str(current_question.get("id") or ""))
+        if answer:
+            return {
+                "action": "save_answer" if confidence >= 0.75 else "ask_confirmation",
+                "normalized_answer": answer,
+                "confidence": confidence,
+                "reason": "Deterministic fallback inferred an assessment answer.",
+                "user_visible_response": "",
+                "should_advance_question": confidence >= 0.75,
+                "should_save_answer": confidence >= 0.75,
+            }
+    if _looks_like_context_statement(_normalize(user_message)):
+        return {
+            "action": "keep_context",
+            "normalized_answer": None,
+            "confidence": 0.6,
+            "reason": "Deterministic fallback treated the message as context.",
+            "user_visible_response": _fallback_bridge(language),
+            "should_advance_question": False,
+            "should_save_answer": False,
+        }
+    return {
+        "action": "smalltalk",
+        "normalized_answer": None,
+        "confidence": 0.4,
+        "reason": "Deterministic fallback could not classify a scoring answer.",
+        "user_visible_response": _fallback_bridge(language),
+        "should_advance_question": False,
+        "should_save_answer": False,
+    }
+
+
+def _fallback_bridge(language: str) -> str:
+    if language == "English":
+        return "When you are ready, answer yes, partial, no, or unsure."
+    if language == "Russian":
+        return "Когда будете готовы, ответьте: yes, partial, no или unsure."
+    return "Kui oled valmis, vasta: yes, partial, no või unsure."
+
+
+def _unavailable_chat_reply(*, provider: str, error: str) -> dict[str, Any]:
+    return {
+        "available": False,
+        "message": "",
+        "provider": provider,
+        "used_fallback": False,
+        "model": None,
+        "error": error,
+        "redactions_applied": [],
+        "redacted_for_llm": False,
+    }
+
+
 def fallback_extract_answers(
     user_message: str,
     questions: list[dict[str, Any]],
@@ -1756,7 +1697,69 @@ def fallback_extract_answers(
     }
 
 
+def normalize_smalltalk_text(
+    text: str,
+    *,
+    language: str,
+    is_new_session: bool,
+    is_acknowledgement: bool,
+) -> str:
+    cleaned = normalize_assistant_text(text, language, None, None)
+    cleaned = re.sub(r"Let's return to the current question:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Tuleme nüüd tagasi praeguse küsimuse juurde:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Верн[её]мся к текущему вопросу:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+    if is_acknowledgement and not is_new_session:
+        cleaned = re.sub(r"^(Tere|Hei|Hello|Hi|Hey|Здравствуйте|Привет)[!,.:\s]+", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(
+            r"^(Räägime edasi|Jätkame|Let'?s continue|We can continue|Продолжим)[^.\n]*[.\n\s]*",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not cleaned:
+            return _short_acknowledgement(language)
+
+    return cleaned.strip()
+
+
+def _short_acknowledgement(language: str) -> str:
+    if language == "Russian":
+        return "Понял."
+    if language == "English":
+        return "Got it."
+    return "Sain aru."
+
+
+def infer_explicit_short_answer(message: str) -> tuple[str | None, float]:
+    text = _normalize(message).strip()
+    exact_matches = {
+        "jah": "yes",
+        "ei": "no",
+        "osaliselt": "partial",
+        "ei tea": "unsure",
+        "ma ei tea": "unsure",
+        "yes": "yes",
+        "no": "no",
+        "partial": "partial",
+        "unsure": "unsure",
+        "not sure": "unsure",
+        "да": "yes",
+        "нет": "no",
+        "частично": "partial",
+        "не знаю": "unsure",
+    }
+    normalized_answer = exact_matches.get(text)
+    if normalized_answer is None:
+        return None, 0.0
+    return normalized_answer, 0.98
+
+
 def infer_answer(user_message: str, question_id: str = "") -> tuple[str | None, float]:
+    del question_id
+    return infer_explicit_short_answer(user_message)
+
     text = _normalize(user_message)
 
     if _is_short_yes(text):
@@ -1957,8 +1960,6 @@ def defensive_refusal(user_message: str, current_question: dict[str, Any] | None
             "Saan aidata kaitse poolelt: kontrolli MFA katvust, eemalda kasutamata kontod, piira admin-õiguseid, paika avalikud süsteemid ja kogu valmisoleku tõendeid."
         )
 
-    if current_question:
-        answer = f"{answer}\n\n{_return_to_question_line(language, current_question)}"
     return {
         "message": answer,
         "provider": "guardrail",
@@ -1975,16 +1976,6 @@ def detect_language(message: str) -> str:
     if _contains_any(text, ["what", "why", "how", "explain", "thanks", "hello"]):
         return "English"
     return "Estonian"
-
-
-def _return_to_question_line(language: str, current_question: dict[str, Any]) -> str:
-    question = get_current_question_text(current_question)
-    if language == "Russian":
-        return f"Вернёмся к текущему вопросу: {question}"
-    if language == "English":
-        return f"Let's return to the current question: {question}"
-    return f"Tuleme nüüd tagasi praeguse küsimuse juurde: {question}"
-
 
 def _is_identity_question(message: str) -> bool:
     text = _normalize(message)

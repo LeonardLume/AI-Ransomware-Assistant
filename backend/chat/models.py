@@ -6,8 +6,14 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ChatDecision:
     action: str
-    intent: str
-    intent_confidence: str
+    normalized_answer: str | None
+    confidence: float
+    reason: str
+    user_visible_response: str
+    should_advance_question: bool
+    should_save_answer: bool
+    intent: str = "unknown"
+    intent_confidence: str = "medium"
     prompt_injection_reason: str = ""
 
 

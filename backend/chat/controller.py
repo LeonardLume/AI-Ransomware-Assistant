@@ -3,15 +3,15 @@ from __future__ import annotations
 from typing import Any
 
 from backend.chat.models import AnswerInterpretation, ChatDecision
-from backend.chat_interview import classify_user_intent, looks_like_offensive_request
 from backend.prompt_firewall import detect_prompt_injection
 
 
 class ChatController:
-    """Small testable backend chat slice.
+    """Legacy helper utilities kept for compatibility.
 
-    Keeps existing orchestration intact, but makes turn routing and answer
-    normalization explicit and unit-testable.
+    The main `/chat` endpoint now uses the semantic LLM decision flow directly.
+    This controller still provides small formatting helpers used by response code
+    and tests that import it.
     """
 
     def decide_action(
@@ -21,45 +21,32 @@ class ChatController:
         is_new_session: bool,
         current_question: dict[str, Any] | None,
     ) -> ChatDecision:
-        normalized_message = message.strip()
-
-        if normalized_message:
-            firewall = detect_prompt_injection(normalized_message)
-            if firewall["detected"]:
-                return ChatDecision(
-                    action="prompt_injection_blocked",
-                    intent="guardrail",
-                    intent_confidence="high",
-                    prompt_injection_reason=str(firewall.get("reason", "")),
-                )
-
-        if is_new_session or not normalized_message:
+        _ = is_new_session
+        _ = current_question
+        firewall = detect_prompt_injection(message.strip())
+        if firewall["detected"]:
             return ChatDecision(
-                action="ask_next_question",
-                intent="smalltalk",
-                intent_confidence="high",
-            )
-
-        if looks_like_offensive_request(normalized_message):
-            return ChatDecision(
-                action="guardrail_refusal",
+                action="refuse",
+                normalized_answer=None,
+                confidence=1.0,
+                reason=str(firewall.get("reason", "")),
+                user_visible_response="",
+                should_advance_question=False,
+                should_save_answer=False,
                 intent="guardrail",
                 intent_confidence="high",
+                prompt_injection_reason=str(firewall.get("reason", "")),
             )
-
-        intent = classify_user_intent(normalized_message, current_question)
-        action_map = {
-            "report_request": "finish_or_continue_report",
-            "general_advisory_chat": "answer_general_advisory",
-            "clarification": "answer_clarification",
-            "smalltalk": "answer_smalltalk",
-            "unknown": "answer_smalltalk",
-            "answer": "extract_answer",
-        }
         return ChatDecision(
-            action=action_map.get(intent, "extract_answer"),
-            intent=intent,
-            intent_confidence=self._intent_confidence(intent, normalized_message),
+            action="smalltalk",
+            normalized_answer=None,
+            confidence=0.5,
+            reason="Legacy controller is not the primary router.",
+            user_visible_response="",
+            should_advance_question=False,
+            should_save_answer=False,
+            intent="unknown",
+            intent_confidence="medium",
         )
 
     def build_answer_interpretation(
@@ -85,7 +72,7 @@ class ChatController:
 
         average_confidence = sum(scores) / len(scores) if scores else 0.6
         return AnswerInterpretation(
-            summary="Tõlgendasin sinu vastuse nii: " + "; ".join(parts) + ".",
+            summary="I interpreted your answer as: " + "; ".join(parts) + ".",
             confidence_label=self._confidence_label(average_confidence),
             confidence_score=round(average_confidence, 2),
         )
@@ -100,7 +87,7 @@ class ChatController:
             return clarification_question
         return (
             f"{interpretation.summary} "
-            f"Praegu on kindlus {interpretation.confidence_label.lower()}, seega vajan üht täpsustust.\n\n"
+            f"Confidence is {interpretation.confidence_label.lower()}, so I need one clarification.\n\n"
             f"{clarification_question}"
         )
 
@@ -109,17 +96,8 @@ class ChatController:
         interpretation: AnswerInterpretation | None,
     ) -> str:
         if interpretation is None:
-            return ""
-        return f"Selge. {interpretation.summary} Kindlus: {interpretation.confidence_label.lower()}."
-
-    def _intent_confidence(self, intent: str, normalized_message: str) -> str:
-        if intent in {"report_request", "clarification", "general_advisory_chat"}:
-            return "high"
-        if intent == "answer" and len(normalized_message.split()) <= 2:
-            return "medium"
-        if intent == "answer":
-            return "high"
-        return "medium"
+            return "Saved."
+        return f"Saved. {interpretation.summary}"
 
     def _confidence_label(self, score: float) -> str:
         if score >= 0.85:
@@ -130,10 +108,10 @@ class ChatController:
 
     def _answer_label(self, answer: str) -> str:
         return {
-            "yes": "jah",
-            "partial": "osaliselt",
-            "no": "ei",
-            "unsure": "ei tea",
+            "yes": "yes",
+            "partial": "partial",
+            "no": "no",
+            "unsure": "unsure",
         }.get(answer, answer)
 
     def _question_label(self, question: dict[str, Any], fallback_id: str) -> str:

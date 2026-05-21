@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 os.environ["LLM_PROVIDER"] = "fallback"
 os.environ["RRA_IGNORE_DOTENV"] = "1"
@@ -9,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import backend.ai_trace as ai_trace
+import backend.main as main_module
 from backend.main import app
 from backend.security import RATE_LIMITER
 
@@ -20,12 +22,15 @@ def reset_trace_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     RATE_LIMITER.clear()
     monkeypatch.setenv("AI_TRACE_ENABLED", "true")
     monkeypatch.setenv("AI_TRACE_INCLUDE_TEXT", "false")
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("ALLOW_SCRIPTED_AI_FALLBACK", "0")
+    monkeypatch.setenv("AI_FALLBACK_USER_VISIBLE", "0")
     monkeypatch.setattr(ai_trace, "TRACE_PATH", tmp_path / "data_runtime" / "ai_traces.jsonl")
     yield
     RATE_LIMITER.clear()
 
 
-def _read_traces() -> list[dict]:
+def _read_traces() -> list[dict[str, Any]]:
     return [
         json.loads(line)
         for line in ai_trace.TRACE_PATH.read_text(encoding="utf-8").splitlines()
@@ -33,44 +38,43 @@ def _read_traces() -> list[dict]:
     ]
 
 
-def test_chat_tracing_creates_local_jsonl_without_raw_text():
+def test_free_text_save_answer_traces_intent_llm_and_saved_answer(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        main_module,
+        "decide_chat_turn_with_llm",
+        lambda **_: {
+            "available": True,
+            "provider": "openai",
+            "used_fallback": False,
+            "decision": {
+                "action": "save_answer",
+                "normalized_answer": "yes",
+                "confidence": 0.94,
+                "reason": "clear answer",
+                "user_visible_response": "",
+                "should_advance_question": True,
+                "should_save_answer": True,
+            },
+            "llm_error": None,
+        },
+    )
+
     start = client.post("/chat", json={"message": ""})
     assert start.status_code == 200
     session_id = start.json()["session_id"]
 
-    response = client.post("/chat", json={"session_id": session_id, "message": "jah"})
+    response = client.post("/chat", json={"session_id": session_id, "message": "yes"})
     assert response.status_code == 200
 
-    assert ai_trace.TRACE_PATH.exists()
     events = _read_traces()
     event_types = {event["event_type"] for event in events}
 
+    assert ai_trace.TRACE_PATH.exists()
     assert "intent_decision" in event_types
     assert "answer_saved" in event_types
-    assert "llm_call" in event_types
     assert all("message_text" not in event for event in events)
     assert all(event["session_id"] == session_id for event in events)
-    assert any(event["should_save_answer"] is True for event in events)
-
-
-def test_retrieval_trace_captures_knowledge_metadata():
-    start = client.post("/chat", json={"message": ""})
-    assert start.status_code == 200
-    session_id = start.json()["session_id"]
-
-    response = client.post(
-        "/chat",
-        json={"session_id": session_id, "message": "Is MFA enough to stop ransomware?"},
-    )
-    assert response.status_code == 200
-
-    retrieval_events = [event for event in _read_traces() if event["event_type"] == "retrieval"]
-    assert retrieval_events
-    retrieval = retrieval_events[-1]
-    assert retrieval["intent"] == "general_advisory_chat"
-    assert retrieval["retrieved_source_count"] >= 1
-    assert retrieval["knowledge_source_ids"]
-    assert retrieval["current_question_id"] == "org_critical_systems_known"
+    assert any(event.get("should_save_answer") is True for event in events)
 
 
 def test_trace_include_text_logs_only_redacted_text(monkeypatch: pytest.MonkeyPatch):

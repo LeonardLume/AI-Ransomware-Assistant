@@ -59,6 +59,19 @@ def _parse_bool(value: str, default: bool = False) -> bool:
     return default
 
 
+def get_app_env() -> str:
+    app_env = get_config_value("APP_ENV", "development").strip().lower()
+    return app_env if app_env in {"development", "test", "production"} else "development"
+
+
+def allow_scripted_ai_fallback() -> bool:
+    return _parse_bool(get_config_value("ALLOW_SCRIPTED_AI_FALLBACK", "0"))
+
+
+def ai_fallback_user_visible() -> bool:
+    return _parse_bool(get_config_value("AI_FALLBACK_USER_VISIBLE", "0"))
+
+
 def get_llm_settings() -> dict[str, object]:
     timeout = _parse_float(get_config_value("REQUEST_TIMEOUT_SECONDS", "30"), 30.0)
 
@@ -126,6 +139,18 @@ def openai_provider_config_error(api_key: str, base_url: str) -> str | None:
     return None
 
 
+def is_real_llm_configured(settings: dict[str, object] | None = None) -> bool:
+    active_settings = settings or get_llm_settings()
+    provider = str(active_settings["provider"])
+    if provider == "ollama":
+        return True
+    if provider != "openai":
+        return False
+    openai_api_key = str(active_settings["openai_api_key"])
+    openai_base_url = str(active_settings["openai_base_url"])
+    return has_real_openai_key(openai_api_key) and not openai_provider_config_error(openai_api_key, openai_base_url)
+
+
 _SETTINGS = get_llm_settings()
 LLM_PROVIDER = str(_SETTINGS["provider"])  # fallback, ollama, openai
 OLLAMA_URL = str(_SETTINGS["ollama_url"])
@@ -142,13 +167,11 @@ def llm_status() -> dict[str, object]:
     openai_api_key = str(settings["openai_api_key"])
     openai_base_url = str(settings["openai_base_url"])
     config_error = openai_provider_config_error(openai_api_key, openai_base_url)
-    provider_ready = (
-        provider == "fallback"
-        or provider == "ollama"
-        or (provider == "openai" and has_real_openai_key(openai_api_key) and not config_error)
-    )
+    provider_ready = is_real_llm_configured(settings)
     reason = "ready"
-    if provider == "openai" and not has_real_openai_key(openai_api_key):
+    if provider == "fallback":
+        reason = "No real LLM provider configured."
+    elif provider == "openai" and not has_real_openai_key(openai_api_key):
         reason = "OPENAI_API_KEY is empty or still a placeholder; insert your key in .env."
     elif provider == "openai" and config_error:
         reason = config_error
@@ -159,6 +182,9 @@ def llm_status() -> dict[str, object]:
         "provider": provider,
         "provider_ready": provider_ready,
         "reason": reason,
+        "app_env": get_app_env(),
+        "allow_scripted_ai_fallback": allow_scripted_ai_fallback(),
+        "ai_fallback_user_visible": ai_fallback_user_visible(),
         "openai_api_key_present": has_real_openai_key(openai_api_key),
         "openai_model": settings["openai_model"],
         "openai_base_url": settings["openai_base_url"],
