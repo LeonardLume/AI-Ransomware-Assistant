@@ -668,6 +668,179 @@ def chat(payload: ChatIn, request: Request):
     )
 
 
+def _display_answer_label(language: str, answer: str) -> str:
+    labels = {
+        "en": {"yes": "Yes", "partial": "Partial", "no": "No", "unsure": "Unsure"},
+        "et": {"yes": "Jah", "partial": "Osaliselt", "no": "Ei", "unsure": "Ei tea"},
+        "ru": {"yes": "Да", "partial": "Частично", "no": "Нет", "unsure": "Не знаю"},
+    }
+    return labels.get(language, labels["en"]).get(answer, answer)
+
+
+def _context_note_message(language: str) -> str:
+    if language == "ru":
+        return (
+            "Я сохранил это только как контекст для текущего вопроса. Это не меняет score.\n\n"
+            "Когда будете готовы, ответьте: Да, Частично, Нет или Не знаю."
+        )
+    if language == "et":
+        return (
+            "Jätsin selle praeguse küsimuse kontekstiks. See ei muuda skoori.\n\n"
+            "Kui oled valmis, vasta: Jah, Osaliselt, Ei või Ei tea."
+        )
+    return (
+        "I kept this as context for the current question. It does not change the score.\n\n"
+        "When you are ready, answer Yes, Partial, No, or Unsure."
+    )
+
+
+def _pending_confirmation_message(language: str, suggested_answer: str | None, preface: str | None = None) -> str:
+    suggestion = suggested_answer or "partial"
+    display = _display_answer_label(language, suggestion)
+    if language == "ru":
+        base = (
+            f"Похоже, это может быть ответ `{display}`, но я не хочу сохранять его автоматически.\n\n"
+            f"Сохранить это как `{display}` или оставить только как контекст?"
+        )
+    elif language == "et":
+        base = (
+            f"Mulle tundub, et see võib olla vastus `{display}`, aga ma ei taha seda automaatselt salvestada.\n\n"
+            f"Kas salvestan selle vastusena `{display}` või jätan ainult kontekstiks?"
+        )
+    else:
+        base = (
+            f"I think this may be a `{display}` answer, but I do not want to save it automatically.\n\n"
+            f"Should I save it as `{display}`, or keep it only as context?"
+        )
+    if preface:
+        return f"{preface.strip()}\n\n{base}"
+    return base
+
+
+def _pending_confirmation_message_plain(language: str, suggested_answer: str | None, preface: str | None = None) -> str:
+    return _pending_confirmation_message(language, suggested_answer, preface)
+
+
+def _handle_pending_answer_resolution_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+) -> dict[str, Any] | None:
+    pending = state.pending_answer or {}
+    suggested_answer = str(pending.get("suggested_answer") or "").strip().lower() or None
+    confidence = float(pending.get("confidence") or 0.6)
+    resolution = _pending_answer_resolution(message)
+    pending_question = question_map().get(str(pending.get("question_id") or "").strip()) or current_question
+    if resolution == "confirm" and suggested_answer in {"yes", "partial", "no", "unsure"}:
+        state.pending_answer = None
+        return _handle_direct_answer_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=pending_question,
+            answer=suggested_answer,
+            confidence=confidence,
+            answer_source="ai_interview",
+        )
+    if resolution == "reject":
+        state.pending_answer = None
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=pending_question,
+            intent_confidence="medium",
+            assistant_message=_context_saved_message(_language_code(message)),
+        )
+    if suggested_answer in {"yes", "partial", "no", "unsure"}:
+        decision_result = decide_chat_turn_with_llm(
+            user_message=message,
+            current_question=pending_question,
+            current_answers=_base_answers_only(state.answers),
+            pending_answer=pending,
+            chat_history=state.chat_history,
+            is_new_session=False,
+            org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, pending_question, message),
+        )
+        decision = decision_result.get("decision")
+        if decision_result.get("available", False) and isinstance(decision, dict):
+            action = str(decision.get("action") or "")
+            normalized_answer = str(decision.get("normalized_answer") or "").strip().lower() or None
+            if action == "save_answer" and normalized_answer == suggested_answer:
+                state.pending_answer = None
+                return _handle_direct_answer_turn(
+                    state=state,
+                    message=message,
+                    request_id=request_id,
+                    current_question=pending_question,
+                    answer=suggested_answer,
+                    confidence=max(confidence, float(decision.get("confidence") or 0.0)),
+                    answer_source="ai_interview",
+                )
+            if action == "keep_context":
+                state.pending_answer = None
+                return _handle_context_note_turn(
+                    state=state,
+                    message=message,
+                    current_question=pending_question,
+                    intent_confidence="medium",
+                    assistant_message=_context_saved_message(_language_code(message)),
+                )
+    return None
+
+
+def _context_saved_message(language: str) -> str:
+    if language == "ru":
+        return "Я оставил это только как контекст. Когда будете готовы, ответьте: Да, Частично, Нет или Не знаю."
+    if language == "et":
+        return "Jätsin selle ainult kontekstiks. Kui oled valmis, vasta: Jah, Osaliselt, Ei või Ei tea."
+    return "I kept it as context only. When you are ready, answer Yes, Partial, No, or Unsure."
+
+
+def _soft_bridge_message(language: str) -> str:
+    if language == "ru":
+        return "Когда будете готовы, ответьте: Да, Частично, Нет или Не знаю."
+    if language == "et":
+        return "Kui oled valmis, vasta: Jah, Osaliselt, Ei või Ei tea."
+    return "When you are ready, answer Yes, Partial, No, or Unsure."
+
+
+def _saved_answer_message(language: str, next_question_text: str) -> str:
+    if language == "ru":
+        return f"Сохранено.\n\nСледующий вопрос: {next_question_text}"
+    if language == "et":
+        return f"Salvestatud.\n\nJärgmine küsimus: {next_question_text}"
+    return f"Saved.\n\nNext question: {next_question_text}"
+
+
+def _with_early_question_reminder(
+    message: str,
+    *,
+    current_question: dict[str, Any] | None,
+    language: str,
+    has_saved_answers: bool,
+) -> str:
+    if has_saved_answers or not current_question:
+        return message.strip()
+    question_text = _repair_text(str(current_question.get("question") or "").strip())
+    if not question_text:
+        return message.strip()
+    if question_text in message:
+        return message.strip()
+    if language == "ru":
+        prefix = "Текущий вопрос:"
+    elif language == "et":
+        prefix = "Praegune küsimus:"
+    else:
+        prefix = "Current question:"
+    clean = message.strip()
+    if not clean:
+        return f"{prefix} {question_text}"
+    return f"{clean}\n\n{prefix} {question_text}"
+
+
 def _chat_simplified_flow(
     *,
     state: SessionState,
@@ -773,6 +946,49 @@ def _chat_simplified_flow(
         )
         if pending_response is not None:
             return pending_response
+
+    correction_target = _should_route_correction_to_previous_question(
+        state=state,
+        message=message,
+        current_question=current_question,
+    )
+    if correction_target is not None:
+        decision_result = decide_chat_turn_with_llm(
+            user_message=message,
+            current_question=correction_target,
+            current_answers=base_answers,
+            pending_answer=None,
+            chat_history=state.chat_history,
+            is_new_session=False,
+            org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, correction_target, message),
+        )
+        decision = decision_result.get("decision")
+        if decision_result.get("available", False) and isinstance(decision, dict):
+            action = str(decision.get("action") or "smalltalk")
+            confidence = float(decision.get("confidence") or 0.0)
+            normalized_answer = str(decision.get("normalized_answer") or "").strip().lower() or None
+            if action == "save_answer" and normalized_answer in {"yes", "partial", "no", "unsure"} and confidence >= 0.75:
+                return _handle_direct_answer_turn(
+                    state=state,
+                    message=message,
+                    request_id=request_id,
+                    current_question=correction_target,
+                    answer=normalized_answer,
+                    confidence=confidence,
+                    answer_source="ai_interview",
+                )
+            if action == "ask_confirmation" and normalized_answer in {"yes", "partial", "no", "unsure"}:
+                return _handle_pending_answer_confirmation_turn(
+                    state=state,
+                    message=message,
+                    current_question=correction_target,
+                    suggested_answer=normalized_answer,
+                    confidence=confidence,
+                    reason=str(decision.get("reason") or ""),
+                    intent_confidence=_dialog_confidence_label(confidence),
+                    assistant_preface=_decision_response_text(decision, fallback=""),
+                )
 
     if current_question is not None and message:
         explicit_answer, explicit_confidence = infer_explicit_short_answer(message)
@@ -1686,12 +1902,13 @@ def _chat_response(
     prompt_injection_reason: str = "",
     knowledge_sources: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    assistant_message = _repair_text(assistant_message)
     state.chat_history.append({"role": "assistant", "content": assistant_message})
     save_session(state)
     progress = _progress(state)
     base_answers = _base_answers_only(state.answers)
     is_complete = bool(report) or state.interview_complete or progress["is_complete"]
-    current_question = question_map().get(state.current_question_id or "")
+    current_question = _clean_question_payload(question_map().get(state.current_question_id or ""))
     return {
         "session_id": state.session_id,
         "assistant_message": assistant_message,
@@ -1737,6 +1954,32 @@ def _chat_response(
 def _language_code(message: str) -> str:
     language = detect_language(message)
     return {"Russian": "ru", "English": "en"}.get(language, "et")
+
+
+def _repair_text(value: str) -> str:
+    text = str(value or "")
+    if not text or not any(marker in text for marker in ("Ã", "â", "Ð", "Ñ")):
+        return text
+    try:
+        repaired = text.encode("latin1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+    return repaired or text
+
+
+def _clean_question_payload(question: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not question:
+        return question
+    cleaned = dict(question)
+    for key in ("question", "help", "domain"):
+        if isinstance(cleaned.get(key), str):
+            cleaned[key] = _repair_text(cleaned[key])
+    if isinstance(cleaned.get("source_refs"), list):
+        cleaned["source_refs"] = [
+            _repair_text(item) if isinstance(item, str) else item
+            for item in cleaned["source_refs"]
+        ]
+    return cleaned
 
 
 def _get_state(session_id: str) -> SessionState:
@@ -2074,14 +2317,9 @@ def _handle_smalltalk_turn(
         state,
         assistant_message=_decision_response_text(
             {
-                "user_visible_response": _with_early_question_reminder(
-                    _decision_response_text(
-                        {"user_visible_response": smalltalk["message"]},
-                        fallback=_soft_bridge_message(_language_code(message)),
-                    ),
-                    current_question=current_question,
-                    language=_language_code(message),
-                    has_saved_answers=bool(base_answers),
+                "user_visible_response": _decision_response_text(
+                    {"user_visible_response": smalltalk["message"]},
+                    fallback=_soft_bridge_message(_language_code(message)),
                 )
             },
             fallback=_soft_bridge_message(_language_code(message)),
@@ -2177,6 +2415,40 @@ def _handle_direct_answer_turn(
         action="extract_answer",
         intent_confidence=_dialog_confidence_label(confidence),
     )
+
+
+def _latest_saved_answer_question(state: SessionState) -> dict[str, Any] | None:
+    qmap = question_map()
+    for event in reversed(state.events):
+        if event.get("type") not in {"chat_answer_saved", "answer_saved"}:
+            continue
+        question_id = str(event.get("question_id") or "").strip()
+        if question_id in qmap:
+            return qmap[question_id]
+    return None
+
+
+def _should_route_correction_to_previous_question(
+    *,
+    state: SessionState,
+    message: str,
+    current_question: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not current_question or not message.strip():
+        return None
+    previous_question = _latest_saved_answer_question(state)
+    if not previous_question or previous_question["id"] == current_question["id"]:
+        return None
+    normalized = message.strip().lower()
+    if not (
+        normalized.startswith("ei,")
+        or normalized.startswith("no,")
+        or normalized.startswith("tegelikult")
+        or normalized.startswith("actually")
+        or normalized.startswith("pigem")
+    ):
+        return None
+    return previous_question
 
 
 def _handle_context_note_turn(
@@ -2648,3 +2920,180 @@ def _handle_chat_answer_turn(
         redactions_applied=extraction.get("redactions_applied", []),
         redacted_for_llm=bool(extraction.get("redacted_for_llm", False)),
     )
+
+
+def _display_answer_label(language: str, answer: str | None) -> str:
+    normalized = str(answer or "").strip().lower()
+    labels = {
+        "en": {"yes": "yes", "partial": "partial", "no": "no", "unsure": "unsure"},
+        "et": {"yes": "jah", "partial": "osaliselt", "no": "ei", "unsure": "ei tea"},
+        "ru": {"yes": "да", "partial": "частично", "no": "нет", "unsure": "не знаю"},
+    }
+    return labels.get(language, labels["en"]).get(normalized, normalized or "partial")
+
+
+def _context_note_message(language: str) -> str:
+    if language == "ru":
+        return (
+            "Я сохранил это как контекст для текущего вопроса. Это не меняет score.\n\n"
+            "Когда будете готовы, ответьте: да, частично, нет или не знаю."
+        )
+    if language == "et":
+        return (
+            "Jätsin selle praeguse küsimuse kontekstiks. See ei muuda skoori.\n\n"
+            "Kui oled valmis, vasta: jah, osaliselt, ei või ei tea."
+        )
+    return (
+        "I kept this as context for the current question. It does not change the score.\n\n"
+        "When you are ready, answer yes, partial, no, or unsure."
+    )
+
+
+def _pending_confirmation_message(language: str, suggested_answer: str | None, preface: str | None = None) -> str:
+    suggestion = suggested_answer or "partial"
+    display = _display_answer_label(language, suggestion)
+    if language == "ru":
+        base = (
+            f"Похоже, это может быть ответ «{display}», но я не хочу сохранять его автоматически.\n\n"
+            f"Сохранить как «{display}» или оставить только как контекст?"
+        )
+    elif language == "et":
+        base = (
+            f"Mulle tundub, et see võib olla vastus «{display}», aga ma ei taha seda automaatselt salvestada.\n\n"
+            f"Kas salvestan selle vastusena «{display}» või jätan ainult kontekstiks?"
+        )
+    else:
+        base = (
+            f"I think this may be a {display} answer, but I do not want to save it automatically.\n\n"
+            f"Should I save it as {display}, or keep it only as context?"
+        )
+    if preface:
+        return f"{preface.strip()}\n\n{base}"
+    return base
+
+
+def _pending_confirmation_message_plain(language: str, suggested_answer: str | None, preface: str | None = None) -> str:
+    return _pending_confirmation_message(language, suggested_answer, preface)
+
+
+def _handle_pending_answer_resolution_turn(
+    *,
+    state: SessionState,
+    message: str,
+    request_id: str,
+    current_question: dict[str, Any],
+) -> dict[str, Any] | None:
+    pending = state.pending_answer or {}
+    pending_question_id = str(pending.get("question_id") or "").strip()
+    target_question = question_map().get(pending_question_id) if pending_question_id else None
+    target_question = target_question or current_question
+    suggested_answer = str(pending.get("suggested_answer") or "").strip().lower() or None
+    confidence = float(pending.get("confidence") or 0.6)
+    resolution = _pending_answer_resolution(message)
+    if resolution == "confirm" and suggested_answer in {"yes", "partial", "no", "unsure"}:
+        state.pending_answer = None
+        return _handle_direct_answer_turn(
+            state=state,
+            message=message,
+            request_id=request_id,
+            current_question=target_question,
+            answer=suggested_answer,
+            confidence=confidence,
+            answer_source="ai_interview",
+        )
+    if resolution == "reject":
+        state.pending_answer = None
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=target_question,
+            intent_confidence="medium",
+            assistant_message=_context_saved_message(_language_code(message)),
+        )
+    if suggested_answer in {"yes", "partial", "no", "unsure"}:
+        decision_result = decide_chat_turn_with_llm(
+            user_message=message,
+            current_question=target_question,
+            current_answers=_base_answers_only(state.answers),
+            pending_answer=pending,
+            chat_history=state.chat_history,
+            is_new_session=False,
+            org_info=state.org_info,
+            trace_context=_trace_context(state, request_id, target_question, message),
+        )
+        decision = decision_result.get("decision")
+        if decision_result.get("available", False) and isinstance(decision, dict):
+            action = str(decision.get("action") or "")
+            normalized_answer = str(decision.get("normalized_answer") or "").strip().lower() or None
+            if action == "save_answer" and normalized_answer == suggested_answer:
+                state.pending_answer = None
+                return _handle_direct_answer_turn(
+                    state=state,
+                    message=message,
+                    request_id=request_id,
+                    current_question=target_question,
+                    answer=suggested_answer,
+                    confidence=max(confidence, float(decision.get("confidence") or 0.0)),
+                    answer_source="ai_interview",
+                )
+            if action == "keep_context":
+                state.pending_answer = None
+                return _handle_context_note_turn(
+                    state=state,
+                    message=message,
+                    current_question=target_question,
+                    intent_confidence="medium",
+                    assistant_message=_context_saved_message(_language_code(message)),
+                )
+    return None
+
+
+def _context_saved_message(language: str) -> str:
+    if language == "ru":
+        return "Я оставил это только как контекст. Когда будете готовы, ответьте: да, частично, нет или не знаю."
+    if language == "et":
+        return "Jätsin selle ainult kontekstiks. Kui oled valmis, vasta: jah, osaliselt, ei või ei tea."
+    return "I kept it as context only. When you are ready, answer yes, partial, no, or unsure."
+
+
+def _soft_bridge_message(language: str) -> str:
+    if language == "ru":
+        return "Когда будете готовы, ответьте: да, частично, нет или не знаю."
+    if language == "et":
+        return "Kui oled valmis, vasta: jah, osaliselt, ei või ei tea."
+    return "When you are ready, answer yes, partial, no, or unsure."
+
+
+def _saved_answer_message(language: str, next_question_text: str) -> str:
+    next_question_text = _repair_text(next_question_text)
+    if language == "ru":
+        return f"Сохранено.\n\nСледующий вопрос: {next_question_text}"
+    if language == "et":
+        return f"Salvestatud.\n\nJärgmine küsimus: {next_question_text}"
+    return f"Saved.\n\nNext question: {next_question_text}"
+
+
+def _with_early_question_reminder(
+    message: str,
+    *,
+    current_question: dict[str, Any] | None,
+    language: str,
+    has_saved_answers: bool,
+) -> str:
+    if has_saved_answers or not current_question:
+        return message.strip()
+    question_text = _repair_text(str(current_question.get("question") or "").strip())
+    if not question_text:
+        return message.strip()
+    if question_text in message:
+        return message.strip()
+    if language == "ru":
+        prefix = "Текущий вопрос:"
+    elif language == "et":
+        prefix = "Praegune küsimus:"
+    else:
+        prefix = "Current question:"
+    clean = message.strip()
+    if not clean:
+        return f"{prefix} {question_text}"
+    return f"{clean}\n\n{prefix} {question_text}"

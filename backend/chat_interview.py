@@ -2713,3 +2713,105 @@ def _contains_any_token_or_phrase(text: str, hints: list[str]) -> bool:
 
 def _has_question_word(text: str) -> bool:
     return any(re.search(rf"\b{re.escape(_normalize(word))}\b", text) for word in QUESTION_WORDS)
+
+
+def normalize_smalltalk_text(
+    text: str,
+    *,
+    language: str,
+    is_new_session: bool,
+    is_acknowledgement: bool,
+) -> str:
+    cleaned = normalize_assistant_text(text, language, None, None)
+    cleaned = re.sub(r"Let's return to the current question:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Tuleme nüüd tagasi praeguse küsimuse juurde:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Верн[её]мся к текущему вопросу:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+    if is_acknowledgement and not is_new_session:
+        cleaned = re.sub(r"^(Tere|Hei|Hello|Hi|Hey|Здравствуйте|Привет)[!,.:\s]+", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(
+            r"^(Räägime edasi|Jätkame|Let'?s continue|We can continue|Продолжим)[^.\n]*[.\n\s]*",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not cleaned:
+            return _short_acknowledgement(language)
+
+    return cleaned.strip()
+
+
+def _short_acknowledgement(language: str) -> str:
+    if language == "Russian":
+        return "Понял."
+    if language == "English":
+        return "Got it."
+    return "Sain aru."
+
+
+def _strip_repeated_question_tail(text: str, current_question: dict[str, Any] | None) -> str:
+    question_text = get_current_question_text(current_question).strip()
+    if not question_text:
+        return text
+    patterns = [
+        rf"\s*(?:Let us continue with one more question:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Let's return to the current question:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Tuleme nüüd tagasi praeguse küsimuse juurde:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Верн[её]мся к текущему вопросу:\s*)?{re.escape(question_text)}\s*$",
+    ]
+    cleaned = text
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE | re.DOTALL).strip()
+    return cleaned
+
+
+def normalize_smalltalk_text(
+    text: str,
+    *,
+    language: str,
+    is_new_session: bool,
+    is_acknowledgement: bool,
+) -> str:
+    cleaned = normalize_assistant_text(text, language, None, None)
+    cleaned = re.sub(r"Let's return to the current question:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Tuleme nüüd tagasi praeguse küsimuse juurde:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"Верн[её]мся к текущему вопросу:\s*.*", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+    if is_acknowledgement and not is_new_session:
+        cleaned = re.sub(r"^(Tere|Hei|Hello|Hi|Hey|Здравствуйте|Привет)[!,.:\s]+", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(
+            r"^(Räägime edasi|Jätkame|Let'?s continue|We can continue|Продолжим)[^.\n]*[.\n\s]*",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not cleaned:
+            return _short_acknowledgement(language)
+
+    return cleaned.strip()
+
+
+def _short_acknowledgement(language: str) -> str:
+    if language == "Russian":
+        return "Понял."
+    if language == "English":
+        return "Got it."
+    return "Sain aru."
+
+
+def _strip_repeated_question_tail(text: str, current_question: dict[str, Any] | None) -> str:
+    question_text = get_current_question_text(current_question).strip()
+    if not question_text:
+        return text
+    patterns = [
+        rf"\s*(?:Let us continue with one more question:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Let's return to the current question:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Tuleme nüüd tagasi praeguse küsimuse juurde:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Верн[её]мся к текущему вопросу:\s*)?{re.escape(question_text)}\s*$",
+    ]
+    cleaned = text
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE | re.DOTALL).strip()
+    return cleaned
