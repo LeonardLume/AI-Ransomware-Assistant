@@ -402,6 +402,7 @@ def chat(payload: ChatIn, request: Request):
             intent=intent,
             action=decision.action,
             intent_confidence=decision.intent_confidence,
+            language=_language_code(message),
         )
 
     if current_question is None:
@@ -854,6 +855,7 @@ def _chat_simplified_flow(
             intent="report_request",
             action="generate_report",
             intent_confidence=intent_confidence,
+            language=_language_code(message),
         )
 
     if action == "refuse":
@@ -1118,6 +1120,7 @@ def _chat_via_dialog_graph(
             intent="report_request",
             action="complete_chat",
             intent_confidence=intent_confidence,
+            language=_language_code(message),
         )
 
     if current_question is None:
@@ -1447,6 +1450,7 @@ def _finish_or_continue_chat(
     intent: str = "report_request",
     action: str = "finish_or_continue_report",
     intent_confidence: str = "high",
+    language: str = "en",
 ):
     base_answers = _base_answers_only(state.answers)
     full = not missing_required_question_ids(base_answers)
@@ -1481,11 +1485,7 @@ def _finish_or_continue_chat(
 
     state.current_question_id = q["id"]
     state.current_domain = q["domain"]
-    assistant_message = (
-        "There is not enough information yet to generate a report. "
-        f"At least one answer is still missing in these domains: {missing_domains}. "
-        "Please continue with the next assessment question shown in the chat."
-    )
+    assistant_message = _report_request_blocked_message(language, missing_domains)
     return _chat_response(
         state,
         assistant_message=assistant_message,
@@ -1498,6 +1498,26 @@ def _finish_or_continue_chat(
         intent=intent,
         action=action,
         intent_confidence=intent_confidence,
+    )
+
+
+def _report_request_blocked_message(language: str, missing_domains: str) -> str:
+    if language == "ru":
+        return (
+            "Для отчёта пока недостаточно данных. "
+            f"У нас всё ещё не хватает хотя бы одного ответа в этих областях: {missing_domains}. "
+            "Давайте продолжим с текущим вопросом оценки, который уже показан в чате."
+        )
+    if language == "et":
+        return (
+            "Raporti koostamiseks on veel liiga vara. "
+            f"Mul on endiselt puudu vähemalt üks vastus nendes valdkondades: {missing_domains}. "
+            "Jätkame praeguse hindamisküsimusega, mis on juba vestluses näha."
+        )
+    return (
+        "It is still a bit early to generate the report. "
+        f"I am still missing at least one answer in these areas: {missing_domains}. "
+        "Let us continue with the current assessment question already shown in the chat."
     )
 
 
@@ -1582,6 +1602,7 @@ def _handle_preclassified_dialog_intent(
             intent="report_request",
             action="complete_chat",
             intent_confidence=_dialog_confidence_label(decision.confidence),
+            language=_language_code(message),
         )
 
     if current_question is None:
@@ -1928,9 +1949,14 @@ def _handle_general_advisory_turn(
         return _ai_unavailable_response(state, current_question, provider=str(advisory.get("provider", "fallback")))
     return _chat_response(
         state,
-        assistant_message=_with_soft_bridge(
-            advisory["message"],
-            _soft_bridge_message(_language_code(message)),
+        assistant_message=_with_early_question_reminder(
+            _with_soft_bridge(
+                advisory["message"],
+                _soft_bridge_message(_language_code(message)),
+            ),
+            current_question=current_question,
+            language=_language_code(message),
+            has_saved_answers=bool(base_answers),
         ),
         extracted_answers={},
         score=None,
@@ -1981,9 +2007,14 @@ def _handle_clarification_turn(
         return _ai_unavailable_response(state, current_question, provider=str(advisory.get("provider", "fallback")))
     return _chat_response(
         state,
-        assistant_message=_with_soft_bridge(
-            advisory["message"],
-            _soft_bridge_message(_language_code(message)),
+        assistant_message=_with_early_question_reminder(
+            _with_soft_bridge(
+                advisory["message"],
+                _soft_bridge_message(_language_code(message)),
+            ),
+            current_question=current_question,
+            language=_language_code(message),
+            has_saved_answers=bool(base_answers),
         ),
         extracted_answers={},
         score=None,
@@ -2026,10 +2057,33 @@ def _handle_smalltalk_turn(
         return _ai_unavailable_response(state, current_question, provider=str(smalltalk.get("provider", "fallback")))
     if _should_hide_scripted_ai_response(smalltalk):
         return _ai_unavailable_response(state, current_question, provider=str(smalltalk.get("provider", "fallback")))
+    if is_new_session and not base_answers:
+        assistant_prefix = _decision_response_text(
+            {"user_visible_response": smalltalk["message"]},
+            fallback="Alustame lunavara valmisoleku intervjuuga.",
+        )
+        return _ask_next_chat_question(
+            state,
+            greeting=True,
+            assistant_prefix=assistant_prefix,
+            intent="smalltalk",
+            action="ask_next_question",
+            intent_confidence=intent_confidence,
+        )
     return _chat_response(
         state,
         assistant_message=_decision_response_text(
-            {"user_visible_response": smalltalk["message"]},
+            {
+                "user_visible_response": _with_early_question_reminder(
+                    _decision_response_text(
+                        {"user_visible_response": smalltalk["message"]},
+                        fallback=_soft_bridge_message(_language_code(message)),
+                    ),
+                    current_question=current_question,
+                    language=_language_code(message),
+                    has_saved_answers=bool(base_answers),
+                )
+            },
             fallback=_soft_bridge_message(_language_code(message)),
         ),
         extracted_answers={},
@@ -2341,17 +2395,26 @@ def _pending_answer_resolution(message: str) -> str | None:
 
 
 def _context_saved_message(language: str) -> str:
-    _ = language
+    if language == "ru":
+        return "Я оставил это только как контекст. Когда будете готовы, ответьте: yes, partial, no или unsure."
+    if language == "et":
+        return "Jätsin selle ainult kontekstiks. Kui oled valmis, vasta: yes, partial, no või unsure."
     return "I kept it as context only. When you are ready, answer yes, partial, no, or unsure."
 
 
 def _soft_bridge_message(language: str) -> str:
-    _ = language
+    if language == "ru":
+        return "Когда будете готовы, ответьте: yes, partial, no или unsure."
+    if language == "et":
+        return "Kui oled valmis, vasta: yes, partial, no või unsure."
     return "When you are ready, answer yes, partial, no, or unsure."
 
 
 def _saved_answer_message(language: str, next_question_text: str) -> str:
-    _ = language
+    if language == "ru":
+        return f"Сохранено.\n\nСледующий вопрос: {next_question_text}"
+    if language == "et":
+        return f"Salvestatud.\n\nJärgmine küsimus: {next_question_text}"
     return f"Saved.\n\nNext question: {next_question_text}"
 
 
@@ -2367,6 +2430,32 @@ def _with_soft_bridge(message: str, bridge: str) -> str:
     if bridge and bridge not in clean:
         return f"{clean}\n\n{bridge}"
     return clean
+
+
+def _with_early_question_reminder(
+    message: str,
+    *,
+    current_question: dict[str, Any] | None,
+    language: str,
+    has_saved_answers: bool,
+) -> str:
+    if has_saved_answers or not current_question:
+        return message.strip()
+    question_text = str(current_question.get("question") or "").strip()
+    if not question_text:
+        return message.strip()
+    if question_text in message:
+        return message.strip()
+    if language == "ru":
+        prefix = "Текущий вопрос:"
+    elif language == "et":
+        prefix = "Praegune küsimus:"
+    else:
+        prefix = "Current question:"
+    clean = message.strip()
+    if not clean:
+        return f"{prefix} {question_text}"
+    return f"{clean}\n\n{prefix} {question_text}"
 
 
 def _ai_unavailable_response(

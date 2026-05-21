@@ -226,6 +226,49 @@ def test_acknowledgement_does_not_turn_into_context_note(monkeypatch: pytest.Mon
     assert _session(sid)["context_notes"] == []
 
 
+def test_new_session_greeting_still_presents_first_question(monkeypatch: pytest.MonkeyPatch):
+    _mock_chat_decision(
+        monkeypatch,
+        action="smalltalk",
+        confidence=0.92,
+        user_visible_response="Tere!",
+    )
+    monkeypatch.setattr(
+        main_module,
+        "answer_smalltalk_with_llm",
+        lambda *_, **__: {"message": "Tere!", "provider": "openai", "used_fallback": False},
+    )
+
+    data = _chat("", "tere")
+
+    assert data["response_type"] == "interview_question"
+    assert data["current_question_id"] == "org_critical_systems_known"
+    assert "Tere!" in data["assistant_message"]
+    assert "Kas organisatsioon teab" in data["assistant_message"]
+
+
+def test_early_clarification_repeats_current_question_before_first_answer(monkeypatch: pytest.MonkeyPatch):
+    _mock_chat_decision(
+        monkeypatch,
+        action="answer_clarification",
+        confidence=0.88,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "answer_client_question_with_llm",
+        lambda **_: {"message": "Jah, saad vastata lühidalt.", "provider": "openai", "used_fallback": False},
+    )
+
+    start = _start_chat()
+    sid = start["session_id"]
+
+    data = _chat(sid, "saab vastata?")
+
+    assert data["response_type"] == "client_question"
+    assert "Praegune küsimus:" in data["assistant_message"]
+    assert "Kas organisatsioon teab" in data["assistant_message"]
+
+
 def test_mocked_llm_ask_confirmation_creates_pending_answer(monkeypatch: pytest.MonkeyPatch):
     _mock_chat_decision(
         monkeypatch,
@@ -451,7 +494,7 @@ def test_saved_answer_response_has_no_mojibake():
 
     assert "JÃ" not in data["assistant_message"]
     assert "Ãµ" not in data["assistant_message"]
-    assert "Next question:" in data["assistant_message"]
+    assert "Next question:" in data["assistant_message"] or "Järgmine küsimus:" in data["assistant_message"]
 
 
 def test_saved_answer_response_does_not_expose_sources():
@@ -478,4 +521,8 @@ def test_report_request_blocked_does_not_repeat_full_question(monkeypatch: pytes
 
     assert data["response_type"] == "report_request_blocked"
     assert "Let us continue with one more question:" not in data["assistant_message"]
-    assert "shown in the chat" in data["assistant_message"]
+    assert data["current_question"]["question"] not in data["assistant_message"]
+    assert (
+        "shown in the chat" in data["assistant_message"]
+        or "vestluses näha" in data["assistant_message"]
+    )

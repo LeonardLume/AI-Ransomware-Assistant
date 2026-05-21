@@ -26,6 +26,8 @@ Important rules:
 - If the user asks a broader best-practice or "how often should..." question, prefer `answer_advisory` even if the message also contains uncertainty or background context.
 - If the user gives operational detail that partially answers the current assessment question and also asks whether that is enough, necessary, or how it should be done, prefer `ask_confirmation` with a proposed normalized answer instead of pure `answer_advisory`.
 - Use `answer_advisory` only when the message is mainly asking for broader advice and is not materially answering the current assessment question.
+- If `message_topic_matches_current_question` is false, do not treat the message as a clarification of the active question. It is usually `answer_advisory` or `keep_context`.
+- If `message_topic_matches_current_question` is false and you choose `answer_advisory`, keep `user_visible_response` brief and acknowledge that the user is asking about a different topic than the current assessment item.
 - For mixed answer-plus-question messages about the active control, `user_visible_response` should briefly answer the concern and then naturally lead into confirmation.
 - If the user asks a question and also hints at an answer, be conservative.
 - When uncertain, prefer `ask_confirmation` or `keep_context`.

@@ -255,6 +255,63 @@ def test_normal_clarification_quality_is_not_marked_grounded(monkeypatch: pytest
     assert result["grounded_answer_quality"]["source_count"] == 0
 
 
+def test_general_advisory_acknowledges_topic_mismatch(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(chat_interview, "is_real_llm_configured", lambda: True)
+    monkeypatch.setattr(
+        chat_interview,
+        "generate_text",
+        lambda **_: SimpleNamespace(
+            used_real_llm=True,
+            text="Varukoopiaid tasub teha iga päev.",
+            provider="openai",
+            model="gpt-test",
+            error=None,
+        ),
+    )
+
+    result = chat_interview.answer_general_advisory_with_llm(
+        user_message="ei tea me teeme varukoopiad aga nagu kui tihti peab neid tegema",
+        current_question={
+            "id": "org_critical_systems_known",
+            "question": "Kas organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad?",
+            "domain": "incident_response",
+        },
+        current_answers={},
+    )
+
+    assert "erinev teema" in result["message"]
+    assert "Varukoopiaid tasub teha iga päev." in result["message"]
+
+
+def test_report_request_blocked_is_localized_and_does_not_repeat_question(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        main_module,
+        "decide_chat_turn_with_llm",
+        lambda **_: {
+            "available": True,
+            "provider": "openai",
+            "used_fallback": False,
+            "decision": {
+                "action": "generate_report",
+                "normalized_answer": None,
+                "confidence": 0.93,
+                "reason": "report request",
+                "user_visible_response": "",
+                "should_advance_question": False,
+                "should_save_answer": False,
+            },
+            "llm_error": None,
+        },
+    )
+
+    start = _start_chat()
+    data = _chat(start["session_id"], "tee raport")
+
+    assert data["response_type"] == "report_request_blocked"
+    assert data["assistant_message"].startswith("Raporti koostamiseks on veel liiga vara.")
+    assert data["current_question"]["question"] not in data["assistant_message"]
+
+
 def test_acknowledgement_turn_does_not_restart_conversation(monkeypatch: pytest.MonkeyPatch):
     captured: dict[str, object] = {}
 

@@ -695,7 +695,13 @@ def answer_general_advisory_with_llm(
         )
         return _unavailable_chat_reply(provider=result.provider, error=result.error or "Real LLM provider call failed.")
 
-    message = normalize_general_advisory_text(result.text.strip())
+    message = normalize_general_advisory_text(
+        result.text.strip(),
+        language=language,
+        advisory_domain=context_payload["advisory_domain"],
+        current_question=q_context,
+        user_message=user_message,
+    )
     if not _is_identity_question(user_message):
         message = _strip_unrequested_identity(message)
     _trace_llm_call(
@@ -737,12 +743,14 @@ def build_general_advisory_context(
         "current_question_answer": _current_question_answer(current_question, current_answers),
         "current_domain_summary": get_domain_summary(current_question),
         "advisory_domain": advisory_domain,
+        "message_topic_matches_current_question": _message_topic_matches_current_question(user_message, current_question),
         "defensive_skill_context": build_skill_context_for_domain(advisory_domain, current_answers),
         "answered_question_ids": list(current_answers.keys()),
         "organization_info": org_info,
         "domain_metadata": load_domain_metadata(),
         "conversation_rules": [
             "Answer the user's general advisory question directly.",
+            "If the user's topic is different from the active assessment question, acknowledge that briefly before answering.",
             "Do not treat this as a questionnaire answer.",
             "Do not infer or save assessment answers.",
             "Do not move the interview forward.",
@@ -950,9 +958,20 @@ def normalize_assistant_text(
     return cleaned.strip()
 
 
-def normalize_general_advisory_text(text: str) -> str:
+def normalize_general_advisory_text(
+    text: str,
+    *,
+    language: str = "English",
+    advisory_domain: str = "",
+    current_question: dict[str, Any] | None = None,
+    user_message: str = "",
+) -> str:
     cleaned = text.strip().replace("```", "").strip()
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    if _should_note_topic_mismatch(user_message, advisory_domain, current_question):
+        note = _topic_mismatch_note(language)
+        if note and not _contains_any(_normalize(cleaned), _topic_mismatch_note_hints(language)):
+            cleaned = f"{note}\n\n{cleaned}"
     return cleaned.strip()
 
 
@@ -1494,6 +1513,8 @@ def decide_chat_turn_with_llm(
         "user_message": user_message,
         "response_language": language,
         "current_question": current_question or {},
+        "message_topic_domain": _advisory_domain(user_message, current_question),
+        "message_topic_matches_current_question": _message_topic_matches_current_question(user_message, current_question),
         "assessment_progress": _compact_router_assessment_context(current_answers, current_question),
         "pending_answer": pending_answer or None,
         "is_new_session": is_new_session,
@@ -2215,6 +2236,45 @@ def _advisory_domain(message: str, current_question: dict[str, Any] | None) -> s
     if _contains_any(text, ["paroolihaldur", "password manager", "phishing", "brauser", "browser", "recovery code"]):
         return "employee_security_hygiene"
     return (current_question or {}).get("domain", "")
+
+
+def _message_topic_matches_current_question(message: str, current_question: dict[str, Any] | None) -> bool:
+    if not current_question:
+        return True
+    topic_domain = _advisory_domain(message, current_question)
+    current_domain = str(current_question.get("domain") or "")
+    if not topic_domain or not current_domain:
+        return True
+    return topic_domain == current_domain
+
+
+def _should_note_topic_mismatch(
+    user_message: str,
+    advisory_domain: str,
+    current_question: dict[str, Any] | None,
+) -> bool:
+    if not user_message or not current_question:
+        return False
+    current_domain = str(current_question.get("domain") or "")
+    if not advisory_domain or not current_domain or advisory_domain == current_domain:
+        return False
+    return advisory_domain in DOMAIN_LABELS
+
+
+def _topic_mismatch_note(language: str) -> str:
+    if language == "Russian":
+        return "Это немного другая тема, чем текущий вопрос оценки, но коротко отвечу."
+    if language == "English":
+        return "That is a slightly different topic from the current assessment question, but here is the short answer."
+    return "See on veidi erinev teema kui praegune hindamisküsimus, aga vastan lühidalt."
+
+
+def _topic_mismatch_note_hints(language: str) -> list[str]:
+    if language == "Russian":
+        return ["другая тема", "текущий вопрос оценки"]
+    if language == "English":
+        return ["different topic", "current assessment question"]
+    return ["erinev teema", "praegune hindamisküsimus"]
 
 
 def _strip_unrequested_identity(message: str) -> str:

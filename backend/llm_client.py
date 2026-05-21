@@ -150,11 +150,12 @@ def _create_openai_chat_completion(
 
     for _ in range(3):
         try:
+            request_kwargs = _openai_token_param_kwargs(model=model, max_tokens=attempt_tokens)
             return client.chat.completions.create(
                 model=model,
                 temperature=temperature,
-                max_tokens=attempt_tokens,
                 messages=messages,
+                **request_kwargs,
             )
         except Exception as exc:  # noqa: BLE001
             last_error = exc
@@ -166,6 +167,13 @@ def _create_openai_chat_completion(
     if last_error is not None:
         raise last_error
     raise RuntimeError("OpenAI chat completion failed without an exception.")
+
+
+def _openai_token_param_kwargs(*, model: str, max_tokens: int) -> dict[str, int]:
+    normalized_model = model.strip().lower()
+    if normalized_model.startswith("gpt-5"):
+        return {"max_completion_tokens": max_tokens}
+    return {"max_tokens": max_tokens}
 
 
 def _reduced_max_tokens_from_error(error_text: str, current_max_tokens: int) -> int | None:

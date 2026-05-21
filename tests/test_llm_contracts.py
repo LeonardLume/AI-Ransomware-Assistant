@@ -9,7 +9,7 @@ from backend.llm_contracts import (
     validate_grounded_answer_quality,
     validate_intent_decision,
 )
-from backend.llm_client import _reduced_max_tokens_from_error
+from backend.llm_client import _openai_token_param_kwargs, _reduced_max_tokens_from_error
 
 
 def test_validate_intent_decision_accepts_valid_payload():
@@ -143,3 +143,15 @@ def test_reduced_max_tokens_allows_small_affordable_limit():
     reduced = _reduced_max_tokens_from_error(error_text, 256)
 
     assert reduced == 63
+
+
+def test_openai_token_param_uses_max_completion_tokens_for_gpt5_models():
+    kwargs = _openai_token_param_kwargs(model="gpt-5.4-mini", max_tokens=128)
+
+    assert kwargs == {"max_completion_tokens": 128}
+
+
+def test_openai_token_param_uses_max_tokens_for_legacy_models():
+    kwargs = _openai_token_param_kwargs(model="gpt-4o-mini", max_tokens=128)
+
+    assert kwargs == {"max_tokens": 128}
