@@ -48,7 +48,7 @@ def generate_text(
     openai_api_key = str(settings["openai_api_key"])
     openai_base_url = str(settings["openai_base_url"])
     request_timeout_seconds = float(settings["request_timeout_seconds"])
-    safe_max_output_tokens = max(128, min(int(max_output_tokens), 1200))
+    safe_max_output_tokens = max(32, min(int(max_output_tokens), 1200))
     provider_config_error = openai_provider_config_error(openai_api_key, openai_base_url)
 
     if provider == "ollama":
@@ -93,7 +93,8 @@ def generate_text(
             from openai import OpenAI  # optional dependency
 
             client = OpenAI(api_key=openai_api_key, base_url=openai_base_url)
-            response = client.chat.completions.create(
+            response = _create_openai_chat_completion(
+                client=client,
                 model=openai_model,
                 temperature=temperature,
                 max_tokens=safe_max_output_tokens,
@@ -134,6 +135,59 @@ def generate_text(
         model="deterministic-template",
         used_real_llm=False,
     )
+
+
+def _create_openai_chat_completion(
+    *,
+    client: Any,
+    model: str,
+    temperature: float,
+    max_tokens: int,
+    messages: list[dict[str, str]],
+) -> Any:
+    attempt_tokens = max_tokens
+    last_error: Exception | None = None
+
+    for _ in range(3):
+        try:
+            return client.chat.completions.create(
+                model=model,
+                temperature=temperature,
+                max_tokens=attempt_tokens,
+                messages=messages,
+            )
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            reduced_tokens = _reduced_max_tokens_from_error(str(exc), attempt_tokens)
+            if reduced_tokens is None or reduced_tokens >= attempt_tokens:
+                raise
+            attempt_tokens = reduced_tokens
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("OpenAI chat completion failed without an exception.")
+
+
+def _reduced_max_tokens_from_error(error_text: str, current_max_tokens: int) -> int | None:
+    normalized = error_text.lower()
+    if "fewer max_tokens" not in normalized and "can only afford" not in normalized:
+        return None
+
+    affordable_match = re.search(r"can only afford (\d+)", normalized)
+    if affordable_match:
+        affordable = int(affordable_match.group(1))
+        if affordable >= 32:
+            return min(affordable, max(32, current_max_tokens - 1))
+
+    if current_max_tokens > 256:
+        return 256
+    if current_max_tokens > 128:
+        return 128
+    if current_max_tokens > 64:
+        return 64
+    if current_max_tokens > 32:
+        return 32
+    return None
 
 
 def fallback_text(prompt: str) -> str:

@@ -31,6 +31,7 @@ from backend.chat_interview import (
     extract_answers_with_llm,
     generate_next_question,
     infer_explicit_short_answer,
+    is_acknowledgement_or_smalltalk,
     looks_like_offensive_request,
     missing_domain_labels,
     missing_required_question_ids,
@@ -815,6 +816,8 @@ def _chat_simplified_flow(
         current_question=current_question,
         current_answers=base_answers,
         pending_answer=state.pending_answer,
+        chat_history=state.chat_history,
+        is_new_session=is_new,
         org_info=state.org_info,
         trace_context=_trace_context(state, request_id, current_question, message),
     )
@@ -889,6 +892,7 @@ def _chat_simplified_flow(
                 confidence=confidence,
                 reason=str(decision.get("reason") or ""),
                 intent_confidence=intent_confidence,
+                assistant_preface=_decision_response_text(decision, fallback=""),
             )
         return _handle_context_note_turn(
             state=state,
@@ -907,9 +911,22 @@ def _chat_simplified_flow(
             confidence=confidence,
             reason=str(decision.get("reason") or ""),
             intent_confidence=intent_confidence,
+            assistant_preface=_decision_response_text(decision, fallback=""),
         )
 
     if action == "keep_context":
+        if is_acknowledgement_or_smalltalk(message):
+            return _handle_smalltalk_turn(
+                state=state,
+                message=message,
+                request_id=request_id,
+                current_question=current_question,
+                base_answers=base_answers,
+                intent="smalltalk",
+                action="smalltalk",
+                intent_confidence=intent_confidence,
+                is_new_session=is_new,
+            )
         return _handle_context_note_turn(
             state=state,
             message=message,
@@ -1464,11 +1481,10 @@ def _finish_or_continue_chat(
 
     state.current_question_id = q["id"]
     state.current_domain = q["domain"]
-    question_result = generate_next_question(q, {"answers": base_answers})
     assistant_message = (
         "There is not enough information yet to generate a report. "
         f"At least one answer is still missing in these domains: {missing_domains}. "
-        f"Let us continue with one more question: {question_result['message']}"
+        "Please continue with the next assessment question shown in the chat."
     )
     return _chat_response(
         state,
@@ -1476,8 +1492,8 @@ def _finish_or_continue_chat(
         extracted_answers={},
         score=None,
         report=None,
-        provider=question_result.get("provider", "fallback"),
-        used_fallback=question_result.get("used_fallback", True),
+        provider="router",
+        used_fallback=False,
         response_type="report_request_blocked",
         intent=intent,
         action=action,
@@ -2154,6 +2170,7 @@ def _handle_pending_answer_confirmation_turn(
     confidence: float,
     reason: str,
     intent_confidence: str,
+    assistant_preface: str | None = None,
 ):
     state.current_question_id = current_question["id"]
     state.current_domain = current_question["domain"]
@@ -2174,7 +2191,11 @@ def _handle_pending_answer_confirmation_turn(
             "reason": reason,
         }
     )
-    assistant_message = _pending_confirmation_message_plain(_language_code(message), suggested_answer)
+    assistant_message = _pending_confirmation_message_plain(
+        _language_code(message),
+        suggested_answer,
+        preface=assistant_preface,
+    )
     return _chat_response(
         state,
         assistant_message=assistant_message,
@@ -2198,22 +2219,20 @@ def _context_note_message(language: str) -> str:
     )
 
 
-def _pending_confirmation_message(language: str, suggested_answer: str | None) -> str:
+def _pending_confirmation_message(language: str, suggested_answer: str | None, preface: str | None = None) -> str:
     suggestion = suggested_answer or "partial"
     _ = language
-    return (
+    base = (
         f"I think this may be a `{suggestion}` answer, but I do not want to save it automatically.\n\n"
         f"Should I save it as `{suggestion}`, or keep it only as context?"
     )
+    if preface:
+        return f"{preface.strip()}\n\n{base}"
+    return base
 
 
-def _pending_confirmation_message_plain(language: str, suggested_answer: str | None) -> str:
-    suggestion = suggested_answer or "partial"
-    _ = language
-    return (
-        f"I think this may be a `{suggestion}` answer, but I do not want to save it automatically.\n\n"
-        f"Should I save it as `{suggestion}`, or keep it only as context?"
-    )
+def _pending_confirmation_message_plain(language: str, suggested_answer: str | None, preface: str | None = None) -> str:
+    return _pending_confirmation_message(language, suggested_answer, preface)
 
 
 def _handle_pending_answer_resolution_turn(
@@ -2253,6 +2272,8 @@ def _handle_pending_answer_resolution_turn(
             current_question=current_question,
             current_answers=_base_answers_only(state.answers),
             pending_answer=pending,
+            chat_history=state.chat_history,
+            is_new_session=False,
             org_info=state.org_info,
             trace_context=_trace_context(state, request_id, current_question, message),
         )

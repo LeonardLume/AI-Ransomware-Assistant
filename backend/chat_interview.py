@@ -31,6 +31,17 @@ LOGGER = logging.getLogger(__name__)
 Intent = str
 VALID_INTENTS = {"answer", "clarification", "general_advisory_chat", "report_request", "smalltalk", "unknown"}
 
+COMPACT_CHAT_DECISION_SYSTEM_PROMPT = (
+    "Return JSON only with keys action, normalized_answer, confidence, reason, user_visible_response, "
+    "should_advance_question, should_save_answer. "
+    "Actions: save_answer, answer_clarification, answer_advisory, keep_context, ask_confirmation, "
+    "generate_report, smalltalk, refuse. "
+    "Use only yes/partial/no/unsure for normalized_answer. "
+    "If short direct answer, save_answer. If mixed answer plus question about the active control, ask_confirmation. "
+    "If clarification about current question, answer_clarification. If broad advice, answer_advisory. "
+    "If acknowledgement, smalltalk. If unsafe, refuse."
+)
+
 PRELIMINARY_DOMAINS = [
     "backups",
     "mfa_access",
@@ -922,7 +933,7 @@ def normalize_assistant_text(
     current_question: dict[str, Any] | None,
     current_answer: dict[str, Any] | None = None,
 ) -> str:
-    del language, current_question
+    del language
     cleaned = text.strip()
     cleaned = re.sub(
         r"^(Of course|Certainly|Sure|Absolutely|Loomulikult|Kindlasti|Jah, muidugi)[,!\s]+",
@@ -935,6 +946,7 @@ def normalize_assistant_text(
         cleaned = re.sub(r"Teie vastus on [^.?!]+[.?!]\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"Kuna olete öelnud[^.?!]+[.?!]\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = _strip_repeated_question_tail(cleaned, current_question)
     return cleaned.strip()
 
 
@@ -1434,6 +1446,8 @@ def decide_chat_turn_with_llm(
     current_question: dict[str, Any] | None,
     current_answers: dict[str, dict[str, Any]],
     pending_answer: dict[str, Any] | None = None,
+    chat_history: list[dict[str, Any]] | None = None,
+    is_new_session: bool = False,
     org_info: dict[str, Any] | None = None,
     trace_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -1480,19 +1494,51 @@ def decide_chat_turn_with_llm(
         "user_message": user_message,
         "response_language": language,
         "current_question": current_question or {},
-        "current_answers": current_answers,
+        "assessment_progress": _compact_router_assessment_context(current_answers, current_question),
         "pending_answer": pending_answer or None,
-        "org_info": org_info or {},
+        "is_new_session": is_new_session,
+        "recent_chat_history": _compact_router_chat_history(chat_history),
+        "org_info": _compact_org_info(org_info or {}),
     }
     started = perf_counter()
     result = generate_text(
         prompt=json.dumps(prompt_payload, ensure_ascii=False, indent=2),
         system_prompt=load_prompt("chat_decision_prompt.txt"),
         temperature=0,
+        max_output_tokens=192,
     )
     latency_ms = (perf_counter() - started) * 1000
     parsed = parse_json_from_llm(result.text)
     decision = validate_chat_decision(parsed) if isinstance(parsed, dict) else None
+
+    if (not result.used_real_llm or decision is None) and _needs_compact_llm_retry(result.error):
+        compact_started = perf_counter()
+        compact_result = generate_text(
+            prompt=json.dumps(
+                _compact_chat_decision_retry_payload(
+                    user_message=user_message,
+                    language=language,
+                    current_question=current_question,
+                    current_answers=current_answers,
+                    pending_answer=pending_answer,
+                    chat_history=chat_history,
+                ),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            system_prompt=COMPACT_CHAT_DECISION_SYSTEM_PROMPT,
+            temperature=0,
+            max_output_tokens=96,
+        )
+        latency_ms = (perf_counter() - compact_started) * 1000
+        compact_parsed = parse_json_from_llm(compact_result.text)
+        compact_decision = validate_chat_decision(compact_parsed) if isinstance(compact_parsed, dict) else None
+        if compact_result.used_real_llm and compact_decision is not None:
+            result = compact_result
+            decision = compact_decision
+        else:
+            result = compact_result
+            decision = compact_decision
 
     if not result.used_real_llm:
         if fallback_allowed:
@@ -1555,6 +1601,76 @@ def decide_chat_turn_with_llm(
         "decision": decision.model_dump(),
         "llm_error": result.error,
     }
+
+
+def _needs_compact_llm_retry(error: str | None) -> bool:
+    text = str(error or "").lower()
+    return "prompt tokens limit exceeded" in text or "fewer max_tokens" in text or "can only afford" in text
+
+
+def _compact_chat_decision_retry_payload(
+    *,
+    user_message: str,
+    language: str,
+    current_question: dict[str, Any] | None,
+    current_answers: dict[str, dict[str, Any]],
+    pending_answer: dict[str, Any] | None,
+    chat_history: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    current_question_answer = _current_question_answer(current_question, current_answers)
+    return {
+        "m": user_message,
+        "lang": language,
+        "q": str((current_question or {}).get("question") or ""),
+        "qid": str((current_question or {}).get("id") or ""),
+        "qa": (current_question_answer or {}).get("answer"),
+        "pending": (pending_answer or {}).get("suggested_answer"),
+        "recent": [f"{item.get('role', 'user')}: {str(item.get('content', '')).strip()[:120]}" for item in (chat_history or [])[-3:]],
+    }
+
+
+def _compact_router_assessment_context(
+    current_answers: dict[str, dict[str, Any]],
+    current_question: dict[str, Any] | None,
+) -> dict[str, Any]:
+    answer_items = [
+        {"question_id": qid, "answer": str(record.get("answer", "")).strip()}
+        for qid, record in current_answers.items()
+        if str(qid).strip() and not str(qid).startswith("followup__")
+    ]
+    current_domain = str((current_question or {}).get("domain") or "")
+    same_domain_items: list[dict[str, str]] = []
+    if current_domain:
+        qmap = question_map()
+        same_domain_items = [
+            item
+            for item in answer_items
+            if str(qmap.get(item["question_id"], {}).get("domain") or "") == current_domain
+        ]
+
+    return {
+        "answered_count": len(answer_items),
+        "current_domain_answers": same_domain_items[-6:],
+        "recent_answers": answer_items[-8:],
+        "current_question_answer": _current_question_answer(current_question, current_answers),
+    }
+
+
+def _compact_router_chat_history(chat_history: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+    compacted: list[dict[str, str]] = []
+    for item in (chat_history or [])[-4:]:
+        role = str(item.get("role", "")).strip() or "user"
+        content = str(item.get("content", "")).strip()
+        if not content:
+            continue
+        compacted.append({"role": role, "content": content[:280]})
+    return compacted
+
+
+def _compact_org_info(org_info: dict[str, Any]) -> dict[str, Any]:
+    allowed_keys = {"organization_name", "industry", "employee_count", "country"}
+    compacted = {key: value for key, value in org_info.items() if key in allowed_keys and str(value).strip()}
+    return compacted
 
 
 def _fallback_chat_decision(
@@ -1730,6 +1846,27 @@ def _short_acknowledgement(language: str) -> str:
     if language == "English":
         return "Got it."
     return "Sain aru."
+
+
+def _strip_repeated_question_tail(text: str, current_question: dict[str, Any] | None) -> str:
+    question_text = get_current_question_text(current_question).strip()
+    if not question_text:
+        return text
+    patterns = [
+        rf"\s*(?:Let us continue with one more question:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Let's return to the current question:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Tuleme nüüd tagasi praeguse küsimuse juurde:\s*)?{re.escape(question_text)}\s*$",
+        rf"\s*(?:Верн[её]мся к текущему вопросу:\s*)?{re.escape(question_text)}\s*$",
+    ]
+    cleaned = text
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE | re.DOTALL).strip()
+    return cleaned
+
+
+def is_acknowledgement_or_smalltalk(message: str) -> bool:
+    text = _normalize(message)
+    return _is_acknowledgement(text) or _is_smalltalk(text)
 
 
 def infer_explicit_short_answer(message: str) -> tuple[str | None, float]:

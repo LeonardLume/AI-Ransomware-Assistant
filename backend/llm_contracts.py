@@ -42,6 +42,18 @@ class ChatDecisionModel(BaseModel):
     should_advance_question: bool = False
     should_save_answer: bool = False
 
+    @field_validator("normalized_answer", mode="before")
+    @classmethod
+    def normalize_optional_answer(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip().lower()
+            if cleaned in {"", "none", "null"}:
+                return None
+            return cleaned
+        return value
+
     @field_validator("reason", "user_visible_response")
     @classmethod
     def normalize_text(cls, value: str) -> str:

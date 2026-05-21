@@ -201,6 +201,31 @@ def test_mocked_llm_keep_context_stores_note_and_keeps_score(monkeypatch: pytest
     assert _score(sid)["overall_score"] == score_before
 
 
+def test_acknowledgement_does_not_turn_into_context_note(monkeypatch: pytest.MonkeyPatch):
+    _mock_chat_decision(
+        monkeypatch,
+        action="keep_context",
+        confidence=0.62,
+        user_visible_response="Got it.",
+    )
+    monkeypatch.setattr(
+        main_module,
+        "answer_smalltalk_with_llm",
+        lambda *_, **__: {"message": "Got it.", "provider": "openai", "used_fallback": False},
+    )
+
+    start = _start_chat()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    data = _chat(sid, "sain aru")
+
+    assert data["response_type"] == "smalltalk"
+    assert data["current_question_id"] == current_q
+    assert data["extracted_answers"] == {}
+    assert _session(sid)["context_notes"] == []
+
+
 def test_mocked_llm_ask_confirmation_creates_pending_answer(monkeypatch: pytest.MonkeyPatch):
     _mock_chat_decision(
         monkeypatch,
@@ -208,6 +233,7 @@ def test_mocked_llm_ask_confirmation_creates_pending_answer(monkeypatch: pytest.
         normalized_answer="partial",
         confidence=0.61,
         reason="mixed signal",
+        user_visible_response="This sounds partly in place, but not fully regular.",
     )
 
     start = _start_chat()
@@ -221,6 +247,7 @@ def test_mocked_llm_ask_confirmation_creates_pending_answer(monkeypatch: pytest.
     assert data["extracted_answers"] == {}
     assert data["pending_answer"]["suggested_answer"] == "partial"
     assert data["pending_answer"]["question_id"] == current_q
+    assert "partly in place" in data["assistant_message"]
     assert _session(sid)["answers"] == {}
 
 
@@ -434,3 +461,21 @@ def test_saved_answer_response_does_not_expose_sources():
     data = _chat(sid, "yes", intent_mode="direct_answer", selected_answer="yes")
 
     assert data["assistant_transparency"]["sources"] == []
+
+
+def test_report_request_blocked_does_not_repeat_full_question(monkeypatch: pytest.MonkeyPatch):
+    _mock_chat_decision(
+        monkeypatch,
+        action="generate_report",
+        confidence=0.95,
+        should_advance_question=True,
+    )
+
+    start = _start_chat()
+    sid = start["session_id"]
+
+    data = _chat(sid, "Generate report")
+
+    assert data["response_type"] == "report_request_blocked"
+    assert "Let us continue with one more question:" not in data["assistant_message"]
+    assert "shown in the chat" in data["assistant_message"]
