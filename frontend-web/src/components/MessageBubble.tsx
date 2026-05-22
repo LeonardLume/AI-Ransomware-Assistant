@@ -3,7 +3,6 @@ import ReactMarkdown from "react-markdown";
 import type { ArtifactId, UiMessage } from "../types/api";
 import type { UiLanguage } from "../utils/i18n";
 import AssistantTechnicalDetails from "./AssistantTechnicalDetails";
-import { Card } from "./ui";
 import { cn } from "./ui-helpers";
 
 function formatTime(timestamp: string): string {
@@ -168,23 +167,21 @@ function MessageBubble({
 
   return (
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
-      {isAssistant ? (
-        <div className={cn("max-w-[min(820px,100%)] px-0 py-0", toneClass)}>{content}</div>
-      ) : (
-        <Card
-          className={cn(
-            "chat-bubble w-full px-4 py-3.5",
-            isUser
-              ? compactUserAnswer
-                ? "max-w-fit px-5 py-3"
-                : "max-w-[min(360px,92%)] px-5 py-4"
-              : "max-w-[min(720px,100%)] border-white/8 shadow-[0_18px_50px_rgba(0,0,0,0.16)]",
-            toneClass,
-          )}
-        >
-          {content}
-        </Card>
-      )}
+      <div
+        className={cn(
+          "chat-bubble-frame chat-bubble w-full rounded-[22px] px-4 py-3.5",
+          isUser
+            ? compactUserAnswer
+              ? "max-w-fit px-5 py-3"
+              : "max-w-[min(360px,92%)] px-5 py-4"
+            : isSystem
+              ? "max-w-[min(720px,100%)] border-white/8 shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
+              : "max-w-[min(820px,100%)] px-5 py-4",
+          toneClass,
+        )}
+      >
+        {content}
+      </div>
     </div>
   );
 }

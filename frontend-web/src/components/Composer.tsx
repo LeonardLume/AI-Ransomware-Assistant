@@ -50,7 +50,7 @@ export default function Composer({
   }
 
   return (
-    <div className="chat-composer-shell space-y-2.5 rounded-[30px] border border-white/10 bg-[rgba(15,17,24,0.78)] p-3 shadow-[0_28px_90px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
+    <div className="chat-composer-shell space-y-2.5 p-3">
       {currentQuestion ? (
         <div className="flex flex-wrap items-center gap-2 px-1">
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
