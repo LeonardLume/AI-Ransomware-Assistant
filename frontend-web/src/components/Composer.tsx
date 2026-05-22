@@ -70,8 +70,8 @@ export default function Composer({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-3 rounded-[999px] bg-white/[0.02] px-2.5 py-1.5">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-sky-300">
+      <div className="flex items-center gap-3 rounded-[999px] border border-white/10 bg-white/[0.05] px-2.5 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.07] text-sky-300">
           <Circle className="h-3 w-3 fill-current stroke-0" />
         </span>
         <textarea

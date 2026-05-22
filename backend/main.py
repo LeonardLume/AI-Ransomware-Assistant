@@ -38,12 +38,20 @@ from backend.chat_interview import (
     next_missing_question,
     should_generate_preliminary_report,
 )
-from backend.config import ai_fallback_user_visible, allow_scripted_ai_fallback, get_security_settings, llm_status
+from backend.config import (
+    ai_fallback_user_visible,
+    allow_scripted_ai_fallback,
+    get_security_settings,
+    llm_status,
+    use_langgraph_dialog,
+)
 from backend.dialog_contracts import DialogGraphState
+
 try:
     from backend.dialog_graph import run_dialog_graph
 except ModuleNotFoundError:
     run_dialog_graph = None
+
 from backend.dialog_intent import classify_dialog_intent
 from backend.exposure import build_external_exposure_self_check
 from backend.hygiene import load_employee_hygiene_checklist
@@ -646,9 +654,6 @@ def chat(payload: ChatIn, request: Request):
     state.current_domain = next_q["domain"]
     question_result = generate_next_question(next_q, {"answers": base_answers}, _trace_context(state, request_id, next_q, message))
     assistant_message = _saved_answer_message(_language_code(message), question_result["message"])
-    assistant_message = _saved_answer_message(_language_code(message), question_result["message"])
-    if acknowledgement:
-        assistant_message = f"{acknowledgement}\n\nJärgmine küsimus: {assistant_message}"
     return _chat_response(
         state,
         assistant_message=assistant_message,

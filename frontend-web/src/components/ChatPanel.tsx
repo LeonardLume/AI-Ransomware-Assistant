@@ -152,7 +152,7 @@ export default function ChatPanel({
         </div>
       </div>
 
-      <div className="chat-composer-band border-t border-white/6 bg-transparent px-4 py-4 sm:px-6">
+      <div className="chat-composer-band border-t border-transparent bg-transparent px-4 py-4 sm:px-6">
         <div className="mx-auto w-full max-w-5xl">
           <Composer
             disabled={sending}

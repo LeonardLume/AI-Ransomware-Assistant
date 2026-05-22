@@ -295,10 +295,8 @@ textarea {
 }
 
 .chat-composer-band {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.02) 0%, transparent 52%);
-  backdrop-filter: blur(4px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .thinking-shell::before,
