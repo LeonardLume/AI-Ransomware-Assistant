@@ -80,7 +80,7 @@ export default function ChatPanel({
   }, [updateScrollControls]);
 
   return (
-    <section className="chat-panel-shell relative flex min-h-[560px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[rgba(8,11,18,0.72)] shadow-[0_22px_58px_rgba(0,0,0,0.34)] lg:h-full lg:min-h-0">
+    <section className="chat-panel-shell relative flex min-h-[560px] flex-col overflow-hidden bg-transparent shadow-none lg:h-full lg:min-h-0">
       {showScrollUp ? (
         <button
           type="button"
@@ -104,7 +104,7 @@ export default function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={scheduleScrollControlUpdate}
-        className="scrollbar-slim min-h-0 flex-1 overflow-y-auto bg-black/8 px-5 py-8 sm:px-7"
+        className="scrollbar-slim min-h-0 flex-1 overflow-y-auto bg-transparent px-5 py-8 sm:px-7"
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-10">
         {!messages.length ? (
@@ -152,7 +152,7 @@ export default function ChatPanel({
         </div>
       </div>
 
-      <div className="border-t border-white/8 bg-black/10 px-4 py-4 sm:px-6">
+      <div className="chat-composer-band border-t border-white/6 bg-transparent px-4 py-4 sm:px-6">
         <div className="mx-auto w-full max-w-5xl">
           <Composer
             disabled={sending}

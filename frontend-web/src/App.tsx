@@ -883,7 +883,7 @@ export default function App() {
         interview: (
           <section
             className={cn(
-              "relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
+              "interview-scene relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
               artifactOverlayOpen ? "bg-[#07090d] overflow-visible" : "overflow-hidden",
             )}
           >
@@ -935,13 +935,15 @@ export default function App() {
                 onClose={() => setArtifactOverlayOpen(false)}
               />
             </div>
-            <AssessmentStatusFooter
-              session={sessionState}
-              score={score}
-              lastResponse={lastResponse}
-              questions={questions}
-              language={language}
-            />
+            {!artifactOverlayOpen ? (
+              <AssessmentStatusFooter
+                session={sessionState}
+                score={score}
+                lastResponse={lastResponse}
+                questions={questions}
+                language={language}
+              />
+            ) : null}
           </section>
         ),
       }}

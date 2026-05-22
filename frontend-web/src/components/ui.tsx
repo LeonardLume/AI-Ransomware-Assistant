@@ -316,11 +316,11 @@ export function EmptyState({
 
 export function LoadingSteps() {
   return (
-    <Card className="max-w-md p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-        <Loader2 className="h-4 w-4 animate-spin text-sky-600" />
-        Processing assessment turn
+    <div className="thinking-inline flex items-center gap-3 text-slate-200">
+      <div className="thinking-orb inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-300/14 bg-white/[0.04] text-sky-200">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
       </div>
-    </Card>
+      <div className="min-w-0 text-sm font-medium tracking-[0.01em] text-slate-200">Thinking</div>
+    </div>
   );
 }
