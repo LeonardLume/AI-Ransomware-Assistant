@@ -2315,14 +2315,19 @@ def _handle_smalltalk_turn(
         )
     return _chat_response(
         state,
-        assistant_message=_decision_response_text(
-            {
-                "user_visible_response": _decision_response_text(
-                    {"user_visible_response": smalltalk["message"]},
-                    fallback=_soft_bridge_message(_language_code(message)),
-                )
-            },
-            fallback=_soft_bridge_message(_language_code(message)),
+        assistant_message=_with_early_question_reminder(
+            _decision_response_text(
+                {
+                    "user_visible_response": _decision_response_text(
+                        {"user_visible_response": smalltalk["message"]},
+                        fallback=_soft_bridge_message(_language_code(message)),
+                    )
+                },
+                fallback=_soft_bridge_message(_language_code(message)),
+            ),
+            current_question=current_question,
+            language=_language_code(message),
+            has_saved_answers=bool(base_answers),
         ),
         extracted_answers={},
         score=None,

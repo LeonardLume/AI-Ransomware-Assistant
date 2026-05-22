@@ -866,9 +866,11 @@ export default function App() {
             session={sessionState}
             score={score}
             sending={sending}
+            language={language}
             canGenerateReport={Boolean(activeSessionId)}
             reportLoading={artifactLoading}
             onPrompt={sendNewSessionMessage}
+            onStartAssessment={startAssessment}
             onLoadDemo={handleLoadDemo}
             onGenerateReport={generateReport}
             onOpenTechnical={() => {

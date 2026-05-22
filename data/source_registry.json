@@ -1,0 +1,66 @@
+[
+  {
+    "id": "NIST_CSF_2",
+    "name": "NIST Cybersecurity Framework 2.0",
+    "publisher": "NIST",
+    "type": "public_framework",
+    "url": "https://www.nist.gov/cyberframework",
+    "note": "Used as general cybersecurity risk management framework."
+  },
+  {
+    "id": "NIST_IR_8374_R1",
+    "name": "NIST IR 8374r1 draft - Ransomware Risk Management",
+    "publisher": "NIST",
+    "type": "public_guidance",
+    "url": "https://csrc.nist.gov/pubs/ir/8374/r1/ipd",
+    "note": "Used as additional ransomware risk management context for the project methodology."
+  },
+  {
+    "id": "CISA_STOPRANSOMWARE",
+    "name": "CISA StopRansomware Guide",
+    "publisher": "CISA",
+    "type": "public_guidance",
+    "url": "https://www.cisa.gov/resources-tools/resources/stopransomware-guide",
+    "note": "Used for ransomware prevention, response and recovery guidance."
+  },
+  {
+    "id": "NCSC_RANSOMWARE_GUIDANCE",
+    "name": "NCSC ransomware guidance",
+    "publisher": "NCSC UK",
+    "type": "public_guidance",
+    "url": "https://www.ncsc.gov.uk/guidance/mitigating-malware-and-ransomware-attacks",
+    "note": "Used for backup, MFA, remote access and incident response guidance."
+  },
+  {
+    "id": "NCSC_CYBER_THREAT_HEIGHTENED",
+    "name": "NCSC cyber threat heightened guidance",
+    "publisher": "NCSC UK",
+    "type": "public_guidance",
+    "url": "https://www.ncsc.gov.uk/guidance/actions-to-take-when-the-cyber-threat-is-heightened",
+    "note": "Used for practical prioritization around patching, access review and partner access control."
+  },
+  {
+    "id": "CIS_CONTROLS_V8",
+    "name": "CIS Critical Security Controls v8",
+    "publisher": "CIS",
+    "type": "public_controls",
+    "url": "https://www.cisecurity.org/controls/v8",
+    "note": "Used for practical implementation-oriented security controls."
+  },
+  {
+    "id": "MITRE_ATTACK_T1486",
+    "name": "MITRE ATT&CK T1486 - Data Encrypted for Impact",
+    "publisher": "MITRE",
+    "type": "attack_technique",
+    "url": "https://attack.mitre.org/techniques/T1486/",
+    "note": "Used to explain ransomware impact technique mapping, not as a direct scoring engine."
+  },
+  {
+    "id": "PERSONAL_SECURITY_HYGIENE",
+    "name": "Personal security hygiene checklist",
+    "publisher": "Project methodology",
+    "type": "internal_methodology",
+    "url": "",
+    "note": "Used for optional employee hygiene questions that do not affect official score."
+  }
+]

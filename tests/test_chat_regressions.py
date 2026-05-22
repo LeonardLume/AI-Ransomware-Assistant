@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,7 @@ from backend.security import RATE_LIMITER
 
 client = TestClient(app)
 
-QUESTIONS_SHA256 = "762e3355ca9bc1544b002d374152961e72de3bf3abc139aa1559c57cbfe7468f"
+QUESTIONS_CORE_SHA256 = "540bc81d56c8eb668b532b3755ea18de45b7b47b99bbb31b19a54147096f11fb"
 SCORING_RULES_SHA256 = "66474a6efd86cd9bd13d619f296c7211af02cc6bbde4613490d3980111f09a85"
 
 
@@ -125,9 +126,22 @@ def test_generate_report_action_uses_deterministic_score(monkeypatch: pytest.Mon
     assert data["score"]["domain_scores"] == score_before["domain_scores"]
 
 
-def test_questions_json_is_unchanged():
-    digest = hashlib.sha256(Path("data/questions.json").read_bytes()).hexdigest()
-    assert digest == QUESTIONS_SHA256
+def test_questions_json_core_fields_are_unchanged():
+    questions = json.loads(Path("data/questions.json").read_text(encoding="utf-8"))
+    core = [
+        {
+            "id": question["id"],
+            "domain": question["domain"],
+            "question": question["question"],
+            "help": question.get("help"),
+            "options": question.get("options"),
+            "required": question.get("required"),
+        }
+        for question in questions
+    ]
+    blob = json.dumps(core, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    digest = hashlib.sha256(blob).hexdigest()
+    assert digest == QUESTIONS_CORE_SHA256
 
 
 def test_scoring_rules_json_is_unchanged():

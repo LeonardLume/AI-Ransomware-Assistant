@@ -1,0 +1,29 @@
+{
+  "methodology_name": "Ransomware Readiness Assessment",
+  "methodology_version": "0.3.0",
+  "questions_version": "2026-05-22",
+  "scoring_version": "2026-05-22",
+  "description": "AI-assisted ransomware readiness self-assessment for small and medium organizations.",
+  "important_note": "This is a readiness self-assessment, not a full security audit or guarantee of protection.",
+  "score_scale": {
+    "min": 0,
+    "max": 100,
+    "higher_is_better": true
+  },
+  "scoring_principles": [
+    "The official score is calculated by backend rules, not invented by AI.",
+    "The assistant helps explain questions and user answers.",
+    "Saved answers are normalized to yes, partial, no or unsure.",
+    "Unknown or unclear controls are treated as risk until verified.",
+    "Evidence improves confidence and supports validation, but does not automatically change score unless the saved answer changes.",
+    "Threat intelligence and attack path mapping may be used as future overlays, but they do not replace deterministic scoring."
+  ],
+  "methodology_layers": [
+    "Interview questions",
+    "Deterministic scoring rules",
+    "Scoring rationale",
+    "Source mapping",
+    "Evidence and confidence",
+    "Optional future threat overlay"
+  ]
+}

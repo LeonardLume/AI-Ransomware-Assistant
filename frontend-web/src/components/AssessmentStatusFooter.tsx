@@ -14,13 +14,6 @@ function compact(value: unknown, fallback = "-"): string {
   return String(value);
 }
 
-function shorten(value: string, maxLength = 86): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-  return `${value.slice(0, maxLength - 1)}...`;
-}
-
 export default function AssessmentStatusFooter({
   session,
   score,
@@ -61,11 +54,12 @@ export default function AssessmentStatusFooter({
           <Progress value={completionRate} tone={completionRate === 100 ? "success" : "info"} />
         </div>
 
-        <div className="grid min-w-0 gap-2 text-xs text-slate-400 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid min-w-0 gap-2 text-xs text-slate-400 md:grid-cols-2 xl:grid-cols-[minmax(160px,0.9fr)_minmax(0,2.55fr)_minmax(112px,0.72fr)_minmax(112px,0.72fr)]">
           <StatusItem label="Domain" value={domainLabel(language, currentDomain)} />
           <StatusItem
             label="Question"
-            value={shorten(currentQuestion?.question || compact(session?.current_question_id))}
+            value={currentQuestion?.question || compact(session?.current_question_id)}
+            emphasized
           />
           <StatusItem label="Score" value={valueLabel(language, scoreStatus)} />
           <StatusItem label="Answers" value={String(answersCount)} />
@@ -75,11 +69,32 @@ export default function AssessmentStatusFooter({
   );
 }
 
-function StatusItem({ label, value }: { label: string; value: string }) {
+function StatusItem({
+  label,
+  value,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  emphasized?: boolean;
+}) {
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2">
+    <div
+      className={[
+        "min-w-0 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2",
+        emphasized ? "status-question-card xl:col-span-1" : "",
+      ].join(" ")}
+    >
       <div className="text-[11px] font-semibold uppercase text-slate-500">{label}</div>
-      <div className="mt-0.5 truncate text-sm font-medium text-slate-100">{value}</div>
+      <div
+        className={
+          emphasized
+            ? "mt-1 text-[15px] font-semibold leading-5 text-slate-50 sm:pr-2"
+            : "mt-0.5 truncate text-sm font-medium text-slate-100"
+        }
+      >
+        {value}
+      </div>
     </div>
   );
 }

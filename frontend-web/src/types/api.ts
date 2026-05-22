@@ -174,6 +174,51 @@ export interface FindingCard {
   owner?: string;
   deadline?: string;
   verification?: string;
+  source_refs?: string[];
+  framework_mappings?: Record<string, string[]>;
+  scoring_rationale_summary?: string;
+  evidence_examples?: string[];
+  attack_mappings?: Array<Record<string, unknown>>;
+  attack_path_notes?: string;
+}
+
+export interface ScoreExplanationQuestion {
+  question_id: string;
+  question?: string;
+  answer?: string | null;
+  points_awarded: number;
+  max_points: number;
+  points_lost: number;
+  rationale?: string;
+  deduction_explanation?: string;
+  recommendation_hint?: string;
+  source_refs?: string[];
+  framework_mappings?: Record<string, string[]>;
+  attack_mappings?: Array<Record<string, unknown>>;
+  evidence_examples?: string[];
+}
+
+export interface ScoreExplanationDomain {
+  domain: string;
+  title?: string;
+  score: number;
+  max_points: number;
+  earned_points: number;
+  questions: ScoreExplanationQuestion[];
+}
+
+export interface AssessmentMethodologySummary {
+  methodology_name?: string;
+  methodology_version?: string;
+  questions_version?: string;
+  scoring_version?: string;
+  score_scale?: {
+    min?: number;
+    max?: number;
+    higher_is_better?: boolean;
+  };
+  important_note?: string;
+  scoring_principles?: string[];
 }
 
 export interface AdvisoryChecklistItem {
@@ -218,6 +263,19 @@ export interface ReportResponse extends ScoreResponse {
     report_prompt_preview?: string;
   };
   sources?: unknown;
+  methodology?: AssessmentMethodologySummary;
+  score_explanation?: {
+    methodology_version?: string;
+    overall_score?: number;
+    score_status?: ScoreStatus;
+    domains?: ScoreExplanationDomain[];
+  };
+  threat_overlay?: {
+    status?: string;
+    description?: string;
+    does_not_affect_score_yet?: boolean;
+    planned_inputs?: string[];
+  };
 }
 
 export interface ChatResponse {

@@ -104,6 +104,8 @@ const reportCopy = {
     vsOfficial: "vs ametlik",
     simulationNote: "Simulation only - official score remains backend-owned.",
     detailedNarrative: "Detailne narratiiv",
+    howScoringWorks: "Kuidas skoor töötab",
+    howScoringWorksDescription: "Versioneeritud küsimused, backendi reeglid ja skoori põhjendus.",
     expanded: "Avatud",
     collapsed: "Vaikimisi suletud",
     sourcesUsed: "Kasutatud allikad",
@@ -152,6 +154,8 @@ const reportCopy = {
     vsOfficial: "vs official",
     simulationNote: "Simulation only - official score remains backend-owned.",
     detailedNarrative: "Detailed narrative",
+    howScoringWorks: "How scoring works",
+    howScoringWorksDescription: "Versioned questions, backend rules, and score rationale.",
     expanded: "Expanded",
     collapsed: "Collapsed by default",
     sourcesUsed: "Sources used",
@@ -200,6 +204,8 @@ const reportCopy = {
     vsOfficial: "\u043a \u043e\u0444\u0438\u0446.",
     simulationNote: "Simulation only - official score remains backend-owned.",
     detailedNarrative: "\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u043d\u0430\u0440\u0440\u0430\u0442\u0438\u0432",
+    howScoringWorks: "\u041a\u0430\u043a \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 score",
+    howScoringWorksDescription: "\u0412\u0435\u0440\u0441\u0438\u043e\u043d\u043d\u044b\u0435 questions, backend rules \u0438 score rationale.",
     expanded: "\u041e\u0442\u043a\u0440\u044b\u0442\u043e",
     collapsed: "\u0421\u043a\u0440\u044b\u0442\u043e \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e",
     sourcesUsed: "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0438",
@@ -404,6 +410,7 @@ function ReportCockpit({
   language: UiLanguage;
 }) {
   const [narrativeOpen, setNarrativeOpen] = useState(false);
+  const [scoringOpen, setScoringOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [simulatorAdjustments, setSimulatorAdjustments] = useState<Record<string, number>>({});
 
@@ -429,6 +436,19 @@ function ReportCockpit({
       : localizedSummary(language, report.overall_score, report.risk_level, completionRate);
   const narrativeText =
     language === "et" && report.llm_report_text ? report.llm_report_text : report.llm_report_text || null;
+  const methodology = report.methodology;
+  const scoringPrinciples = methodology?.scoring_principles?.length
+    ? methodology.scoring_principles
+    : [
+        "Questions are versioned.",
+        "Answers are saved as Yes / Partial / No / Unsure.",
+        "Backend maps saved answers to predefined scoring rules.",
+        "AI can explain questions, but it does not invent points.",
+        "Each scored item has rationale and source mappings.",
+        "Evidence increases confidence and supports validation.",
+        "This is a readiness self-assessment, not a full audit.",
+      ];
+  const scoreExplanationDomains = report.score_explanation?.domains || [];
 
   const sortedDomains = useMemo(
     () => [...domainEntries].sort((a, b) => Number(a[1]?.score ?? 0) - Number(b[1]?.score ?? 0)),
@@ -446,6 +466,7 @@ function ReportCockpit({
     });
     setSimulatorAdjustments(nextAdjustments);
     setNarrativeOpen(false);
+    setScoringOpen(false);
     setSourcesOpen(false);
   }, [report, simulatorDomains]);
 
@@ -864,6 +885,96 @@ function ReportCockpit({
           </div>
         </div>
       </section>
+
+      <ReportDisclosure
+        title={r(language, "howScoringWorks")}
+        description={scoringOpen ? r(language, "expanded") : r(language, "howScoringWorksDescription")}
+        open={scoringOpen}
+        onOpenChange={setScoringOpen}
+      >
+        <div className="space-y-5 text-sm leading-7 text-slate-400">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="report-panel-soft rounded-[22px] px-4 py-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Method</div>
+              <div className="mt-2 text-[15px] font-semibold text-white">
+                {methodology?.methodology_name || "Ransomware Readiness Assessment"}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                v{methodology?.methodology_version || report.score_explanation?.methodology_version || "n/a"}
+              </div>
+            </div>
+            <div className="report-panel-soft rounded-[22px] px-4 py-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Questions</div>
+              <div className="mt-2 text-[15px] font-semibold text-white">
+                {methodology?.questions_version || "Versioned"}
+              </div>
+            </div>
+            <div className="report-panel-soft rounded-[22px] px-4 py-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Scoring</div>
+              <div className="mt-2 text-[15px] font-semibold text-white">
+                {methodology?.scoring_version || report.score_status || "Deterministic"}
+              </div>
+            </div>
+            <div className="report-panel-soft rounded-[22px] px-4 py-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Scale</div>
+              <div className="mt-2 text-[15px] font-semibold text-white">
+                {methodology?.score_scale?.min ?? 0}-{methodology?.score_scale?.max ?? 100}
+              </div>
+            </div>
+          </div>
+
+          <ul className="space-y-2">
+            {scoringPrinciples.map((item) => (
+              <li key={item} className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-slate-300">
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          {scoreExplanationDomains.length ? (
+            <div className="space-y-3">
+              {scoreExplanationDomains.slice(0, 3).map((domain) => {
+                const highlighted = [...(domain.questions || [])]
+                  .sort((a, b) => (b.points_lost || 0) - (a.points_lost || 0))
+                  .slice(0, 2);
+                return (
+                  <div key={domain.domain} className="report-panel-soft rounded-[22px] px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[15px] font-semibold text-white">
+                        {domainLabel(language, domain.domain)}
+                      </div>
+                      <Badge variant="neutral">
+                        {domain.earned_points}/{domain.max_points} pts
+                      </Badge>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {highlighted.map((item) => (
+                        <div key={item.question_id} className="rounded-[18px] border border-white/8 bg-black/20 px-3 py-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                            <span>{item.question_id}</span>
+                            <span>
+                              {item.points_awarded}/{item.max_points} pts
+                            </span>
+                          </div>
+                          {item.rationale ? (
+                            <p className="mt-2 text-sm leading-6 text-slate-300">{item.rationale}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {methodology?.important_note ? (
+            <div className="rounded-[20px] border border-white/8 bg-white/[0.03] px-4 py-3 text-slate-400">
+              {methodology.important_note}
+            </div>
+          ) : null}
+        </div>
+      </ReportDisclosure>
 
       {narrativeText || report.external_exposure_self_check?.items?.length ? (
         <ReportDisclosure

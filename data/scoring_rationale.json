@@ -1,0 +1,812 @@
+{
+  "org_critical_systems_known": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "Critical systems, datasets and business dependencies are listed and prioritized for response and recovery.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: critical system inventory."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Ransomware response is slower and more damaging when nobody knows which systems and data are most critical to keep the organization running. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Ransomware response is slower and more damaging when nobody knows which systems and data are most critical to keep the organization running. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Ransomware response is slower and more damaging when nobody knows which systems and data are most critical to keep the organization running. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "backups_exist": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "Regular backups cover the most important systems and datasets, not only low-value files.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: backup job list."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Ransomware recovery is much harder when business-critical data is not backed up at all. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Ransomware recovery is much harder when business-critical data is not backed up at all. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Ransomware recovery is much harder when business-critical data is not backed up at all. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "backup_frequency_defined": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "Backup frequency is documented, appropriate for the business and someone checks whether jobs succeed.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: backup schedule."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Undefined or unmonitored backup frequency creates hidden data-loss risk during ransomware recovery. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Undefined or unmonitored backup frequency creates hidden data-loss risk during ransomware recovery. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Undefined or unmonitored backup frequency creates hidden data-loss risk during ransomware recovery. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "restore_tested": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "A recent restore test was completed, documented and showed that critical systems or data can be restored within acceptable time and data-loss limits.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: restore test report."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Backups only reduce ransomware impact if the organization can actually restore systems and data from them. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Backups only reduce ransomware impact if the organization can actually restore systems and data from them. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Backups only reduce ransomware impact if the organization can actually restore systems and data from them. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "backup_isolated": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "At least one backup copy is offline, immutable or protected by separate permissions that limit ransomware impact.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: immutable backup setting."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Ransomware can delete or encrypt reachable backups, removing the main recovery option. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Ransomware can delete or encrypt reachable backups, removing the main recovery option. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Ransomware can delete or encrypt reachable backups, removing the main recovery option. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "rto_rpo_known": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "low",
+      "rationale": "Business owners know which systems must be restored fastest and what data-loss tolerance is acceptable.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: recovery target document."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "low",
+      "rationale": "Ransomware decisions are harder when the organization has not defined acceptable downtime or data loss for critical services. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "low",
+      "rationale": "Ransomware decisions are harder when the organization has not defined acceptable downtime or data loss for critical services. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "low",
+      "rationale": "Ransomware decisions are harder when the organization has not defined acceptable downtime or data loss for critical services. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "mfa_admin": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Every privileged and administrator account requires MFA, including service provider and emergency access where practical.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: privileged MFA policy."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Privileged accounts are a common ransomware objective because they can disable defenses, spread access and impact backups. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Privileged accounts are a common ransomware objective because they can disable defenses, spread access and impact backups. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Privileged accounts are a common ransomware objective because they can disable defenses, spread access and impact backups. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "mfa_remote_access": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "VPN, RDP gateway, cloud admin access and other remote administration paths require MFA.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: VPN MFA screenshot."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Password-only remote access is a common ransomware entry path. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Password-only remote access is a common ransomware entry path. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Password-only remote access is a common ransomware entry path. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "mfa_email_cloud": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "MFA is enforced for the main workforce accounts that access email and important cloud services.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: M365 MFA policy."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Email and cloud accounts are common starting points for phishing, account takeover and data access. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Email and cloud accounts are common starting points for phishing, account takeover and data access. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Email and cloud accounts are common starting points for phishing, account takeover and data access. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "unused_accounts_removed": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "Leaver, dormant and unnecessary accounts are removed or disabled on a regular and auditable process.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: offboarding checklist."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Unused or forgotten accounts can give ransomware operators a quiet way back into the environment. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Unused or forgotten accounts can give ransomware operators a quiet way back into the environment. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Unused or forgotten accounts can give ransomware operators a quiet way back into the environment. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "patching_process_exists": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "There is a defined process for prioritizing, approving and applying security updates.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: patching policy."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Ransomware campaigns frequently exploit missing or delayed security updates. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Ransomware campaigns frequently exploit missing or delayed security updates. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Ransomware campaigns frequently exploit missing or delayed security updates. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "critical_patches_30_days": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Critical security updates are usually deployed within 30 days or faster, especially on internet-facing systems.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: patch compliance report."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Delayed patching leaves exploitable weaknesses available to attackers for longer. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Delayed patching leaves exploitable weaknesses available to attackers for longer. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Delayed patching leaves exploitable weaknesses available to attackers for longer. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "internet_facing_known": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "The organization can identify exposed services and confirm their update or compensating control status.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: internet-facing asset list."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Internet-facing services create direct external attack surface for ransomware entry. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Internet-facing services create direct external attack surface for ransomware entry. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Internet-facing services create direct external attack surface for ransomware entry. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "unsupported_systems_known": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "Legacy or unsupported systems are identified, tracked and treated as explicit risk exceptions.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: legacy system register."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Unsupported systems can retain unpatched vulnerabilities that remain exploitable. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Unsupported systems can retain unpatched vulnerabilities that remain exploitable. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Unsupported systems can retain unpatched vulnerabilities that remain exploitable. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "least_privilege": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Users and service roles only have the access they need for their work.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: privilege review record."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Excessive rights give ransomware operators more room to move, disable controls and reach critical assets. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Excessive rights give ransomware operators more room to move, disable controls and reach critical assets. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Excessive rights give ransomware operators more room to move, disable controls and reach critical assets. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "separate_admin_accounts": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Privileged tasks are done with separate named admin accounts, not everyday user accounts.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: separate admin account policy."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Using the same account for daily work and administration increases the chance of privileged compromise. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Using the same account for daily work and administration increases the chance of privileged compromise. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Using the same account for daily work and administration increases the chance of privileged compromise. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "admin_rights_reviewed": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Privileged rights are reviewed on a defined cadence or after role changes.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: quarterly access review."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Privilege accumulates over time unless it is reviewed and removed. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Privilege accumulates over time unless it is reviewed and removed. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Privilege accumulates over time unless it is reviewed and removed. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "third_party_access_controlled": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Third-party access is scoped, reviewed and protected with clear ownership and logging expectations.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: MSP access agreement."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Service provider or partner access can become a ransomware path if it is broad and weakly monitored. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Service provider or partner access can become a ransomware path if it is broad and weakly monitored. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Service provider or partner access can become a ransomware path if it is broad and weakly monitored. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "ir_plan_exists": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "There is a short, usable ransomware response plan covering roles, containment, communication and recovery priorities.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: incident response plan."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Ransomware response is slower and more chaotic without a documented plan. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Ransomware response is slower and more chaotic without a documented plan. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Ransomware response is slower and more chaotic without a documented plan. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "ir_roles_contacts": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Decision makers, technical owners and external contacts are identified and reachable during an outage.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: response contact list."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Clear roles and escalation contacts reduce decision delays during ransomware incidents. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Clear roles and escalation contacts reduce decision delays during ransomware incidents. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Clear roles and escalation contacts reduce decision delays during ransomware incidents. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "ir_plan_tested": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "The ransomware plan has been walked through or tested and the lessons were recorded.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: tabletop exercise record."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Untested plans often break down under real ransomware pressure. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Untested plans often break down under real ransomware pressure. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Untested plans often break down under real ransomware pressure. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "external_reporting_known": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "The organization knows when and how to involve CERT, legal counsel, insurers or law enforcement.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: external escalation note."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Ransomware events can trigger legal, insurance and external reporting decisions under time pressure. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Ransomware events can trigger legal, insurance and external reporting decisions under time pressure. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Ransomware events can trigger legal, insurance and external reporting decisions under time pressure. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "logs_centralized": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Critical logs are centrally collected or otherwise preserved and accessible after an incident.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: log source list."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Ransomware investigation is harder when critical logs are missing or scattered. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Ransomware investigation is harder when critical logs are missing or scattered. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Ransomware investigation is harder when critical logs are missing or scattered. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "endpoint_alerts_monitored": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "high",
+      "rationale": "Endpoint or EDR alerts have an owner, a review process and clear escalation expectations.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: alert queue screenshot."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "high",
+      "rationale": "Security tooling only helps if someone sees and handles the alerts it raises. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "high",
+      "rationale": "Security tooling only helps if someone sees and handles the alerts it raises. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "high",
+      "rationale": "Security tooling only helps if someone sees and handles the alerts it raises. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "failed_logins_monitored": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "Failed or suspicious sign-ins for critical systems are monitored and investigated when needed.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: sign-in monitoring rule."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Suspicious login failures can reveal password attacks, credential stuffing or early compromise attempts. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Suspicious login failures can reveal password attacks, credential stuffing or early compromise attempts. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Suspicious login failures can reveal password attacks, credential stuffing or early compromise attempts. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "file_integrity_or_mass_change_alerts": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "The organization has some way to notice mass file change behavior on critical assets.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: EDR mass change alert."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "Large unexpected file changes can be an early sign of ransomware encryption activity. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "Large unexpected file changes can be an early sign of ransomware encryption activity. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "Large unexpected file changes can be an early sign of ransomware encryption activity. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  },
+  "vulnerability_inventory_known": {
+    "yes": {
+      "risk_impact": "lower",
+      "severity": "medium",
+      "rationale": "There is a current practical list or report of vulnerable, unsupported or outdated software with an owner.",
+      "deduction_explanation": "No points are deducted for this control when the saved answer shows the control is meaningfully in place.",
+      "recommendation_hint": "Keep evidence current, for example: vulnerability report."
+    },
+    "partial": {
+      "risk_impact": "medium",
+      "severity": "medium",
+      "rationale": "The organization cannot prioritize remediation well if it does not know which vulnerable or outdated software exists. Partial coverage means the control exists, but not with enough consistency, scope or evidence.",
+      "deduction_explanation": "Partial points are deducted because the control may not hold across all critical systems, users or recovery scenarios.",
+      "recommendation_hint": "Clarify scope, owner and next improvement step, then collect one piece of current evidence."
+    },
+    "no": {
+      "risk_impact": "high",
+      "severity": "medium",
+      "rationale": "The organization cannot prioritize remediation well if it does not know which vulnerable or outdated software exists. A missing control leaves the organization more exposed during common ransomware paths or impact phases.",
+      "deduction_explanation": "Most points are deducted because the deterministic scoring rules do not award points for a missing control.",
+      "recommendation_hint": "Implement the minimum viable version of this control and document who owns it."
+    },
+    "unsure": {
+      "risk_impact": "unknown_high",
+      "severity": "medium",
+      "rationale": "The organization cannot prioritize remediation well if it does not know which vulnerable or outdated software exists. Unknown control status should be treated as risk until the organization can verify it.",
+      "deduction_explanation": "Points are not awarded when the control cannot be verified from the saved answer.",
+      "recommendation_hint": "Ask the responsible IT owner or provider for the latest evidence and save a verified structured answer."
+    }
+  }
+}

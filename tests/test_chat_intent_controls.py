@@ -269,6 +269,28 @@ def test_early_clarification_repeats_current_question_before_first_answer(monkey
     assert "Kas organisatsioon teab" in data["assistant_message"]
 
 
+def test_early_smalltalk_repeats_current_question_before_first_answer(monkeypatch: pytest.MonkeyPatch):
+    _mock_chat_decision(
+        monkeypatch,
+        action="smalltalk",
+        confidence=0.88,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "answer_smalltalk_with_llm",
+        lambda *_, **__: {"message": "Hästi, aitäh.", "provider": "openai", "used_fallback": False},
+    )
+
+    start = _chat("", "tere")
+    sid = start["session_id"]
+
+    data = _chat(sid, "kuidas läheb")
+
+    assert data["response_type"] == "smalltalk"
+    assert "Praegune küsimus:" in data["assistant_message"]
+    assert "Kas organisatsioon teab" in data["assistant_message"]
+
+
 def test_mocked_llm_ask_confirmation_creates_pending_answer(monkeypatch: pytest.MonkeyPatch):
     _mock_chat_decision(
         monkeypatch,

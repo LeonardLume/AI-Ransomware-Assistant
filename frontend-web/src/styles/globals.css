@@ -190,19 +190,27 @@ textarea {
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 14%),
     linear-gradient(180deg, rgba(9, 12, 18, 0.14), rgba(4, 4, 8, 0.38));
   opacity: 0.96;
+  animation: chat-shell-inner-breathe 5.4s ease-in-out infinite;
 }
 
 .chat-panel-shell::after {
   position: absolute;
-  inset: 0;
+  inset: -24px;
   z-index: -1;
   pointer-events: none;
   content: "";
   background:
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 22%),
-    radial-gradient(circle at 18% 18%, rgba(101, 137, 230, 0.08) 0%, transparent 28%),
-    radial-gradient(circle at 82% 84%, rgba(152, 70, 141, 0.08) 0%, transparent 26%);
-  opacity: 0.92;
+    radial-gradient(circle at 50% 10%, rgba(96, 165, 250, 0.18) 0%, transparent 30%),
+    radial-gradient(circle at 18% 18%, rgba(101, 137, 230, 0.18) 0%, transparent 28%),
+    radial-gradient(circle at 82% 84%, rgba(152, 70, 141, 0.18) 0%, transparent 26%),
+    radial-gradient(circle at 52% 100%, rgba(45, 212, 191, 0.12) 0%, transparent 30%);
+  opacity: 0.52;
+  filter: blur(28px);
+  animation: chat-shell-halo-breathe 5.4s ease-in-out infinite;
+}
+
+.chat-panel-shell {
+  animation: chat-shell-frame-breathe 5.4s ease-in-out infinite;
 }
 
 .chat-panel-shell > .border-b,
@@ -218,6 +226,69 @@ textarea {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 16px 42px rgba(0, 0, 0, 0.14);
+}
+
+.status-question-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(125, 211, 252, 0.34);
+  background:
+    linear-gradient(180deg, rgba(48, 66, 112, 0.38), rgba(14, 18, 28, 0.3)),
+    rgba(255, 255, 255, 0.055);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(125, 211, 252, 0.16),
+    0 18px 46px rgba(4, 12, 28, 0.34),
+    0 0 38px rgba(56, 189, 248, 0.16);
+}
+
+.status-question-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.status-question-card::before,
+.status-question-card::after {
+  position: absolute;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.status-question-card::before {
+  inset: -1px;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(34, 211, 238, 0.95),
+    rgba(96, 165, 250, 0.98),
+    rgba(168, 85, 247, 0.92),
+    rgba(244, 114, 182, 0.86),
+    rgba(45, 212, 191, 0.94),
+    rgba(34, 211, 238, 0.95)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.96;
+  animation:
+    status-question-pulse 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite,
+    status-question-border-flow 4.8s linear infinite;
+}
+
+.status-question-card::after {
+  inset: -10px;
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  opacity: 0.72;
+  filter: blur(10px);
+  box-shadow:
+    0 0 22px rgba(34, 211, 238, 0.22),
+    0 0 34px rgba(96, 165, 250, 0.18),
+    0 0 48px rgba(168, 85, 247, 0.14);
+  animation: status-question-halo 2.8s ease-in-out infinite;
 }
 
 .chat-composer-shell {
@@ -653,6 +724,144 @@ html.dark .text-slate-400 {
   }
 }
 
+@keyframes chat-shell-inner-breathe {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+}
+
+@keyframes chat-shell-halo-breathe {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scale(0.992);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes chat-shell-frame-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 22px 58px rgba(0, 0, 0, 0.34),
+      0 0 0 1px rgba(96, 165, 250, 0.04),
+      0 0 28px rgba(96, 165, 250, 0.08),
+      0 0 42px rgba(168, 85, 247, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 26px 66px rgba(0, 0, 0, 0.38),
+      0 0 0 1px rgba(96, 165, 250, 0.08),
+      0 0 40px rgba(96, 165, 250, 0.16),
+      0 0 66px rgba(168, 85, 247, 0.1);
+  }
+}
+
+@keyframes status-question-pulse {
+  0%,
+  100% {
+    opacity: 0.8;
+    filter: saturate(108%) brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: saturate(132%) brightness(1.12);
+  }
+}
+
+@keyframes status-question-border-flow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes status-question-halo {
+  0% {
+    opacity: 0.42;
+    transform: scale(0.992);
+  }
+  50% {
+    opacity: 0.88;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 0.42;
+    transform: scale(0.992);
+  }
+}
+
+@keyframes dialog-overlay-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+@keyframes dialog-overlay-fade-out {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+@keyframes dialog-content-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 30px)) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes dialog-content-exit {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 24px)) scale(0.965);
+  }
+}
+
+.dialog-overlay-animated[data-state="open"] {
+  animation: dialog-overlay-fade-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dialog-overlay-animated[data-state="closed"] {
+  animation: dialog-overlay-fade-out 260ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.dialog-content-animated[data-state="open"] {
+  animation: dialog-content-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dialog-content-animated[data-state="closed"] {
+  animation: dialog-content-exit 260ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.dark body::before,
   .main-workspace::before,
@@ -676,7 +885,11 @@ html.dark .text-slate-400 {
   .report-scene .report-hover-lift,
   .report-scene .report-collapse,
   .artifact-overlay-enter,
-  .artifact-content-enter {
+  .artifact-content-enter,
+  .dialog-overlay-animated,
+  .dialog-content-animated,
+  .status-question-card::before,
+  .status-question-card::after {
     animation: none;
     transition: none;
   }

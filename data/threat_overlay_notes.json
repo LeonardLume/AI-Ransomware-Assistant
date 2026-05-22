@@ -1,0 +1,12 @@
+{
+  "status": "placeholder",
+  "description": "Future layer for CISA KEV, ransomware threat reports and vulnerability-driven risk modifiers.",
+  "does_not_affect_score_yet": true,
+  "planned_inputs": [
+    "known exploited vulnerabilities",
+    "internet-facing software inventory",
+    "identity exposure",
+    "backup access path",
+    "recent ransomware TTPs"
+  ]
+}

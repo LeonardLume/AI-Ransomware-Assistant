@@ -1,201 +1,136 @@
 # AI Ransomware Readiness Assistant
 
-Defensive AI assistant for ransomware readiness interviews, scoring, and practical recovery planning.
-
-This project helps an organization answer a structured readiness questionnaire in plain language, saves normalized answers, calculates a deterministic backend-controlled score, and generates a practical report with findings, next steps, and evidence guidance.
-
-The AI layer is used for conversation, clarification, and free-text interpretation. It does not calculate, override, or invent the official score.
-
-## What The Project Does
-
-- Runs a controlled readiness interview from `data/questions.json`.
-- Accepts free-text answers through a chat interface.
-- Normalizes answers into `yes`, `partial`, `no`, or `unsure`.
-- Calculates the official score only from backend rules in `data/scoring_rules.json`.
-- Generates a backend report, findings, action plan, and evidence checklist.
-- Provides demo profiles for quick product demonstrations.
-- Supports OpenAI-compatible providers, OpenRouter, Ollama, and offline fallback mode.
-
-## What The Project Does Not Do
-
-- It is not a full security audit.
-- It does not scan infrastructure.
-- It does not perform pentesting.
-- It does not enumerate external systems.
-- It does not provide malware, exploit, bypass, or offensive security guidance.
-- It does not allow the LLM to control the readiness score.
-
-## Architecture
-
-Main project areas:
-
-- `backend/` - FastAPI API, interview logic, scoring, reports, storage, and guardrails.
-- `frontend-web/` - main React + Vite web interface.
-- `frontend/` - legacy Streamlit interface.
-- `data/` - questions, scoring rules, demo profiles, metadata, and checklists.
-- `skills/` - defensive playbooks used for explanations and recommendations.
-- `prompts/` - LLM prompts for interview, extraction, advisory, and reporting flows.
-- `tests/` - backend regression and unit tests.
-- `docker-compose.yml` - Docker deployment with backend and Caddy-served frontend.
-
-High-level flow:
-
-1. A user creates or opens a session.
-2. The backend asks questions from `data/questions.json`.
-3. The user answers in normal language.
-4. The AI layer may clarify, explain, or interpret the answer.
-5. The backend validates and saves a structured answer.
-6. The backend calculates score from `data/scoring_rules.json`.
-7. The backend generates the final report and action plan.
-
-## Tech Stack
-
-- Python 3.10+
-- FastAPI
-- Uvicorn
-- Pydantic
-- LangGraph for optional dialog routing
-- React 18
-- Vite
-- TypeScript
-- Tailwind CSS
-- Docker
-- Caddy
-
-## Quick Start On Windows
-
-Requirements:
-
-- Python 3.10+
-- Node.js 18+
-- npm
-
-Start the full local app:
+**Turn messy ransomware readiness conversations into a scored interview, a practical report, and a next-step plan your team can actually use.**
 
 ```powershell
-.\start.bat
+copy .env.example .env
+start.bat
 ```
 
-Open:
+Open `http://127.0.0.1:5173` and start answering.
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://127.0.0.1:8000`
-- API docs: `http://127.0.0.1:8000/docs`
-- Provider status: `http://127.0.0.1:8000/provider/status`
+This project is for teams that want a guided ransomware readiness check without handing scoring control to the model. The chat feels natural. The score stays backend-controlled. The output is something you can review with IT, leadership, or a client.
 
-`start.bat` calls `scripts/dev.ps1`, creates `.venv` if needed, installs backend/frontend dependencies, and starts both the FastAPI backend and Vite frontend.
+## Why It Exists
 
-## Manual Development Start
+| You need | What this app gives you |
+| --- | --- |
+| A fast ransomware readiness review | A guided interview with quick answers and free-text chat |
+| Consistent scoring | Deterministic backend rules from `data/scoring_rules.json` |
+| Plain-language explanations | LLM-powered clarification and advisory replies |
+| A usable outcome | Report, findings, action plan, and evidence checklist |
+| Safe behavior | Guardrails for prompt injection and offensive requests |
 
-Backend only:
+## What You Get
+
+| Part | What it does |
+| --- | --- |
+| `backend/` | FastAPI API, interview flow, scoring, reports, storage, guardrails |
+| `frontend-web/` | Main React + Vite web app |
+| `frontend/` | Legacy Streamlit UI |
+| `data/` | Questions, scoring rules, demo profiles, checklists |
+| `prompts/` | LLM prompts for chat, clarification, advisory, and reporting |
+| `tests/` | Backend regression and unit tests |
+
+## Quick Start
+
+### Windows
+
+Use a real model:
 
 ```powershell
-.\run_backend.bat
+copy .env.example .env
+start.bat
 ```
 
-Frontend only:
+Use offline fallback mode:
 
 ```powershell
-.\run_frontend.bat
+copy .env.example .env
+powershell -Command "(Get-Content .env) -replace 'LLM_PROVIDER=openai','LLM_PROVIDER=fallback' -replace 'OPENAI_API_KEY=your-api-key-here','OPENAI_API_KEY=' | Set-Content .env"
+start.bat
 ```
 
-Manual commands:
+### macOS / Linux
 
-```powershell
-# backend
-.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-
-# frontend
-cd frontend-web
-npm install
-npm run dev
-```
-
-## macOS And Linux
+Use a real model:
 
 ```bash
+cp .env.example .env
 chmod +x start.sh scripts/dev.sh
 ./start.sh
 ```
 
-Default local URLs:
-
-- Frontend: `http://localhost:5173`
-- Backend: `http://127.0.0.1:8000`
-
-## Public Demo Tunnel
-
-For a temporary public demo link from your local machine:
-
-Windows:
-
-```powershell
-.\start_public.bat
-```
-
-macOS/Linux:
+Use offline fallback mode:
 
 ```bash
-./start_public.sh
+cp .env.example .env
+python - <<'PY'
+from pathlib import Path
+path = Path(".env")
+text = path.read_text()
+text = text.replace("LLM_PROVIDER=openai", "LLM_PROVIDER=fallback")
+text = text.replace("OPENAI_API_KEY=your-api-key-here", "OPENAI_API_KEY=")
+path.write_text(text)
+PY
+chmod +x start.sh scripts/dev.sh
+./start.sh
 ```
 
-This uses a Cloudflare Quick Tunnel and exposes the frontend while proxying `/api` back to the local backend.
+### Open After Start
 
-## Docker Start
+| URL | Purpose |
+| --- | --- |
+| `http://127.0.0.1:5173` | Frontend |
+| `http://127.0.0.1:8000` | Backend |
+| `http://127.0.0.1:8000/docs` | API docs |
+| `http://127.0.0.1:8000/provider/status` | LLM provider status |
 
-Requirements:
+## How To Run It
 
-- Docker Desktop or Docker Engine
+### Recommended
 
-Create `.env`:
+| Command | What happens |
+| --- | --- |
+| `start.bat` | Windows full app: backend + frontend |
+| `./start.sh` | macOS/Linux full app: backend + frontend |
+| `start_public.bat` | Windows full app + temporary public tunnel |
+| `./start_public.sh` | macOS/Linux full app + temporary public tunnel |
+
+### Run Backend Only
 
 ```powershell
-copy .env.production.example .env
+run_backend.bat
 ```
 
-Start:
+Or manually:
 
 ```powershell
-docker compose up -d --build
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open:
-
-```text
-http://localhost
-```
-
-In Docker mode:
-
-- Caddy serves the built React frontend.
-- `/api/*` is proxied to the FastAPI backend.
-- Runtime backend data is stored in the `backend_data` Docker volume.
-- The backend is not exposed directly on a host port by default.
-
-Useful commands:
+### Run Frontend Only
 
 ```powershell
-docker compose logs -f
-docker compose down
-docker compose up -d --build
+run_frontend.bat
 ```
 
-After backend, prompt, or frontend changes, rebuild with `docker compose up -d --build`.
-
-## LLM Provider Setup
-
-Create `.env` from `.env.example`:
+Or manually:
 
 ```powershell
-copy .env.example .env
+cd frontend-web
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-### OpenAI-Compatible Provider
+## Model Setup
+
+### OpenAI
 
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your-api-key-here
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-5.4-mini
 OPENAI_BASE_URL=https://api.openai.com/v1
 REQUEST_TIMEOUT_SECONDS=120
 ```
@@ -219,95 +154,78 @@ OLLAMA_URL=http://localhost:11434/api/generate
 REQUEST_TIMEOUT_SECONDS=120
 ```
 
-### Offline Fallback
+### Fallback
 
 ```env
 LLM_PROVIDER=fallback
 REQUEST_TIMEOUT_SECONDS=120
 ```
 
-Fallback mode keeps the app usable for demos, but responses are less natural than with a real LLM provider.
+## Docker
 
-## Security And Runtime Settings
-
-Common environment variables:
-
-```env
-API_AUTH_TOKEN=
-RATE_LIMIT_CHAT_PER_MINUTE=20
-RATE_LIMIT_REPORT_PER_MINUTE=10
-RATE_LIMIT_DEMO_PER_MINUTE=5
-TRUST_PROXY_HEADERS=0
-USE_LANGGRAPH_DIALOG=0
+```powershell
+copy .env.production.example .env
+docker compose up -d --build
 ```
 
-If `API_AUTH_TOKEN` is set, protected API routes require a bearer token. For simple local demos, leave it empty. If you enable it during frontend development, also provide `VITE_API_AUTH_TOKEN` to the frontend build or dev server.
+Open `http://localhost`.
 
-`USE_LANGGRAPH_DIALOG=1` enables the graph-backed dialog route. `USE_LANGGRAPH_DIALOG=0` uses the standard chat controller path.
+| Docker piece | Role |
+| --- | --- |
+| Caddy | Serves the built frontend |
+| FastAPI | Handles scoring, chat, reports, and sessions |
+| `backend_data` volume | Keeps backend runtime data between restarts |
 
-## Main API Endpoints
+## How The Chat Behaves
 
-- `GET /` - service health and LLM status.
-- `GET /provider/status` - LLM provider status.
-- `POST /session` - create a session.
-- `GET /questions` - list interview questions.
-- `POST /answer` - save a structured answer.
-- `POST /chat` - chat interview endpoint.
-- `GET /score/{session_id}` - calculate session score.
-- `GET /report/{session_id}` - generate session report.
-- `GET /session/{session_id}` - read session state.
-- `POST /demo/load-profile` - load a demo profile.
-- `GET /technical/flow` - return the technical workflow description.
+| Chat behavior | Result |
+| --- | --- |
+| Quick answer buttons | Save structured `yes / partial / no / unsure` immediately |
+| Free-text answer | LLM proposes intent and normalized answer |
+| Ambiguous free-text | Backend asks for confirmation instead of auto-saving |
+| Clarification request | Assistant explains the current question |
+| General advisory question | Assistant gives defensive guidance without changing score |
+| Prompt injection or offensive request | Request is refused before scoring logic is touched |
+
+The model does not calculate the official score. It does not mutate score state directly. It does not rewrite `questions.json` or `scoring_rules.json`.
+
+## Assessment methodology
+
+| File / module | Role |
+| --- | --- |
+| `data/questions.json` | Defines the interview questions, domains, source mappings, and per-question methodology notes |
+| `data/scoring_rules.json` | Defines the official point values for `yes / partial / no / unsure` |
+| `data/scoring_rationale.json` | Explains why each saved answer raises, lowers, or withholds points |
+| `data/source_registry.json` | Maps stable source IDs to named frameworks and guidance |
+| `data/assessment_methodology.json` | Versions the assessment methodology and its scoring principles |
+| `backend/scoring.py` | Calculates the official score deterministically and explains awarded/lost points |
+
+The official score is backend-owned. AI can explain questions and help normalize answers, but it does not calculate or alter the score.
+
+MITRE ATT&CK mappings are included as contextual traceability only. They are not a full attack simulation. The threat overlay is planned and versioned, but it does not affect the score yet.
+
+Validate the assessment data:
+
+```powershell
+python scripts/validate_assessment_data.py
+```
 
 ## Testing
 
-Backend tests:
+Backend:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
-```
-
-Backend lint subset:
-
-```powershell
-.\.venv\Scripts\python.exe -m ruff check backend/config.py backend/main.py backend/storage.py backend/security.py tests/test_workflow.py --ignore E501
+py -m pytest
 ```
 
 Frontend:
 
 ```powershell
 cd frontend-web
-npm run lint
 npm run build
 ```
 
-## Typical User Flow
+## Author
 
-1. Open the frontend.
-2. Start the readiness interview.
-3. Answer questions in normal language.
-4. Ask for clarification when needed.
-5. Complete the interview.
-6. Review the readiness report, findings, and action plan.
-7. Use the evidence checklist to prepare follow-up work.
-
-Example chat messages:
-
-```text
-What does MFA mean?
-Show me an example.
-We have backups, but we have not tested restore recently.
-Generate the report.
-```
-
-## Project Status
-
-This is an MVP/demo-ready defensive ransomware readiness assessment app.
-
-Core principles:
-
-- The official score is deterministic and backend-controlled.
-- The LLM can explain and interpret, but it does not make scoring decisions.
-- The project focuses on preparation, recovery, access control, monitoring, backup strategy, incident response, and employee security hygiene.
-- Offensive, exploit, malware, or bypass requests should be blocked by guardrails.
-
+[![Author: Leonard Lume](https://img.shields.io/badge/Author-Leonard%20Lume-111827?style=for-the-badge&logo=github)](https://github.com/LeonardLume)
+[![Project Repo](https://img.shields.io/badge/GitHub-AI--Ransomware--Assistant-2563eb?style=for-the-badge&logo=github)](https://github.com/LeonardLume/AI-Ransomware-Assistant)

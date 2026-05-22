@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.questions import load_questions, load_scoring_rules, load_domain_metadata
+from backend.questions import (
+    load_assessment_methodology,
+    load_domain_metadata,
+    load_questions,
+    load_scoring_rationale,
+    load_scoring_rules,
+)
 
 
 def risk_level_from_score(score: int) -> str:
@@ -92,4 +98,71 @@ def calculate_scores(answer_records: dict[str, dict[str, Any]]) -> dict[str, Any
         "domain_scores": domain_scores,
         "domain_details": domain_details,
         "unanswered_questions": [qid for qid in required_question_ids if qid not in answer_records],
+    }
+
+
+def explain_score(answer_records: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    questions = load_questions()
+    rules = load_scoring_rules()
+    rationale = load_scoring_rationale()
+    methodology = load_assessment_methodology()
+    score_result = calculate_scores(answer_records)
+
+    domains: list[dict[str, Any]] = []
+    for domain, detail in score_result["domain_details"].items():
+        domain_questions: list[dict[str, Any]] = []
+        earned_points = 0
+        max_points = 0
+
+        for question in questions:
+            if question["domain"] != domain:
+                continue
+            qid = question["id"]
+            if qid not in rules:
+                continue
+
+            rule = rules[qid]
+            record = answer_records.get(qid, {})
+            answer = str(record.get("answer") or "").strip().lower() or None
+            awarded = int(rule.get(answer, 0)) if answer else 0
+            maximum = int(max(rule.values()))
+            rationale_key = answer or "unsure"
+            entry_rationale = rationale.get(qid, {}).get(rationale_key, {})
+
+            earned_points += awarded
+            max_points += maximum
+            domain_questions.append(
+                {
+                    "question_id": qid,
+                    "question": question.get("question"),
+                    "answer": answer,
+                    "points_awarded": awarded,
+                    "max_points": maximum,
+                    "points_lost": maximum - awarded,
+                    "rationale": entry_rationale.get("rationale", ""),
+                    "deduction_explanation": entry_rationale.get("deduction_explanation", ""),
+                    "recommendation_hint": entry_rationale.get("recommendation_hint", ""),
+                    "source_refs": list(question.get("source_refs") or []),
+                    "framework_mappings": dict(question.get("framework_mappings") or {}),
+                    "attack_mappings": list(question.get("attack_mappings") or []),
+                    "evidence_examples": list(question.get("evidence_examples") or []),
+                }
+            )
+
+        domains.append(
+            {
+                "domain": domain,
+                "title": detail.get("title", domain),
+                "score": detail.get("score", 0),
+                "max_points": max_points,
+                "earned_points": earned_points,
+                "questions": domain_questions,
+            }
+        )
+
+    return {
+        "methodology_version": methodology.get("methodology_version"),
+        "overall_score": score_result["overall_score"],
+        "score_status": score_result["score_status"],
+        "domains": domains,
     }

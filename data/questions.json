@@ -4,287 +4,1406 @@
     "domain": "incident_response",
     "question": "Kas organisatsioon teab, millised süsteemid ja andmed on töö jätkumiseks kõige kriitilisemad?",
     "help": "Näiteks raamatupidamine, kliendiandmed, failiserver, e-post, tootmissüsteemid.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CISA StopRansomware"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CISA_STOPRANSOMWARE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RS.RP",
+        "RS.CO"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_17"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Prepared response reduces delay after ransomware impact has begun."
+      }
+    ],
+    "why_it_matters": "Ransomware response is slower and more damaging when nobody knows which systems and data are most critical to keep the organization running.",
+    "what_good_looks_like": "Critical systems, datasets and business dependencies are listed and prioritized for response and recovery.",
+    "evidence_examples": [
+      "critical system inventory",
+      "recovery priority list",
+      "business owner list"
+    ],
+    "how_to_answer": "Answer yes only if the organization can name and prioritize the systems and data it depends on.",
+    "common_misunderstanding": "Knowing the IT environment in general is not the same as knowing what must be restored first during ransomware recovery.",
+    "scoring_note": "This question matters because prioritization improves decision speed during a ransomware incident."
   },
   {
     "id": "backups_exist",
     "domain": "backups",
     "question": "Kas kriitilistest andmetest tehakse regulaarsed varukoopiad?",
     "help": "Hinnake ainult ärikriitilisi andmeid ja süsteeme.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CISA StopRansomware", "NCSC ransomware guidance"]
+    "source_refs": [
+      "CISA_STOPRANSOMWARE",
+      "NCSC_RANSOMWARE_GUIDANCE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RC.RP",
+        "RC.IM"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_11"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Recoverability reduces uncertainty after data encryption impact."
+      }
+    ],
+    "why_it_matters": "Ransomware recovery is much harder when business-critical data is not backed up at all.",
+    "what_good_looks_like": "Regular backups cover the most important systems and datasets, not only low-value files.",
+    "evidence_examples": [
+      "backup job list",
+      "backup scope document",
+      "MSP backup summary"
+    ],
+    "how_to_answer": "Answer yes only if business-critical data is actually backed up on a defined schedule.",
+    "common_misunderstanding": "Having some storage snapshots or ad hoc copies is not the same as having dependable backups for critical data.",
+    "scoring_note": "Backup coverage is foundational, but later questions test whether that coverage is trustworthy during ransomware recovery."
   },
   {
     "id": "backup_frequency_defined",
     "domain": "backups",
     "question": "Kas varukoopiate tegemise sagedus on selgelt määratud ja jälgitav?",
     "help": "Näiteks iga päev / iga nädal ning keegi kontrollib, kas tööd õnnestusid.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CIS Controls v8"]
+    "source_refs": [
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RC.RP",
+        "RC.IM"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_11"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Recoverability reduces uncertainty after data encryption impact."
+      }
+    ],
+    "why_it_matters": "Undefined or unmonitored backup frequency creates hidden data-loss risk during ransomware recovery.",
+    "what_good_looks_like": "Backup frequency is documented, appropriate for the business and someone checks whether jobs succeed.",
+    "evidence_examples": [
+      "backup schedule",
+      "backup monitoring dashboard",
+      "failed job review record"
+    ],
+    "how_to_answer": "Answer yes only if backup frequency and success monitoring are both clear.",
+    "common_misunderstanding": "A vendor saying backups exist is not enough if no one checks timing and success.",
+    "scoring_note": "This control supports backup reliability and data-loss planning."
   },
   {
     "id": "restore_tested",
     "domain": "backups",
     "question": "Kas varukoopiatest taastamist on viimase 6 kuu jooksul testitud?",
     "help": "Ainult backupi olemasolust ei piisa; ransomware olukorras loeb taastamine.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CISA StopRansomware", "NCSC ransomware guidance"]
+    "source_refs": [
+      "CISA_STOPRANSOMWARE",
+      "NCSC_RANSOMWARE_GUIDANCE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RC.RP",
+        "RC.IM"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_11"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Recoverability reduces uncertainty after data encryption impact."
+      }
+    ],
+    "why_it_matters": "Backups only reduce ransomware impact if the organization can actually restore systems and data from them.",
+    "what_good_looks_like": "A recent restore test was completed, documented and showed that critical systems or data can be restored within acceptable time and data-loss limits.",
+    "evidence_examples": [
+      "restore test report",
+      "restore test date",
+      "name of restored system or dataset",
+      "test result",
+      "RTO/RPO result if available"
+    ],
+    "how_to_answer": "Answer yes only if restore was actually tested. Answer partial if testing exists but coverage, freshness or documentation is unclear.",
+    "common_misunderstanding": "Having backups is not the same as knowing that restore will work during a ransomware incident.",
+    "scoring_note": "Restore testing has high scoring weight because recovery capability is one of the most important ransomware resilience controls."
   },
   {
     "id": "backup_isolated",
     "domain": "backups",
     "question": "Kas vähemalt üks varukoopia on ransomware'i eest kaitstud: offline, immutable või eraldatud õigustega?",
     "help": "Kui ründaja saab backupi kustutada või krüpteerida, ei ole see lunavara puhul usaldusväärne.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CISA StopRansomware", "NCSC ransomware guidance"]
+    "source_refs": [
+      "CISA_STOPRANSOMWARE",
+      "NCSC_RANSOMWARE_GUIDANCE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RC.RP",
+        "RC.IM"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_11"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Recoverability reduces uncertainty after data encryption impact."
+      }
+    ],
+    "why_it_matters": "Ransomware can delete or encrypt reachable backups, removing the main recovery option.",
+    "what_good_looks_like": "At least one backup copy is offline, immutable or protected by separate permissions that limit ransomware impact.",
+    "evidence_examples": [
+      "immutable backup setting",
+      "offline media process",
+      "separate backup credential evidence"
+    ],
+    "how_to_answer": "Answer yes only if at least one backup copy is clearly protected from normal domain compromise.",
+    "common_misunderstanding": "A backup on the same reachable environment may not survive the same attack that hits production.",
+    "scoring_note": "Protected backup copies carry high weight because they directly influence whether recovery remains possible."
   },
   {
     "id": "rto_rpo_known",
     "domain": "backups",
     "question": "Kas on teada, kui kiiresti tuleb kriitilised süsteemid taastada ja kui palju andmekadu on lubatav?",
     "help": "See on lihtsustatud RTO/RPO küsimus.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0"]
+    "source_refs": [
+      "NIST_CSF_2"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RC.RP",
+        "RC.IM"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_11"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Recoverability reduces uncertainty after data encryption impact."
+      }
+    ],
+    "why_it_matters": "Ransomware decisions are harder when the organization has not defined acceptable downtime or data loss for critical services.",
+    "what_good_looks_like": "Business owners know which systems must be restored fastest and what data-loss tolerance is acceptable.",
+    "evidence_examples": [
+      "recovery target document",
+      "RTO/RPO note",
+      "priority recovery worksheet"
+    ],
+    "how_to_answer": "Answer yes only if the organization has at least practical recovery target expectations for critical services.",
+    "common_misunderstanding": "General urgency is not the same as defining acceptable downtime or data-loss limits.",
+    "scoring_note": "This control shapes recovery planning quality but depends on backups and restore capability to be meaningful."
   },
   {
     "id": "mfa_admin",
     "domain": "mfa_access",
     "question": "Kas MFA on kohustuslik administraatori- ja privilegeeritud kontodel?",
     "help": "Admin-kontod on ransomware ründaja jaoks eriti väärtuslikud.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC ransomware guidance", "CIS Controls v8"]
+    "source_refs": [
+      "NCSC_RANSOMWARE_GUIDANCE",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Identity protection reduces common pre-impact credential compromise and remote access abuse."
+      }
+    ],
+    "why_it_matters": "Privileged accounts are a common ransomware objective because they can disable defenses, spread access and impact backups.",
+    "what_good_looks_like": "Every privileged and administrator account requires MFA, including service provider and emergency access where practical.",
+    "evidence_examples": [
+      "privileged MFA policy",
+      "identity MFA coverage report",
+      "admin account list with MFA status"
+    ],
+    "how_to_answer": "Answer yes only if all privileged accounts are covered, not only some of them.",
+    "common_misunderstanding": "Protecting only standard users does not compensate for missing MFA on admin accounts.",
+    "scoring_note": "Admin MFA has high weight because privileged credential compromise is one of the fastest routes to ransomware impact."
   },
   {
     "id": "mfa_remote_access",
     "domain": "mfa_access",
     "question": "Kas MFA on kasutusel VPN-i, RDP, pilvekonsoolide või muu kaugligipääsu puhul?",
     "help": "Kaugligipääs ilma MFA-ta on tavaline ransomware sisenemiskoht.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC ransomware guidance", "CISA StopRansomware"]
+    "source_refs": [
+      "NCSC_RANSOMWARE_GUIDANCE",
+      "CISA_STOPRANSOMWARE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Identity protection reduces common pre-impact credential compromise and remote access abuse."
+      }
+    ],
+    "why_it_matters": "Password-only remote access is a common ransomware entry path.",
+    "what_good_looks_like": "VPN, RDP gateway, cloud admin access and other remote administration paths require MFA.",
+    "evidence_examples": [
+      "VPN MFA screenshot",
+      "remote access policy",
+      "cloud admin access MFA rule"
+    ],
+    "how_to_answer": "Answer yes only if remote access consistently requires MFA across the main paths.",
+    "common_misunderstanding": "MFA on email alone does not protect remote access channels used for administration.",
+    "scoring_note": "Remote access MFA is weighted heavily because exposed access paths are frequent ransomware entry points."
   },
   {
     "id": "mfa_email_cloud",
     "domain": "mfa_access",
     "question": "Kas MFA on kasutusel e-posti ja oluliste pilveteenuste puhul?",
     "help": "E-post ja pilveteenused on tihti esimene ligipääs või andmelekke koht.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Identity protection reduces common pre-impact credential compromise and remote access abuse."
+      }
+    ],
+    "why_it_matters": "Email and cloud accounts are common starting points for phishing, account takeover and data access.",
+    "what_good_looks_like": "MFA is enforced for the main workforce accounts that access email and important cloud services.",
+    "evidence_examples": [
+      "M365 MFA policy",
+      "identity provider report",
+      "conditional access rule"
+    ],
+    "how_to_answer": "Answer yes only if MFA is broadly enforced, not only for a small subset of users.",
+    "common_misunderstanding": "A policy intention is not the same as confirmed MFA coverage.",
+    "scoring_note": "This control lowers credential abuse risk but is distinct from privileged and remote access MFA."
   },
   {
     "id": "unused_accounts_removed",
     "domain": "mfa_access",
     "question": "Kas vanad, kasutamata või lahkunud töötajate kontod eemaldatakse regulaarselt?",
     "help": "Ründajad kasutavad sageli unustatud kontosid.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC cyber threat heightened guidance", "CIS Controls v8"]
+    "source_refs": [
+      "NCSC_CYBER_THREAT_HEIGHTENED",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Identity protection reduces common pre-impact credential compromise and remote access abuse."
+      }
+    ],
+    "why_it_matters": "Unused or forgotten accounts can give ransomware operators a quiet way back into the environment.",
+    "what_good_looks_like": "Leaver, dormant and unnecessary accounts are removed or disabled on a regular and auditable process.",
+    "evidence_examples": [
+      "offboarding checklist",
+      "account review record",
+      "inactive account report"
+    ],
+    "how_to_answer": "Answer yes only if old or unused accounts are removed consistently, not ad hoc.",
+    "common_misunderstanding": "Knowing that accounts should be removed is not the same as a regular process that proves it.",
+    "scoring_note": "This control supports identity hygiene and reduces hidden persistence risk."
   },
   {
     "id": "patching_process_exists",
     "domain": "patching",
     "question": "Kas organisatsioonil on selge protsess turvauuenduste paigaldamiseks?",
     "help": "Näiteks kes vastutab, kuidas prioriteete määratakse ja millal uuendatakse.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC cyber threat heightened guidance", "CIS Controls v8"]
+    "source_refs": [
+      "NCSC_CYBER_THREAT_HEIGHTENED",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.PS",
+        "ID.RA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_7"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Timely patching reduces exploit-based access that can lead to ransomware impact."
+      }
+    ],
+    "why_it_matters": "Ransomware campaigns frequently exploit missing or delayed security updates.",
+    "what_good_looks_like": "There is a defined process for prioritizing, approving and applying security updates.",
+    "evidence_examples": [
+      "patching policy",
+      "responsibility matrix",
+      "change calendar"
+    ],
+    "how_to_answer": "Answer yes only if patching responsibility and cadence are actually defined.",
+    "common_misunderstanding": "Occasional updates are not the same as a repeatable patching process.",
+    "scoring_note": "The process question supports the faster patching and exposure questions that follow."
   },
   {
     "id": "critical_patches_30_days",
     "domain": "patching",
     "question": "Kas kriitilised turvauuendused paigaldatakse tavaliselt 30 päeva jooksul või kiiremini?",
     "help": "Internetist ligipääsetavad süsteemid peaksid saama kriitilised parandused kiiremini.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC cyber threat heightened guidance", "CIS Controls v8"]
+    "source_refs": [
+      "NCSC_CYBER_THREAT_HEIGHTENED",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.PS",
+        "ID.RA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_7"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Timely patching reduces exploit-based access that can lead to ransomware impact."
+      }
+    ],
+    "why_it_matters": "Delayed patching leaves exploitable weaknesses available to attackers for longer.",
+    "what_good_looks_like": "Critical security updates are usually deployed within 30 days or faster, especially on internet-facing systems.",
+    "evidence_examples": [
+      "patch compliance report",
+      "monthly update report",
+      "exception list with owners"
+    ],
+    "how_to_answer": "Answer yes only if critical updates are usually applied within the expected timeframe.",
+    "common_misunderstanding": "A vendor relationship does not prove that critical patches are applied quickly enough.",
+    "scoring_note": "This item has high weight because patch timeliness directly affects exposure to known exploitable issues."
   },
   {
     "id": "internet_facing_known",
     "domain": "patching",
     "question": "Kas on teada, millised teenused on internetist ligipääsetavad ja kas need on uuendatud?",
     "help": "Näiteks VPN, RDP gateway, veebiserverid, tulemüüri portaalid.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC cyber threat heightened guidance", "CISA StopRansomware"]
+    "source_refs": [
+      "NCSC_CYBER_THREAT_HEIGHTENED",
+      "CISA_STOPRANSOMWARE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.PS",
+        "ID.RA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_7"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Timely patching reduces exploit-based access that can lead to ransomware impact."
+      }
+    ],
+    "why_it_matters": "Internet-facing services create direct external attack surface for ransomware entry.",
+    "what_good_looks_like": "The organization can identify exposed services and confirm their update or compensating control status.",
+    "evidence_examples": [
+      "internet-facing asset list",
+      "external exposure review",
+      "owner list for exposed services"
+    ],
+    "how_to_answer": "Answer yes only if exposed services are known and regularly reviewed.",
+    "common_misunderstanding": "Knowing only the VPN or a single web app is not enough if other exposed services are unknown.",
+    "scoring_note": "This control helps prevent hidden external entry points from being overlooked."
   },
   {
     "id": "unsupported_systems_known",
     "domain": "patching",
     "question": "Kas vananenud või tootjatoeta süsteemid on teada ja eraldi riskina märgitud?",
     "help": "Unsupported süsteemid võivad jääda parandamata haavatavustega tööle.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CIS Controls v8", "NIST CSF 2.0"]
+    "source_refs": [
+      "CIS_CONTROLS_V8",
+      "NIST_CSF_2"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.PS",
+        "ID.RA"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_7"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Timely patching reduces exploit-based access that can lead to ransomware impact."
+      }
+    ],
+    "why_it_matters": "Unsupported systems can retain unpatched vulnerabilities that remain exploitable.",
+    "what_good_looks_like": "Legacy or unsupported systems are identified, tracked and treated as explicit risk exceptions.",
+    "evidence_examples": [
+      "legacy system register",
+      "unsupported software list",
+      "risk acceptance note"
+    ],
+    "how_to_answer": "Answer yes only if unsupported systems are known and tracked as risk.",
+    "common_misunderstanding": "Not knowing whether unsupported systems exist should be treated as risk, not safety.",
+    "scoring_note": "This item supports exposure management by making unmanaged legacy risk visible."
   },
   {
     "id": "least_privilege",
     "domain": "admin_rights",
     "question": "Kas administraatoriõigused on antud ainult neile, kellel neid päriselt vaja on?",
     "help": "Least privilege vähendab ründaja liikumisruumi.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CIS Controls v8", "NCSC cyber threat heightened guidance"]
+    "source_refs": [
+      "CIS_CONTROLS_V8",
+      "NCSC_CYBER_THREAT_HEIGHTENED"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA",
+        "PR.AC"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_5",
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Access control reduces privilege escalation and lateral movement before impact."
+      }
+    ],
+    "why_it_matters": "Excessive rights give ransomware operators more room to move, disable controls and reach critical assets.",
+    "what_good_looks_like": "Users and service roles only have the access they need for their work.",
+    "evidence_examples": [
+      "privilege review record",
+      "role matrix",
+      "admin removal ticket"
+    ],
+    "how_to_answer": "Answer yes only if unnecessary standing admin rights are rare and controlled.",
+    "common_misunderstanding": "Convenience-based admin rights still increase ransomware blast radius.",
+    "scoring_note": "Least privilege reduces lateral movement and broad impact after initial compromise."
   },
   {
     "id": "separate_admin_accounts",
     "domain": "admin_rights",
     "question": "Kas administreerimiseks kasutatakse eraldi admin-kontosid, mitte igapäevase töö kontosid?",
     "help": "Igapäevane töö admin-kontoga suurendab kompromiteerimise mõju.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC ransomware guidance", "CIS Controls v8"]
+    "source_refs": [
+      "NCSC_RANSOMWARE_GUIDANCE",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA",
+        "PR.AC"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_5",
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Access control reduces privilege escalation and lateral movement before impact."
+      }
+    ],
+    "why_it_matters": "Using the same account for daily work and administration increases the chance of privileged compromise.",
+    "what_good_looks_like": "Privileged tasks are done with separate named admin accounts, not everyday user accounts.",
+    "evidence_examples": [
+      "separate admin account policy",
+      "privileged account list",
+      "admin workstation note"
+    ],
+    "how_to_answer": "Answer yes only if privileged work uses separate accounts in practice.",
+    "common_misunderstanding": "Occasionally switching context is not the same as maintaining separate privileged identities.",
+    "scoring_note": "This control limits the effect of phishing or malware hitting a standard user session."
   },
   {
     "id": "admin_rights_reviewed",
     "domain": "admin_rights",
     "question": "Kas privilegeeritud õigusi vaadatakse regulaarselt üle?",
     "help": "Näiteks kord kvartalis või pärast rollimuudatusi.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CIS Controls v8"]
+    "source_refs": [
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA",
+        "PR.AC"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_5",
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Access control reduces privilege escalation and lateral movement before impact."
+      }
+    ],
+    "why_it_matters": "Privilege accumulates over time unless it is reviewed and removed.",
+    "what_good_looks_like": "Privileged rights are reviewed on a defined cadence or after role changes.",
+    "evidence_examples": [
+      "quarterly access review",
+      "attestation record",
+      "role change checklist"
+    ],
+    "how_to_answer": "Answer yes only if reviews are regular and leave evidence.",
+    "common_misunderstanding": "A one-time cleanup is not the same as a repeatable review process.",
+    "scoring_note": "This control helps prevent hidden privileged access from persisting."
   },
   {
     "id": "third_party_access_controlled",
     "domain": "admin_rights",
     "question": "Kas IT-teenusepakkujate või väliste partnerite ligipääs on piiratud ja kontrollitud?",
     "help": "Välistel partneritel ei tohiks olla piiramatut ja jälgimata püsiligipääsu.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CISA StopRansomware", "NCSC cyber threat heightened guidance"]
+    "source_refs": [
+      "CISA_STOPRANSOMWARE",
+      "NCSC_CYBER_THREAT_HEIGHTENED"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "PR.AA",
+        "PR.AC"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_5",
+        "CIS_CONTROL_6"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Access control reduces privilege escalation and lateral movement before impact."
+      }
+    ],
+    "why_it_matters": "Service provider or partner access can become a ransomware path if it is broad and weakly monitored.",
+    "what_good_looks_like": "Third-party access is scoped, reviewed and protected with clear ownership and logging expectations.",
+    "evidence_examples": [
+      "MSP access agreement",
+      "third-party account list",
+      "vendor access review record"
+    ],
+    "how_to_answer": "Answer yes only if external access is explicitly limited and controlled.",
+    "common_misunderstanding": "Trusted partner access still needs the same discipline as internal privileged access.",
+    "scoring_note": "This control addresses a common indirect path into smaller organizations."
   },
   {
     "id": "ir_plan_exists",
     "domain": "incident_response",
     "question": "Kas organisatsioonil on dokumenteeritud incident response plan ransomware olukorra jaoks?",
     "help": "Plaan võib olla lühike, aga peab ütlema, kes mida teeb.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CISA StopRansomware", "NIST CSF 2.0"]
+    "source_refs": [
+      "CISA_STOPRANSOMWARE",
+      "NIST_CSF_2"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RS.RP",
+        "RS.CO"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_17"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Prepared response reduces delay after ransomware impact has begun."
+      }
+    ],
+    "why_it_matters": "Ransomware response is slower and more chaotic without a documented plan.",
+    "what_good_looks_like": "There is a short, usable ransomware response plan covering roles, containment, communication and recovery priorities.",
+    "evidence_examples": [
+      "incident response plan",
+      "ransomware playbook",
+      "contact list"
+    ],
+    "how_to_answer": "Answer yes only if the plan is documented and accessible to the people who need it.",
+    "common_misunderstanding": "General awareness is not the same as having a plan people can follow under pressure.",
+    "scoring_note": "This control carries high weight because response coordination strongly affects ransomware impact."
   },
   {
     "id": "ir_roles_contacts",
     "domain": "incident_response",
     "question": "Kas rünnaku korral on teada otsustajad, kontaktid ja eskalatsioonitee?",
     "help": "Kontaktid peaksid olema kättesaadavad ka siis, kui e-post või Teams ei tööta.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NCSC cyber threat heightened guidance", "CISA StopRansomware"]
+    "source_refs": [
+      "NCSC_CYBER_THREAT_HEIGHTENED",
+      "CISA_STOPRANSOMWARE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RS.RP",
+        "RS.CO"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_17"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Prepared response reduces delay after ransomware impact has begun."
+      }
+    ],
+    "why_it_matters": "Clear roles and escalation contacts reduce decision delays during ransomware incidents.",
+    "what_good_looks_like": "Decision makers, technical owners and external contacts are identified and reachable during an outage.",
+    "evidence_examples": [
+      "response contact list",
+      "escalation tree",
+      "offline contact copy"
+    ],
+    "how_to_answer": "Answer yes only if the organization knows who decides, who acts and who must be contacted.",
+    "common_misunderstanding": "Knowing that ?IT will handle it? is not enough during a real outage.",
+    "scoring_note": "This control supports coordination and timely escalation in the early hours of an incident."
   },
   {
     "id": "ir_plan_tested",
     "domain": "incident_response",
     "question": "Kas incident response plaani on kunagi läbi harjutatud või testitud?",
     "help": "Testimata plaan võib kriisi ajal mitte töötada.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CISA StopRansomware"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CISA_STOPRANSOMWARE"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RS.RP",
+        "RS.CO"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_17"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Prepared response reduces delay after ransomware impact has begun."
+      }
+    ],
+    "why_it_matters": "Untested plans often break down under real ransomware pressure.",
+    "what_good_looks_like": "The ransomware plan has been walked through or tested and the lessons were recorded.",
+    "evidence_examples": [
+      "tabletop exercise record",
+      "after-action note",
+      "exercise participant list"
+    ],
+    "how_to_answer": "Answer yes only if the plan was actually practiced, not only written.",
+    "common_misunderstanding": "Reading a plan is not the same as testing whether people can execute it.",
+    "scoring_note": "Testing improves response confidence and exposes weaknesses before a real incident."
   },
   {
     "id": "external_reporting_known",
     "domain": "incident_response",
     "question": "Kas on teada, millal kaasata CERT-EE, õiguskaitse, jurist või kindlustuspartner?",
     "help": "Ransomware võib tähendada ka andmeleket ja õiguslikke kohustusi.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["CISA StopRansomware", "NIST CSF 2.0"]
+    "source_refs": [
+      "CISA_STOPRANSOMWARE",
+      "NIST_CSF_2"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "RS.RP",
+        "RS.CO"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_17"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Prepared response reduces delay after ransomware impact has begun."
+      }
+    ],
+    "why_it_matters": "Ransomware events can trigger legal, insurance and external reporting decisions under time pressure.",
+    "what_good_looks_like": "The organization knows when and how to involve CERT, legal counsel, insurers or law enforcement.",
+    "evidence_examples": [
+      "external escalation note",
+      "insurance contact",
+      "legal escalation guidance"
+    ],
+    "how_to_answer": "Answer yes only if external reporting or escalation expectations are clear.",
+    "common_misunderstanding": "Knowing a contact name is not the same as knowing when and why to involve them.",
+    "scoring_note": "This question supports response quality and avoids avoidable delay or confusion."
   },
   {
     "id": "logs_centralized",
     "domain": "detection_monitoring",
     "question": "Kas kriitiliste süsteemide logid kogutakse keskelt või on hiljem kättesaadavad?",
     "help": "Näiteks serverid, identiteediteenus, pilveteenused, tulemüürid ja kriitilised rakendused.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "DE.CM",
+        "DE.AE"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_8",
+        "CIS_CONTROL_13"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Detection coverage helps identify ransomware behavior before or during impact."
+      }
+    ],
+    "why_it_matters": "Ransomware investigation is harder when critical logs are missing or scattered.",
+    "what_good_looks_like": "Critical logs are centrally collected or otherwise preserved and accessible after an incident.",
+    "evidence_examples": [
+      "log source list",
+      "retention note",
+      "SIEM or log platform screenshot"
+    ],
+    "how_to_answer": "Answer yes only if the organization can access useful logs from critical systems after an incident.",
+    "common_misunderstanding": "Generating logs is not enough if nobody can retrieve them when needed.",
+    "scoring_note": "Centralized logging is weighted heavily because it supports detection, scoping and recovery decisions."
   },
   {
     "id": "endpoint_alerts_monitored",
     "domain": "detection_monitoring",
     "question": "Kas endpoint security, antivirus või EDR hoiatusi keegi jälgib ja käsitleb?",
     "help": "Oluline on, et hoiatusel oleks omanik ja eskalatsioonitee.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "DE.CM",
+        "DE.AE"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_8",
+        "CIS_CONTROL_13"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Detection coverage helps identify ransomware behavior before or during impact."
+      }
+    ],
+    "why_it_matters": "Security tooling only helps if someone sees and handles the alerts it raises.",
+    "what_good_looks_like": "Endpoint or EDR alerts have an owner, a review process and clear escalation expectations.",
+    "evidence_examples": [
+      "alert queue screenshot",
+      "triage process",
+      "managed detection report"
+    ],
+    "how_to_answer": "Answer yes only if alerts are actively reviewed and handled.",
+    "common_misunderstanding": "Having antivirus installed is not the same as monitoring and acting on alerts.",
+    "scoring_note": "This control improves early detection of suspicious activity before full ransomware impact."
   },
   {
     "id": "failed_logins_monitored",
     "domain": "detection_monitoring",
     "question": "Kas ebaõnnestunud sisselogimisi või kahtlast ligipääsu jälgitakse?",
     "help": "Eriti oluline on jälgida admin-kontosid, VPN-i, e-posti ja pilveteenuseid.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "DE.CM",
+        "DE.AE"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_8",
+        "CIS_CONTROL_13"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Detection coverage helps identify ransomware behavior before or during impact."
+      }
+    ],
+    "why_it_matters": "Suspicious login failures can reveal password attacks, credential stuffing or early compromise attempts.",
+    "what_good_looks_like": "Failed or suspicious sign-ins for critical systems are monitored and investigated when needed.",
+    "evidence_examples": [
+      "sign-in monitoring rule",
+      "M365 or IdP report",
+      "VPN alert example"
+    ],
+    "how_to_answer": "Answer yes only if someone actively checks this signal for key services or accounts.",
+    "common_misunderstanding": "The logs existing somewhere is not the same as meaningful monitoring.",
+    "scoring_note": "This control gives visibility into a common precursor to ransomware access."
   },
   {
     "id": "file_integrity_or_mass_change_alerts",
     "domain": "detection_monitoring",
     "question": "Kas kriitiliste failide või kaustade massilisi muutusi on võimalik märgata?",
     "help": "See võib olla file integrity monitoring, EDR hoiatus või muu massmuudatuste märkamise viis.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "DE.CM",
+        "DE.AE"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_8",
+        "CIS_CONTROL_13"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Detection coverage helps identify ransomware behavior before or during impact."
+      }
+    ],
+    "why_it_matters": "Large unexpected file changes can be an early sign of ransomware encryption activity.",
+    "what_good_looks_like": "The organization has some way to notice mass file change behavior on critical assets.",
+    "evidence_examples": [
+      "EDR mass change alert",
+      "file monitoring rule",
+      "storage alert example"
+    ],
+    "how_to_answer": "Answer yes only if mass change behavior would likely trigger an alert or visible signal.",
+    "common_misunderstanding": "General logging is not the same as detecting suspicious bulk file changes.",
+    "scoring_note": "This control supports faster detection of encryption impact in progress."
   },
   {
     "id": "vulnerability_inventory_known",
     "domain": "detection_monitoring",
     "question": "Kas on olemas ülevaade haavatavast või vananenud tarkvarast?",
     "help": "Piisab praktilisest nimekirjast, raportist või MSP ülevaatest, millel on omanik.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": true,
-    "source_refs": ["NIST CSF 2.0", "CIS Controls v8"]
+    "source_refs": [
+      "NIST_CSF_2",
+      "CIS_CONTROLS_V8"
+    ],
+    "framework_mappings": {
+      "nist_csf": [
+        "DE.CM",
+        "DE.AE"
+      ],
+      "cis_controls": [
+        "CIS_CONTROL_8",
+        "CIS_CONTROL_13"
+      ],
+      "cisa": [
+        "CISA_STOPRANSOMWARE"
+      ],
+      "mitre_attack": [
+        "MITRE_ATTACK_T1486"
+      ]
+    },
+    "attack_mappings": [
+      {
+        "technique_id": "T1486",
+        "technique_name": "Data Encrypted for Impact",
+        "relationship": "Detection coverage helps identify ransomware behavior before or during impact."
+      }
+    ],
+    "why_it_matters": "The organization cannot prioritize remediation well if it does not know which vulnerable or outdated software exists.",
+    "what_good_looks_like": "There is a current practical list or report of vulnerable, unsupported or outdated software with an owner.",
+    "evidence_examples": [
+      "vulnerability report",
+      "software inventory",
+      "MSP review summary"
+    ],
+    "how_to_answer": "Answer yes only if someone can produce a current list or report when asked.",
+    "common_misunderstanding": "Assuming the MSP handles it is not the same as being able to verify the current inventory.",
+    "scoring_note": "This control supports risk visibility and patch prioritization across the environment."
   },
   {
     "id": "password_manager_used",
     "domain": "employee_security_hygiene",
     "question": "Kas töötajad kasutavad paroolihaldurit või on paroolide korduvkasutus kontrolli all?",
     "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": false,
-    "source_refs": ["Personal security hygiene"]
+    "source_refs": [
+      "PERSONAL_SECURITY_HYGIENE"
+    ]
   },
   {
     "id": "employee_mfa_enabled",
     "domain": "employee_security_hygiene",
     "question": "Kas töötajatel on MFA kasutusel e-posti ja oluliste tööteenuste puhul?",
     "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": false,
-    "source_refs": ["Personal security hygiene"]
+    "source_refs": [
+      "PERSONAL_SECURITY_HYGIENE"
+    ]
   },
   {
     "id": "phishing_awareness_basic",
     "domain": "employee_security_hygiene",
     "question": "Kas töötajad teavad, kuidas kahtlast e-kirja või linki ära tunda ja kuhu sellest teatada?",
     "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": false,
-    "source_refs": ["Personal security hygiene"]
+    "source_refs": [
+      "PERSONAL_SECURITY_HYGIENE"
+    ]
   },
   {
     "id": "devices_updated",
     "domain": "employee_security_hygiene",
     "question": "Kas tööseadmete operatsioonisüsteemid ja brauserid hoitakse regulaarselt uuendatuna?",
     "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": false,
-    "source_refs": ["Personal security hygiene"]
+    "source_refs": [
+      "PERSONAL_SECURITY_HYGIENE"
+    ]
   },
   {
     "id": "recovery_codes_stored_safely",
     "domain": "employee_security_hygiene",
     "question": "Kas MFA taastamise koodid on turvaliselt hoiustatud?",
     "help": "See on vabatahtlik hügieenikontroll ja ei mõjuta ametlikku skoori.",
-    "options": ["yes", "partial", "no", "unsure"],
+    "options": [
+      "yes",
+      "partial",
+      "no",
+      "unsure"
+    ],
     "required": false,
-    "source_refs": ["Personal security hygiene"]
+    "source_refs": [
+      "PERSONAL_SECURITY_HYGIENE"
+    ]
   }
 ]
