@@ -1,4 +1,3 @@
-import { CheckCircle2 } from "lucide-react";
 import type { ReportResponse } from "../types/api";
 import {
   domainLabel,
@@ -7,8 +6,6 @@ import {
   t,
   type UiLanguage,
 } from "../utils/i18n";
-import { Badge } from "./ui/badge";
-import { Card } from "./ui/card";
 import { EmptyState } from "./ui";
 
 export default function EvidenceBinderView({
@@ -19,77 +16,101 @@ export default function EvidenceBinderView({
   language?: UiLanguage;
 }) {
   const groups = report?.evidence_checklist || [];
-  const hasBackendEvidence = Boolean(groups.length);
+  const totalItems = groups.reduce((total, group) => total + (group.items?.length || 0), 0);
 
-  if (!hasBackendEvidence) {
+  if (!groups.length) {
     return (
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">{t(language, "evidenceBinder")}</h2>
-            <p className="mt-2 text-sm text-slate-400">
+      <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.055),transparent_32%)]" />
+        <div className="relative space-y-6">
+          <section className="report-panel rounded-[34px] px-6 py-10 text-center sm:px-8">
+            <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+              {t(language, "evidenceBinder")}
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
               {t(language, "evidenceBinderDescription")}
             </p>
-          </div>
+          </section>
+          <EmptyState
+            title={t(language, "noReportLoaded")}
+            description={t(language, "noReportDescription")}
+          />
         </div>
-        <EmptyState
-          title={t(language, "noReportLoaded")}
-          description={t(language, "noReportDescription")}
-        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold text-white">{t(language, "evidenceBinder")}</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            {t(language, "evidenceBinderDescription")}
-          </p>
-        </div>
-        <Badge variant={hasBackendEvidence ? "success" : "warning"}>
-          {hasBackendEvidence ? t(language, "backendChecklist") : t(language, "placeholderChecklist")}
-        </Badge>
-      </div>
+    <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_82%_10%,rgba(255,255,255,0.055),transparent_32%)]" />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {groups.map((group) => {
-          const title =
-            group.domain
-              ? domainLabel(language, group.domain)
-              : localizeKnownText(language, group.title) || evidenceLabel(language);
-          const skillBadge = group.based_on_skill
-            ? skillTitle(language, { id: group.based_on_skill, title: group.based_on_skill })
-            : null;
+      <div className="relative space-y-7">
+        <section className="report-panel relative rounded-[34px] px-6 py-10 sm:px-8 lg:min-h-[250px] lg:px-10 lg:py-12">
+          <div className="mx-auto flex max-w-3xl flex-col items-center justify-center text-center lg:min-h-[170px]">
+            <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+              {t(language, "evidenceBinder")}
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
+              {t(language, "evidenceBinderDescription")}
+            </p>
+          </div>
 
-          return (
-            <Card
-              key={`${group.domain}-${group.based_on_skill || group.title}`}
-              className="border-white/10 bg-white/[0.07] p-5"
-            >
-              <div className="text-left">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="info">{domainLabel(language, group.domain || "domain")}</Badge>
-                  {skillBadge ? <Badge variant="neutral">{skillBadge}</Badge> : null}
-                </div>
-                <h3 className="mt-4 text-base font-semibold text-white">{title}</h3>
-                {group.nist_csf?.length ? (
-                  <p className="mt-1 text-xs text-slate-500">NIST CSF: {group.nist_csf.join(", ")}</p>
-                ) : null}
+          <div className="mx-auto mt-7 w-full max-w-[168px] rounded-[24px] border border-white/[0.08] bg-black/[0.18] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] lg:absolute lg:right-5 lg:top-5 lg:mt-0">
+            <div className="text-right">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                Evidence
               </div>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-                {(group.items || []).map((item) => (
-                  <li key={item} className="flex gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
-                    <span>{localizeKnownText(language, item)}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          );
-        })}
+              <div className="mt-0.5 text-3xl font-semibold leading-none tracking-[-0.06em] text-white">
+                {totalItems}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          {groups.map((group) => {
+            const title =
+              group.domain
+                ? domainLabel(language, group.domain)
+                : localizeKnownText(language, group.title) || evidenceLabel(language);
+            const skillName = group.based_on_skill
+              ? skillTitle(language, { id: group.based_on_skill, title: group.based_on_skill })
+              : null;
+            const items = group.items || [];
+
+            return (
+              <section
+                key={`${group.domain}-${group.based_on_skill || group.title}`}
+                className="report-panel rounded-[32px] px-5 py-6 sm:px-7"
+              >
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold tracking-[-0.03em] text-white">
+                      {title}
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      {skillName || t(language, "backendChecklist")}
+                      {group.nist_csf?.length ? ` - NIST CSF: ${group.nist_csf.join(", ")}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-sm font-medium text-slate-500">
+                    {items.length} / {totalItems}
+                  </div>
+                </div>
+
+                <div className="mt-6 divide-y divide-white/[0.06] rounded-[26px] border border-white/[0.07] bg-white/[0.022]">
+                  {items.map((item) => (
+                    <article key={item} className="px-4 py-4 sm:px-5">
+                      <p className="text-sm leading-6 text-slate-300">
+                        {localizeKnownText(language, item)}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -97,6 +118,6 @@ export default function EvidenceBinderView({
 
 function evidenceLabel(language: UiLanguage): string {
   if (language === "en") return "Evidence";
-  if (language === "ru") return "Ð”Ð¾ÐºÐ°Ð·Ð°Ñ‚ÐµÐ»ÑŒÑÑ‚Ð²Ð¾";
-  return "TÃµend";
+  if (language === "ru") return "Evidence";
+  return "Tõend";
 }

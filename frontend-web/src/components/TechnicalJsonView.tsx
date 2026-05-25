@@ -1,4 +1,3 @@
-import { FileJson } from "lucide-react";
 import type {
   ChatResponse,
   ProviderStatusResponse,
@@ -8,7 +7,7 @@ import type {
   TechnicalFlowResponse,
 } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
-import { Accordion, Card, EmptyState } from "./ui";
+import { EmptyState } from "./ui";
 
 export default function TechnicalJsonView({
   session,
@@ -35,24 +34,26 @@ export default function TechnicalJsonView({
       <EmptyState
         title={t(language, "noTechnicalTrace")}
         description={t(language, "noTechnicalTraceDescription")}
-        icon={<FileJson className="h-5 w-5" />}
       />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold text-slate-950">{t(language, "rawTraceTitle")}</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          {t(language, "rawTraceText")}
-        </p>
-      </Card>
-      <Accordion title={t(language, "debugJson")}>
-        <pre className="scrollbar-slim max-h-[620px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+    <section className="report-panel rounded-[30px] px-5 py-5 sm:px-6">
+      <h3 className="text-lg font-semibold tracking-[-0.03em] text-white">
+        {t(language, "rawTraceTitle")}
+      </h3>
+      <p className="mt-2 text-sm leading-6 text-slate-400">
+        {t(language, "rawTraceText")}
+      </p>
+      <details className="mt-4 rounded-[22px] border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-slate-200">
+          {t(language, "debugJson")}
+        </summary>
+        <pre className="scrollbar-slim mt-3 max-h-[620px] overflow-auto rounded-[18px] bg-black/50 p-4 text-xs leading-5 text-slate-100">
           {JSON.stringify(payload, null, 2)}
         </pre>
-      </Accordion>
-    </div>
+      </details>
+    </section>
   );
 }

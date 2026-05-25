@@ -1,7 +1,5 @@
-import { LockKeyhole, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { ChatResponse } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
-import { Badge, Card } from "./ui";
 
 export default function PrivacySafetyCard({
   lastResponse,
@@ -12,45 +10,77 @@ export default function PrivacySafetyCard({
 }) {
   const redactionCount = lastResponse?.redactions_applied?.length ?? 0;
   return (
-    <Card className="!border-white/10 !bg-white/10 p-4 text-sm leading-6 !text-white shadow-[0_18px_48px_rgba(0,0,0,0.26)] backdrop-blur-xl">
-      <div className="flex items-center gap-2 font-semibold text-white">
-        <LockKeyhole className="h-4 w-4" />
+    <section className="report-panel rounded-[30px] px-5 py-5 text-sm leading-6 text-slate-400 sm:px-6">
+      <h3 className="text-lg font-semibold tracking-[-0.03em] text-white">
         {privacyTitle(language)}
-      </div>
-      <div className="mt-3 grid gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 text-white">
-            <ShieldCheck className="h-4 w-4" />
-            {defensiveModeLabel(language)}
-          </span>
-          <Badge tone="success">{enabledLabel(language)}</Badge>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-white">{t(language, "redaction")}</span>
-          <Badge tone={redactionCount ? "success" : "neutral"}>
-            {lastResponse?.redactions_applied === undefined
+      </h3>
+
+      <div className="mt-4 grid gap-2">
+        <StatusRow
+          label={defensiveModeLabel(language)}
+          value={enabledLabel(language)}
+          tone="success"
+        />
+        <StatusRow
+          label={t(language, "redaction")}
+          value={
+            lastResponse?.redactions_applied === undefined
               ? t(language, "notReported")
               : redactionCount
                 ? `${redactionCount} ${t(language, "applied")}`
-                : t(language, "notApplied")}
-          </Badge>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-white">{t(language, "promptInjection")}</span>
-          <Badge tone={lastResponse?.prompt_injection_blocked ? "danger" : "neutral"}>
-            {lastResponse?.prompt_injection_blocked === undefined
+                : t(language, "notApplied")
+          }
+          tone={redactionCount ? "success" : "neutral"}
+        />
+        <StatusRow
+          label={t(language, "promptInjection")}
+          value={
+            lastResponse?.prompt_injection_blocked === undefined
               ? t(language, "notReported")
               : lastResponse.prompt_injection_blocked
                 ? t(language, "blocked")
-                : t(language, "notTriggered")}
-          </Badge>
-        </div>
+                : t(language, "notTriggered")
+          }
+          tone={lastResponse?.prompt_injection_blocked ? "danger" : "neutral"}
+        />
       </div>
-      <div className="mt-3 flex gap-2 rounded-xl border border-white/10 bg-white/10 p-3 text-white/85">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>{safetyText(language)}</p>
+
+      <div className="mt-4 rounded-[22px] border border-white/[0.07] bg-white/[0.025] px-4 py-3 text-slate-400">
+        {safetyText(language)}
       </div>
-    </Card>
+    </section>
+  );
+}
+
+type StatusTone = "neutral" | "success" | "danger";
+
+function StatusRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: StatusTone;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/[0.07] bg-white/[0.025] px-3 py-3">
+      <span className="text-slate-400">{label}</span>
+      <StatusPill value={value} tone={tone} />
+    </div>
+  );
+}
+
+function StatusPill({ value, tone }: { value: string; tone: StatusTone }) {
+  const toneClass: Record<StatusTone, string> = {
+    neutral: "border-white/[0.08] bg-white/[0.035] text-slate-300",
+    success: "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100",
+    danger: "border-rose-300/20 bg-rose-300/[0.08] text-rose-100",
+  };
+  return (
+    <span className={`inline-flex max-w-full rounded-full border px-2.5 py-1 text-xs font-medium leading-none ${toneClass[tone]}`}>
+      <span className="truncate">{value}</span>
+    </span>
   );
 }
 
