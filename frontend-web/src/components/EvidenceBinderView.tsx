@@ -65,7 +65,7 @@ export default function EvidenceBinderView({
           <div className="mx-auto mt-7 w-full max-w-[168px] rounded-[24px] border border-white/[0.08] bg-black/[0.18] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] lg:absolute lg:right-5 lg:top-5 lg:mt-0">
             <div className="text-right">
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                Evidence
+                {evidenceCountLabel(language)}
               </div>
               <div className="mt-0.5 text-3xl font-semibold leading-none tracking-[-0.06em] text-white">
                 {totalItems}
@@ -125,6 +125,12 @@ export default function EvidenceBinderView({
 
 function evidenceLabel(language: UiLanguage): string {
   if (language === "en") return "Evidence";
-  if (language === "ru") return "Evidence";
+  if (language === "ru") return "Доказательство";
   return "Tõend";
+}
+
+function evidenceCountLabel(language: UiLanguage): string {
+  if (language === "en") return "Evidence";
+  if (language === "ru") return "Доказательства";
+  return "Tõendid";
 }

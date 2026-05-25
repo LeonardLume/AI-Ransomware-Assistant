@@ -55,18 +55,42 @@ export default function AssessmentStatusFooter({
         </div>
 
         <div className="grid min-w-0 gap-2 text-xs text-slate-400 md:grid-cols-2 xl:grid-cols-[minmax(160px,0.9fr)_minmax(0,2.55fr)_minmax(112px,0.72fr)_minmax(112px,0.72fr)]">
-          <StatusItem label="Domain" value={domainLabel(language, currentDomain)} />
+          <StatusItem label={footerLabel(language, "domain")} value={domainLabel(language, currentDomain)} />
           <StatusItem
-            label="Question"
+            label={footerLabel(language, "question")}
             value={currentQuestion?.question || compact(session?.current_question_id)}
             emphasized
           />
-          <StatusItem label="Score" value={valueLabel(language, scoreStatus)} />
-          <StatusItem label="Answers" value={String(answersCount)} />
+          <StatusItem label={footerLabel(language, "score")} value={valueLabel(language, scoreStatus)} />
+          <StatusItem label={footerLabel(language, "answers")} value={String(answersCount)} />
         </div>
       </div>
     </footer>
   );
+}
+
+function footerLabel(language: UiLanguage, key: "domain" | "question" | "score" | "answers"): string {
+  const labels = {
+    et: {
+      domain: "Domeen",
+      question: "Küsimus",
+      score: "Tulemus",
+      answers: "Vastused",
+    },
+    en: {
+      domain: "Domain",
+      question: "Question",
+      score: "Score",
+      answers: "Answers",
+    },
+    ru: {
+      domain: "Домен",
+      question: "Вопрос",
+      score: "Оценка",
+      answers: "Ответы",
+    },
+  };
+  return labels[language][key];
 }
 
 function StatusItem({

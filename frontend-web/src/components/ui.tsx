@@ -234,7 +234,7 @@ export function MetricCard({
 }
 
 export function RiskBadge({ level, preview = false }: { level?: RiskLevel; preview?: boolean }) {
-  return <Badge tone={preview ? "neutral" : riskTone(level)}>{preview ? "Early preview" : level || "-"}</Badge>;
+  return <Badge tone={preview ? "neutral" : riskTone(level)}>{preview ? "Esialgne eelvaade" : level || "-"}</Badge>;
 }
 
 export function StatusBadge({
@@ -282,7 +282,7 @@ export function ArtifactCard({
         <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-lg", active ? "bg-white/10" : "bg-slate-100 dark:bg-slate-800")}>
           {icon}
         </span>
-        <Badge tone={available ? "success" : "neutral"}>{available ? "Open" : "Empty"}</Badge>
+        <Badge tone={available ? "success" : "neutral"}>{available ? "Ava" : "Tühi"}</Badge>
       </div>
       <div className="mt-3 text-sm font-semibold">{title}</div>
       <div className={cn("mt-1 text-xs leading-5", active ? "text-slate-300" : "text-slate-500 dark:text-slate-400")}>

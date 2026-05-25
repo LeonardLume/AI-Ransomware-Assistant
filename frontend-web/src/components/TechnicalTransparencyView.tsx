@@ -1,5 +1,5 @@
 import type { ProviderStatusResponse, TechnicalFlowResponse } from "../types/api";
-import { t, type UiLanguage } from "../utils/i18n";
+import { t, valueLabel, type UiLanguage } from "../utils/i18n";
 
 export default function TechnicalTransparencyView({
   flow,
@@ -31,10 +31,10 @@ export default function TechnicalTransparencyView({
 
             <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3 text-right">
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                Provider
+                {providerLabel(language)}
               </div>
               <div className="mt-0.5 text-2xl font-semibold leading-none tracking-[-0.05em] text-white">
-                {providerStatus?.provider || "unknown"}
+                {valueLabel(language, providerStatus?.provider || "unknown")}
               </div>
             </div>
           </div>
@@ -145,13 +145,13 @@ function workflowFor(language: UiLanguage): string[] {
   }
   return [
     "Kasutaja sõnum",
-    "Prompt firewall",
+    "Juhiste kaitsefilter",
     "Tundlike andmete redigeerimine",
     "Kavatsuse tuvastus",
     "LLM selgitus või väljavõte",
-    "Backendi valideerimine",
+    "Taustsüsteemi valideerimine",
     "Struktureeritud vastused",
-    "Reeglipõhine skoor",
+    "Reeglipõhine tulemus",
     "Raport ja tegevusplaan",
   ];
 }
@@ -178,11 +178,11 @@ function infoCardsFor(language: UiLanguage, provider: string) {
     ];
   }
   return [
-    { title: "Küsimuste allikas", text: "Küsimused tulevad failist questions.json. UI ei määra ametlikku küsimustikku." },
-    { title: "LLM-i roll", text: "LLM selgitab mõisteid ja pakub struktureeritud vastuste kandidaate. Ametlikku skoori ta ei arvuta." },
-    { title: "Backendi valideerimine", text: "FastAPI kontrollib question ID-sid ja lubatud vastusevariante enne salvestamist." },
-    { title: "Reeglipõhine skoor", text: "Skoor on deterministlik ja arvutatakse backendi scoring_rules.json reeglitega." },
-    { title: "Fallback režiim", text: `Fallback töötab ilma API võtmeta. Praegune provider on ${provider}.` },
+    { title: "Küsimuste allikas", text: "Küsimused tulevad failist questions.json. Kasutajaliides ei määra ametlikku küsimustikku." },
+    { title: "LLM-i roll", text: "LLM selgitab mõisteid ja pakub struktureeritud vastuste kandidaate. Ametlikku tulemust ta ei arvuta." },
+    { title: "Taustsüsteemi valideerimine", text: "FastAPI kontrollib küsimuste tunnuseid ja lubatud vastusevariante enne salvestamist." },
+    { title: "Reeglipõhine tulemus", text: "Tulemus on deterministlik ja arvutatakse taustsüsteemi faili scoring_rules.json reeglitega." },
+    { title: "Varurežiim", text: `Varurežiim töötab ilma API võtmeta. Praegune teenusepakkuja on ${valueLabel(language, provider)}.` },
     { title: "Tundlikud andmed", text: "See tööriist on enesehindamine, mitte skaneerimine, pentest ega täielik tehniline audit.", warning: true },
   ];
 }
@@ -194,17 +194,23 @@ function subtitleFor(language: UiLanguage): string {
   if (language === "ru") {
     return "Что отправляет UI, на что может влиять LLM, и что остаётся детерминированным в FastAPI.";
   }
-  return "Mida UI saadab, mida LLM mõjutab ja mis jääb FastAPI-s deterministlikuks.";
+  return "Mida kasutajaliides saadab, mida LLM mõjutab ja mis jääb FastAPI-s deterministlikuks.";
 }
 
 function workflowDescription(language: UiLanguage): string {
   if (language === "en") return "The main path from user input to validated answers, scoring, and report output.";
   if (language === "ru") return "Основной путь от сообщения пользователя до validated answers, scoring и отчёта.";
-  return "Põhitee kasutaja sisendist valideeritud vastuste, skoori ja raportini.";
+  return "Põhitee kasutaja sisendist valideeritud vastuste, tulemuse ja raportini.";
 }
 
 function stepLabel(language: UiLanguage): string {
   if (language === "en") return "Step";
   if (language === "ru") return "Шаг";
   return "Samm";
+}
+
+function providerLabel(language: UiLanguage): string {
+  if (language === "en") return "Provider";
+  if (language === "ru") return "Провайдер";
+  return "Teenusepakkuja";
 }

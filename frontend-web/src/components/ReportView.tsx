@@ -2,10 +2,8 @@ import {
   ArrowRight,
   ChevronDown,
   ExternalLink,
-  FileText,
   Info,
   RefreshCw,
-  RotateCcw,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import type { DomainScore, ReportResponse, RiskLevel } from "../types/api";
@@ -26,7 +24,6 @@ import {
   valueLabel,
   type UiLanguage,
 } from "../utils/i18n";
-import { EmptyState } from "./ui";
 import ArtifactTitleInfo from "./ArtifactTitleInfo";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -79,22 +76,20 @@ const severityRank: Record<string, number> = {
   low: 1,
 };
 
-const simulatorBump = 24;
-
 const reportCopy = {
   et: {
     introLabel: "Valmisoleku raport",
     title: "Raport",
     subtitle: "Selge ülevaade sinu valmisolekust, prioriteetidest ja tõenditest.",
-    score: "Skoor",
-    risk: "Risk",
+    score: "Tulemus",
+    risk: "Riskitase",
     completion: "Täidetud",
     confidence: "Usaldus",
-    backendOwned: "Backendi arvutus",
-    backendRisk: "Backendi riskitase",
+    backendOwned: "Taustsüsteemi arvutus",
+    backendRisk: "Taustsüsteemi riskitase",
     answered: "Vastatud",
     separateSignal: "Eraldi signaal",
-    officialScore: "Ametlik skoor",
+    officialScore: "Ametlik tulemus",
     topRisk: "Peamine risk",
     priorityAction: "Prioriteetne tegevus",
     criticalFindings: "Kriitilised leiud",
@@ -102,28 +97,17 @@ const reportCopy = {
     prioritySteps: "Prioriteetsed sammud",
     priorityStepsDescription: "Kõige mõistlikum tegevusjärjekord raporti põhjal.",
     items: "kirjet",
-    noFindings: "Kompaktseid leide pole veel. Värskenda backendi raportit.",
+    noFindings: "Kompaktseid leide pole veel. Värskenda taustsüsteemi raportit.",
     noSteps: "Prioriseeritud samme pole veel.",
     domainRiskMap: "Domeenide valmisolek",
-    domainRiskDescription: "Backendi domeeniskoorid madalamast kõrgemani.",
+    domainRiskDescription: "Taustsüsteemi domeenitulemused madalamast kõrgemani.",
     domains: "domeeni",
     noRiskLabel: "Riskimärgis puudub",
     coverage: "Kaetus",
     criticalNegatives: "kriitilist negatiivset",
-    whatIf: "Mis-kui simulaator",
-    whatIfDescription: "Kohalik stsenaariumitööriist. Ametlik skoor jääb backendile.",
-    unofficialPreview: "Mitteametlik eelvaade",
-    reset: "Lähtesta",
-    base: "Algne",
-    simulated: "Simuleeritud",
-    simulatorUnavailable: "Simulaator ilmub siis, kui backendi raportis on domeeniskoorid.",
-    advisoryPreview: "Nõuandev eelvaade",
-    simulatedScore: "simuleeritud skoor",
-    vsOfficial: "vs ametlik",
-    simulationNote: "Simulation only - official score remains backend-owned.",
     detailedNarrative: "Detailne narratiiv",
-    howScoringWorks: "Kuidas skoor töötab",
-    howScoringWorksDescription: "Versioneeritud küsimused, backendi reeglid ja skoori põhjendus.",
+    howScoringWorks: "Kuidas tulemus arvutatakse",
+    howScoringWorksDescription: "Versioonitud küsimused, taustsüsteemi reeglid ja tulemuse põhjendus.",
     expanded: "Avatud",
     collapsed: "Vaikimisi suletud",
     sourcesUsed: "Kasutatud allikad",
@@ -131,6 +115,13 @@ const reportCopy = {
     openSource: "Ava allikas",
     immediatePriority: "Kohe prioriteet",
     queuedAction: "Järjekorras tegevus",
+    method: "Meetod",
+    questions: "Küsimused",
+    scoring: "Arvutus",
+    scale: "Skaala",
+    versioned: "Versioonitud",
+    deterministic: "Deterministlik",
+    pointsShort: "p",
   },
   en: {
     introLabel: "Readiness report",
@@ -160,17 +151,6 @@ const reportCopy = {
     noRiskLabel: "No risk label",
     coverage: "Coverage",
     criticalNegatives: "critical negatives",
-    whatIf: "What-if simulator",
-    whatIfDescription: "Local scenario tool. The official score remains backend-owned.",
-    unofficialPreview: "Unofficial preview",
-    reset: "Reset",
-    base: "Base",
-    simulated: "Simulated",
-    simulatorUnavailable: "Simulator becomes available once domain scores exist in the backend report.",
-    advisoryPreview: "Advisory preview",
-    simulatedScore: "simulated score",
-    vsOfficial: "vs official",
-    simulationNote: "Simulation only - official score remains backend-owned.",
     detailedNarrative: "Detailed narrative",
     howScoringWorks: "How scoring works",
     howScoringWorksDescription: "Versioned questions, backend rules, and score rationale.",
@@ -181,6 +161,13 @@ const reportCopy = {
     openSource: "Open source",
     immediatePriority: "Immediate priority",
     queuedAction: "Queued action",
+    method: "Method",
+    questions: "Questions",
+    scoring: "Scoring",
+    scale: "Scale",
+    versioned: "Versioned",
+    deterministic: "Deterministic",
+    pointsShort: "pts",
   },
   ru: {
     introLabel: "Отчёт готовности",
@@ -210,17 +197,6 @@ const reportCopy = {
     noRiskLabel: "Нет метки риска",
     coverage: "Покрытие",
     criticalNegatives: "критических negative",
-    whatIf: "Симулятор what-if",
-    whatIfDescription: "Локальный сценарий. Официальный score остаётся в backend.",
-    unofficialPreview: "Неофициальный preview",
-    reset: "Сброс",
-    base: "База",
-    simulated: "Симуляция",
-    simulatorUnavailable: "Симулятор появится, когда в backend отчёте есть доменные score.",
-    advisoryPreview: "Сценарный preview",
-    simulatedScore: "симулируемый score",
-    vsOfficial: "к офиц.",
-    simulationNote: "Simulation only - official score remains backend-owned.",
     detailedNarrative: "Детальный нарратив",
     howScoringWorks: "Как работает score",
     howScoringWorksDescription: "Версионные questions, backend rules и score rationale.",
@@ -231,6 +207,13 @@ const reportCopy = {
     openSource: "Открыть",
     immediatePriority: "Срочный приоритет",
     queuedAction: "В очереди",
+    method: "Метод",
+    questions: "Вопросы",
+    scoring: "Расчёт",
+    scale: "Шкала",
+    versioned: "Версионировано",
+    deterministic: "Детерминированно",
+    pointsShort: "б.",
   },
 } as const;
 
@@ -244,13 +227,6 @@ function clamp(value: number, min = 0, max = 100) {
 
 function roundNumber(value: number) {
   return Math.round(Number.isFinite(value) ? value : 0);
-}
-
-function advisoryRiskLevel(score: number): RiskLevel {
-  if (score >= 85) return "Low";
-  if (score >= 65) return "Medium";
-  if (score >= 40) return "High";
-  return "Critical";
 }
 
 function toneAccent(tone: Tone): string {
@@ -487,9 +463,9 @@ function sectionInfoContent(language: UiLanguage, section: SectionInfoKey) {
   if (section === "prioritySteps") {
     return {
       short: "Lühike tegevusjärjekord: mida teha esimesena, et riski kõige kiiremini vähendada.",
-      what: "See sektsioon muudab backendi soovitused praktiliseks tööjärjekorraks, mitte ainult pikaks tehniliseks raportiks.",
+      what: "See sektsioon muudab taustsüsteemi soovitused praktiliseks tööjärjekorraks, mitte ainult pikaks tehniliseks raportiks.",
       why: "See aitab liikuda hindamisest tegutsemiseni: kõige suurema mõjuga sammud on kohe nähtavad.",
-      how: "Kasuta seda backlog'ina: määra omanik, vii punkt tegevusplaani, kogu tõendid ja värskenda raport pärast parandusi.",
+      how: "Kasuta seda tööjärjekorrana: määra omanik, vii punkt tegevusplaani, kogu tõendid ja värskenda raport pärast parandusi.",
       tip: "Kaitsmisel saad öelda, et raport ei anna ainult skoori, vaid muudab riski prioriseeritud parandusplaaniks.",
     };
   }
@@ -498,16 +474,16 @@ function sectionInfoContent(language: UiLanguage, section: SectionInfoKey) {
       short: "Peamised nõrgad kohad, mis mõjutavad lunavara valmisolekut kõige rohkem.",
       what: "Siin on kõige olulisemad leiud: mõjutatud valdkond, riskitase, mõju ja soovitatud parandus.",
       why: "Leiud selgitavad skoori. Ilma nendeta oleks number raskesti usaldatav ja keeruline kasutada.",
-      how: "Alusta critical/high leidudest, kontrolli tõendeid ja seo iga leid konkreetse tegevusega tegevusplaanis.",
+      how: "Alusta kriitilistest ja kõrge riskiga leidudest, kontrolli tõendeid ja seo iga leid konkreetse tegevusega tegevusplaanis.",
       tip: "See sektsioon vastab hästi küsimusele: miks süsteem soovitab just neid parandusi?",
     };
   }
   return {
     short: "Domeenipõhine valmisoleku kaart: kus kaitse on tugevam ja kus on puudujäägid.",
-    what: "Iga rida näitab backendi skoori ühes valdkonnas, näiteks backup, ligipääs, monitooring või incident response.",
-    why: "Domeenivaade selgitab üldskoori ja näitab, milline valdkond valmisolekut alla tõmbab.",
+    what: "Iga rida näitab taustsüsteemi tulemust ühes valdkonnas, näiteks varukoopiad, ligipääs, seire või intsidentidele reageerimine.",
+    why: "Domeenivaade selgitab üldtulemust ja näitab, milline valdkond valmisolekut alla tõmbab.",
     how: "Vaata esmalt madalamaid skoore, siis võrdle neid leidude ja prioriteetsete sammudega.",
-    tip: "Demos näitab see, et risk ei tule 'LLM-i maagiast', vaid läbipaistvatest domeenisignaalidest.",
+    tip: "Demol näitab see, et risk ei tule 'LLM-i maagiast', vaid läbipaistvatest valdkonnapõhistest näitajatest.",
   };
 }
 
@@ -601,22 +577,27 @@ export default function ReportView({
 
   if (!report) {
     return (
-      <EmptyState
-        title={t(language, "noReportLoaded")}
-        description={t(language, "noReportDescription")}
-        icon={<FileText className="h-5 w-5" />}
-        action={
+      <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.055),transparent_32%)]" />
+        <section className="report-panel relative flex min-h-[250px] flex-col items-center justify-center rounded-[34px] px-6 py-12 text-center sm:px-8">
+          <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+            {t(language, "noReportLoaded")}
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
+            {t(language, "noReportDescription")}
+          </p>
           <Button
             type="button"
             variant="primary"
             disabled={!canGenerate || loading}
             onClick={onGenerate}
+            className="mt-7 rounded-full border-sky-500/20 bg-sky-600 px-6 text-white shadow-[0_16px_40px_rgba(2,132,199,0.22)] hover:bg-sky-500"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             {t(language, "generateReport")}
           </Button>
-        }
-      />
+        </section>
+      </div>
     );
   }
 
@@ -647,8 +628,6 @@ function ReportCockpit({
   const [narrativeOpen, setNarrativeOpen] = useState(false);
   const [scoringOpen, setScoringOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [scenarioOpen, setScenarioOpen] = useState(false);
-  const [simulatorAdjustments, setSimulatorAdjustments] = useState<Record<string, number>>({});
 
   const domainEntries: Array<[string, DomainScore]> = useMemo(() => {
     const details = Object.entries(report.domain_details || {});
@@ -674,35 +653,18 @@ function ReportCockpit({
   const narrativeText =
     language === "et" && report.llm_report_text ? report.llm_report_text : report.llm_report_text || null;
   const methodology = report.methodology;
-  const scoringPrinciples = methodology?.scoring_principles?.length
-    ? methodology.scoring_principles
-    : [
-        "Questions are versioned.",
-        "Answers are saved as Yes / Partial / No / Unsure.",
-        "Backend maps saved answers to predefined scoring rules.",
-        "AI can explain questions, but it does not invent points.",
-        "Each scored item has rationale and source mappings.",
-        "Evidence increases confidence and supports validation.",
-        "This is a readiness self-assessment, not a full audit.",
-      ];
   const scoreExplanationDomains = report.score_explanation?.domains || [];
 
   const sortedDomains = useMemo(
     () => [...domainEntries].sort((a, b) => Number(a[1]?.score ?? 0) - Number(b[1]?.score ?? 0)),
     [domainEntries],
   );
-  const simulatorDomains = useMemo(
-    () => sortedDomains.slice(0, Math.min(4, sortedDomains.length)),
-    [sortedDomains],
-  );
 
   useEffect(() => {
-    setSimulatorAdjustments(Object.fromEntries(simulatorDomains.map(([domain]) => [domain, 0])));
     setNarrativeOpen(false);
     setScoringOpen(false);
     setSourcesOpen(false);
-    setScenarioOpen(false);
-  }, [report, simulatorDomains]);
+  }, [report]);
 
   const criticalFindings: FindingLike[] = report.findings?.length
     ? [...report.findings]
@@ -738,7 +700,7 @@ function ReportCockpit({
     report.action_plan?.length
       ? report.action_plan.slice(0, 4).map((item, index) => ({
           id: `${item.title || "action"}-${index}`,
-          title: item.title || localizeKnownText(language, report.next_steps?.[index] || "Next step"),
+          title: localizeKnownText(language, item.title || report.next_steps?.[index] || "Next step"),
           meta: [
             item.domain ? domainLabel(language, item.domain) : null,
             item.owner ? `${t(language, "owner")}: ${valueLabel(language, item.owner)}` : null,
@@ -758,21 +720,6 @@ function ReportCockpit({
   const officialRisk = earlyPreview
     ? `${valueLabel(language, "preliminary")} (${riskLabel(language, report.risk_level)})`
     : riskLabel(language, report.risk_level);
-  const simulatedDomainScores = domainEntries.map(([domain, detail]) => {
-    const baseScore = roundNumber(Number(detail?.score ?? 0));
-    return {
-      domain,
-      score: clamp(baseScore + (simulatorAdjustments[domain] || 0)),
-    };
-  });
-  const simulatedScore = simulatedDomainScores.length
-    ? roundNumber(
-        simulatedDomainScores.reduce((total, item) => total + item.score, 0) /
-          simulatedDomainScores.length,
-      )
-    : officialScore;
-  const simulatedRisk = advisoryRiskLevel(simulatedScore);
-  const simulatorDelta = simulatedScore - officialScore;
   const topFinding = criticalFindings[0];
   const topPriorityStep = prioritySteps[0];
   const metricItems: MetricItem[] = [
@@ -1029,7 +976,7 @@ function ReportCockpit({
             <div className="space-y-5 text-sm leading-7 text-slate-400">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Method</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "method")}</div>
                   <div className="mt-2 text-[15px] font-semibold text-white">
                     {methodology?.methodology_name || "Ransomware Readiness Assessment"}
                   </div>
@@ -1038,32 +985,24 @@ function ReportCockpit({
                   </div>
                 </div>
                 <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Questions</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "questions")}</div>
                   <div className="mt-2 text-[15px] font-semibold text-white">
-                    {methodology?.questions_version || "Versioned"}
+                    {methodology?.questions_version || r(language, "versioned")}
                   </div>
                 </div>
                 <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Scoring</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "scoring")}</div>
                   <div className="mt-2 text-[15px] font-semibold text-white">
-                    {methodology?.scoring_version || report.score_status || "Deterministic"}
+                    {methodology?.scoring_version || report.score_status || r(language, "deterministic")}
                   </div>
                 </div>
                 <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Scale</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "scale")}</div>
                   <div className="mt-2 text-[15px] font-semibold text-white">
                     {methodology?.score_scale?.min ?? 0}-{methodology?.score_scale?.max ?? 100}
                   </div>
                 </div>
               </div>
-
-              <ul className="space-y-2">
-                {scoringPrinciples.map((item) => (
-                  <li key={item} className="rounded-[18px] border border-white/[0.07] bg-white/[0.025] px-4 py-3 text-slate-300">
-                    {item}
-                  </li>
-                ))}
-              </ul>
 
               {scoreExplanationDomains.length ? (
                 <div className="space-y-3">
@@ -1078,7 +1017,7 @@ function ReportCockpit({
                             {domainLabel(language, domain.domain)}
                           </div>
                           <Badge variant="neutral">
-                            {domain.earned_points}/{domain.max_points} pts
+                            {domain.earned_points}/{domain.max_points} {r(language, "pointsShort")}
                           </Badge>
                         </div>
                         <div className="mt-3 space-y-2">
@@ -1087,7 +1026,7 @@ function ReportCockpit({
                               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                                 <span>{item.question_id}</span>
                                 <span>
-                                  {item.points_awarded}/{item.max_points} pts
+                                  {item.points_awarded}/{item.max_points} {r(language, "pointsShort")}
                                 </span>
                               </div>
                               {item.rationale ? (
@@ -1107,103 +1046,6 @@ function ReportCockpit({
                   {methodology.important_note}
                 </div>
               ) : null}
-            </div>
-          </ReportDisclosure>
-
-          <ReportDisclosure
-            title={r(language, "whatIf")}
-            description={scenarioOpen ? r(language, "expanded") : r(language, "whatIfDescription")}
-            open={scenarioOpen}
-            onOpenChange={setScenarioOpen}
-          >
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="space-y-2.5">
-                {simulatorDomains.length ? (
-                  simulatorDomains.map(([domain, detail]) => {
-                    const baseScore = clamp(roundNumber(Number(detail?.score ?? 0)));
-                    const simulatedValue = clamp(baseScore + (simulatorAdjustments[domain] || 0));
-                    return (
-                      <div key={domain} className="rounded-[22px] border border-white/[0.07] bg-white/[0.025] px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <div className="text-[15px] font-semibold tracking-normal text-white">
-                              {domainLabel(language, domain)}
-                            </div>
-                            <div className="mt-1 text-[13px] text-slate-500">
-                              {r(language, "base")} {baseScore} {"->"} {r(language, "simulated")} {simulatedValue}
-                            </div>
-                          </div>
-                          <Badge variant={badgeVariantForTone(riskTone(advisoryRiskLevel(simulatedValue)))}>
-                            +{simulatorAdjustments[domain] || 0}
-                          </Badge>
-                        </div>
-                        <div className="mt-3">
-                          <ScoreBar value={simulatedValue} tone={riskTone(advisoryRiskLevel(simulatedValue))} />
-                        </div>
-                        <input
-                          type="range"
-                          min={0}
-                          max={simulatorBump}
-                          step={2}
-                          value={simulatorAdjustments[domain] || 0}
-                          onChange={(event) =>
-                            setSimulatorAdjustments((current) => ({
-                              ...current,
-                              [domain]: Number(event.target.value),
-                            }))
-                          }
-                          className="mt-3 w-full accent-sky-300"
-                        />
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-[22px] border border-dashed border-white/[0.08] bg-white/[0.02] p-4 text-sm leading-6 text-slate-500">
-                    {r(language, "simulatorUnavailable")}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-[26px] border border-white/[0.08] bg-black/[0.16] px-5 py-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[13px] font-semibold text-slate-500">
-                    {r(language, "advisoryPreview")}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() =>
-                      setSimulatorAdjustments((current) =>
-                        Object.fromEntries(Object.keys(current).map((domain) => [domain, 0])),
-                      )
-                    }
-                    className="h-8 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 text-xs text-slate-200 hover:bg-white/[0.08]"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    {r(language, "reset")}
-                  </Button>
-                </div>
-                <div className="mt-4 flex items-end gap-3">
-                  <div className="text-5xl font-semibold tracking-[-0.06em] text-white">{simulatedScore}</div>
-                  <div className="pb-1 text-sm text-slate-500">{r(language, "simulatedScore")}</div>
-                </div>
-                <div className="mt-4">
-                  <ScoreBar value={simulatedScore} tone={riskTone(simulatedRisk)} />
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Badge variant={badgeVariantForTone(riskTone(simulatedRisk))}>
-                    {riskLabel(language, simulatedRisk)}
-                  </Badge>
-                  <Badge variant={simulatorDelta > 0 ? "success" : "neutral"}>
-                    {simulatorDelta >= 0 ? "+" : ""}
-                    {simulatorDelta} {r(language, "vsOfficial")}
-                  </Badge>
-                  <Badge variant="warning">{r(language, "unofficialPreview")}</Badge>
-                </div>
-                <p className="mt-4 text-[14px] leading-6 text-slate-500">
-                  {r(language, "simulationNote")} {officialScore}/100.
-                </p>
-              </div>
             </div>
           </ReportDisclosure>
 

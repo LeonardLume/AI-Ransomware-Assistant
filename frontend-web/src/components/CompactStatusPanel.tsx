@@ -39,26 +39,26 @@ export default function CompactStatusPanel({
     session?.current_domain || lastResponse?.current_domain || currentQuestion?.domain;
   const scoreLabel =
     completionRate <= 0
-      ? "Not ready"
+      ? "Pole valmis"
       : isEarlyPreview(completionRate)
-        ? "Early preview"
+        ? "Esialgne eelvaade"
         : score?.score_status === "final" || score?.is_complete
-          ? "Final"
-          : "Preliminary";
+          ? "Lõplik"
+          : "Esialgne";
 
   return (
     <aside className="space-y-3">
       <Card className="p-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-950">Status</h2>
-          <Badge tone={scoreLabel === "Final" ? "success" : completionRate ? "warning" : "neutral"}>
+          <h2 className="text-sm font-semibold text-slate-950">Olek</h2>
+          <Badge tone={scoreLabel === "Lõplik" ? "success" : completionRate ? "warning" : "neutral"}>
             {scoreLabel}
           </Badge>
         </div>
 
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
-            <span>Completion</span>
+            <span>Täidetud</span>
             <span>{completionRate}%</span>
           </div>
           <Progress value={completionRate} tone={completionRate === 100 ? "success" : "info"} />
@@ -66,11 +66,11 @@ export default function CompactStatusPanel({
 
         <div className="mt-4 space-y-3 text-sm">
           <div>
-            <div className="text-xs font-medium text-slate-500">Current domain</div>
+            <div className="text-xs font-medium text-slate-500">Praegune domeen</div>
             <div className="mt-1 text-slate-900">{valueOrDash(currentDomain)}</div>
           </div>
           <div>
-            <div className="text-xs font-medium text-slate-500">Current question</div>
+            <div className="text-xs font-medium text-slate-500">Praegune küsimus</div>
             <div className="mt-1 leading-6 text-slate-900">
               {currentQuestion?.question || valueOrDash(session?.current_question_id)}
             </div>
@@ -80,7 +80,7 @@ export default function CompactStatusPanel({
         <div className="mt-5 grid gap-2">
           <Button type="button" variant="primary" onClick={onOpenResults}>
             <ArrowRight className="h-4 w-4" />
-            Open results
+            Ava tulemused
           </Button>
           <Button
             type="button"
@@ -88,7 +88,7 @@ export default function CompactStatusPanel({
             disabled={!canGenerateReport || loading}
           >
             <FileText className="h-4 w-4" />
-            Create report
+            Koosta raport
           </Button>
         </div>
       </Card>

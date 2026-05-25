@@ -6,8 +6,12 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+build/
+*.egg-info/
 .run-logs/
 sessions.db
+sessions.db-shm
+sessions.db-wal
 *.log
 *.err.log
 data_runtime/ai_traces.jsonl

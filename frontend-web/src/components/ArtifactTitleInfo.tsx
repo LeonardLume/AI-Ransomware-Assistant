@@ -126,25 +126,25 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
       title: "Raport",
       short: "Peamine lunavara valmisoleku raport.",
       what: "Siin on koos skoor, riskitase, kokkuvõte, olulisemad leiud, prioriteetsed sammud ja domeenide valmisolek.",
-      how: "Skoori ja riski arvutab backend reeglitega. LLM aitab tulemust selgitada, kuid ei mõtle punkte välja. Seda vaadet on mõistlik näidata esimesena.",
+      how: "Tulemuse ja riski arvutab taustsüsteem reeglitega. LLM aitab tulemust selgitada, kuid ei mõtle punkte välja. Seda vaadet on mõistlik näidata esimesena.",
     },
     actionPlan: {
       title: "Tegevusplaan",
       short: "Praktiline parandusplaan raporti põhjal.",
-      what: "Backendi leiud ja riskid muutuvad tegevusteks: mida teha, kes vastutab, kui suur on pingutus ja mis on tähtaeg.",
-      how: "Ava esmalt raport, seejärel kasuta seda backlog'ina. Tegevuste juures olevad i-nupud selgitavad konkreetseid samme ja tõendeid.",
+      what: "Taustsüsteemi leiud ja riskid muutuvad tegevusteks: mida teha, kes vastutab, kui suur on pingutus ja mis on tähtaeg.",
+      how: "Ava esmalt raport, seejärel kasuta seda tööjärjekorrana. Tegevuste juures olevad i-nupud selgitavad konkreetseid samme ja tõendeid.",
     },
     evidenceBinder: {
       title: "Tõendite kaust",
       short: "Tõendite nimekiri, mis toetab valmisolekut.",
-      what: "Siin on dokumendid, screenshot'id, ticket'id, loginäited ja muud materjalid, mida tasub kontrolliks ette valmistada.",
-      how: "See vaade ei arvuta skoori. See aitab näidata, et tegevusplaan on päriselt tehtud ja assessment'i vastuseid saab kinnitada.",
+      what: "Siin on dokumendid, kuvatõmmised, tööpiletid, logide näited ja muud materjalid, mida tasub kontrolliks ette valmistada.",
+      how: "See vaade ei arvuta tulemust. See aitab näidata, et tegevusplaan on päriselt tehtud ja hindamise vastuseid saab kinnitada.",
     },
     skills: {
       title: "Oskused",
-      short: "Raportiga seotud kaitsvad oskused ja playbook'id.",
-      what: "See on reference layer: praktikad, mis toetavad selgitusi, tõendeid ja tegevusplaani.",
-      how: "Oskused ei arvuta numbrilist skoori. Need näitavad, millised defensive capabilities on raporti riskidega seotud.",
+      short: "Raportiga seotud kaitseoskused ja juhendid.",
+      what: "See on tugikiht: praktikad, mis toetavad selgitusi, tõendeid ja tegevusplaani.",
+      how: "Oskused ei arvuta numbrilist tulemust. Need näitavad, millised kaitsevõimed on raporti riskidega seotud.",
     },
   };
   return content[kind];

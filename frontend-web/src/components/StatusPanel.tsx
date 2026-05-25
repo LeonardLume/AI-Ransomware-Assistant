@@ -36,10 +36,10 @@ export default function StatusPanel({
     session?.current_domain || lastResponse?.current_domain || currentQuestion?.domain;
   const scoreLabel =
     completionRate <= 0
-      ? "not ready"
+      ? "pole valmis"
       : isEarlyPreview(completionRate)
-        ? "early preview"
-        : score?.score_status || "preliminary";
+        ? "esialgne eelvaade"
+        : statusLabel(score?.score_status);
   const answers = Object.entries(session?.answers || {}).filter(
     ([questionId]) => !questionId.startsWith("followup__"),
   );
@@ -49,24 +49,24 @@ export default function StatusPanel({
     <aside className="space-y-4">
       <Card className="!border-white/10 !bg-white/[0.07] p-5 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-white">Assessment status</h2>
-          <Badge tone={scoreLabel === "final" ? "success" : completionRate ? "warning" : "neutral"}>
+          <h2 className="text-sm font-semibold text-white">Hindamise olek</h2>
+          <Badge tone={scoreLabel === "lõplik" ? "success" : completionRate ? "warning" : "neutral"}>
             {scoreLabel}
           </Badge>
         </div>
 
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-            <span>Completion</span>
+            <span>Täidetud</span>
             <span>{completionRate}%</span>
           </div>
           <Progress value={completionRate} tone={completionRate === 100 ? "success" : "info"} />
         </div>
 
         <div className="mt-5 space-y-4">
-          <StatusRow label="Current domain" value={valueOrDash(currentDomain)} />
+          <StatusRow label="Praegune domeen" value={valueOrDash(currentDomain)} />
           <div>
-            <div className="text-xs font-medium text-slate-500">Current question</div>
+            <div className="text-xs font-medium text-slate-500">Praegune küsimus</div>
             <div className="mt-1 text-sm leading-6 text-slate-100">
               {currentQuestion?.question || valueOrDash(session?.current_question_id)}
             </div>
@@ -79,7 +79,7 @@ export default function StatusPanel({
           title={
             <span className="inline-flex items-center gap-2 text-white">
               <Database className="h-4 w-4" />
-              Structured answers
+              Struktureeritud vastused
               <Badge tone="neutral">{answers.length}</Badge>
             </span>
           }
@@ -100,7 +100,7 @@ export default function StatusPanel({
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-slate-500">
-                No validated answers yet.
+                Valideeritud vastuseid pole veel.
               </div>
             )}
           </div>
@@ -118,4 +118,10 @@ function StatusRow({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm text-slate-100">{value}</div>
     </div>
   );
+}
+
+function statusLabel(value?: string | null): string {
+  if (value === "final") return "lõplik";
+  if (value === "preliminary") return "esialgne";
+  return value || "esialgne";
 }

@@ -28,6 +28,8 @@ type AboutCopy = {
   close: string;
   start: string;
   howTitle: string;
+  howSubtitle: string;
+  clarityTitle: string;
   workflow: Array<{
     title: string;
     description: string;
@@ -43,17 +45,23 @@ type AboutCopy = {
   advancedTitle: string;
   advancedClosed: string;
   advancedOpen: string;
+  rawFormulasTitle: string;
+  riskBandsTitle: string;
+  scoredDomainsTitle: string;
+  scoredDomainsNote: string;
 };
 
 const copyByLanguage: Record<UiLanguage, AboutCopy> = {
   et: {
-    eyebrow: "AI-assisted self-assessment",
+    eyebrow: "AI-toega enesehindamine",
     title: "Lunavara valmisolek, lihtsalt selgitatud.",
     subtitle:
       "Lühike kaitsevõime intervjuu, mis aitab mõista nõrku kohti ilma tehnilist auditit või skaneerimist lubamata.",
     close: "Sulge",
     start: "Alusta hindamist",
     howTitle: "Kuidas kasutada",
+    howSubtitle: "Kolm sammu ja üks kaitsev valmisolekuraport.",
+    clarityTitle: "Mis jääb selgeks",
     workflow: [
       {
         title: "Vasta loomulikult",
@@ -70,26 +78,31 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     ],
     benefits: [
       {
-        title: "Backend kontrollib skoori",
-        description: "LLM aitab vestlusega, kuid ametlik readiness score tuleb fikseeritud reeglitest.",
+        title: "Taustsüsteem kontrollib tulemust",
+        description: "LLM aitab vestlusega, kuid ametlik valmisoleku tulemus tuleb fikseeritud reeglitest.",
       },
       {
-        title: "Defensive-only disain",
+        title: "Ainult kaitsele suunatud disain",
         description: "Süsteem suunab vestluse kaitse, tõendite ja valmisoleku parandamise juurde.",
       },
       {
-        title: "Sobib SME konteksti",
-        description: "Küsimused on praktilised: backup, MFA, patching, admin-õigused, IR ja monitoring.",
+        title: "Sobib väikese ja keskmise ettevõtte konteksti",
+        description: "Küsimused on praktilised: varukoopiad, MFA, paikamine, administraatoriõigused, intsidendile reageerimine ja seire.",
       },
     ],
     principles: [
-      { label: "Küsimused", value: "27 required" },
-      { label: "Skoor", value: "Rule-based" },
-      { label: "LLM roll", value: "Explain + extract" },
+      { label: "Küsimused", value: "27 kohustuslikku" },
+      { label: "Tulemus", value: "Reeglipõhine" },
+      { label: "LLM-i roll", value: "Selgitab ja tuvastab" },
     ],
-    advancedTitle: "Advanced Scoring Details",
+    advancedTitle: "Täpsemad tulemuse arvutuse detailid",
     advancedClosed: "Näita tehnilisi detaile",
     advancedOpen: "Peida tehnilised detailid",
+    rawFormulasTitle: "Toorvalemid",
+    riskBandsTitle: "Riskivahemikud",
+    scoredDomainsTitle: "Hinnatavad domeenid",
+    scoredDomainsNote:
+      "Töötajate turvahügieeni soovitused võivad raportis ilmuda, kuid need ei muuda ametlikku valmisoleku tulemust.",
   },
   en: {
     eyebrow: "AI-assisted self-assessment",
@@ -99,6 +112,8 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     close: "Close",
     start: "Start assessment",
     howTitle: "How to use",
+    howSubtitle: "Three steps, one defensive report.",
+    clarityTitle: "What stays clear",
     workflow: [
       {
         title: "Answer naturally",
@@ -135,6 +150,11 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     advancedTitle: "Advanced Scoring Details",
     advancedClosed: "Show technical details",
     advancedOpen: "Hide technical details",
+    rawFormulasTitle: "Raw formulas",
+    riskBandsTitle: "Risk bands",
+    scoredDomainsTitle: "Scored domains",
+    scoredDomainsNote:
+      "Optional employee hygiene guidance can appear in the report, but it does not change the official readiness score.",
   },
   ru: {
     eyebrow: "AI-assisted self-assessment",
@@ -144,6 +164,8 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     close: "Закрыть",
     start: "Начать оценку",
     howTitle: "Как использовать",
+    howSubtitle: "Три шага и один защитный отчёт.",
+    clarityTitle: "Что остаётся прозрачным",
     workflow: [
       {
         title: "Отвечайте естественно",
@@ -180,34 +202,71 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     advancedTitle: "Advanced Scoring Details",
     advancedClosed: "Показать технические детали",
     advancedOpen: "Скрыть технические детали",
+    rawFormulasTitle: "Raw formulas",
+    riskBandsTitle: "Risk bands",
+    scoredDomainsTitle: "Scored domains",
+    scoredDomainsNote:
+      "Optional employee hygiene guidance can appear in the report, but it does not change the official readiness score.",
   },
 };
 
 const workflowIcons = [MessageSquareText, BookOpenCheck, ClipboardList];
 const benefitIcons = [Database, LockKeyhole, ShieldCheck];
 
-const advancedFormulas = [
-  "Domain score = round((earned domain points / max domain points) * 100)",
-  "Overall score = round((sum of scored domain percentages) / scored domain count)",
-  "Completion rate = round((answered required questions / total required questions) * 100)",
-  "Yes = full fixed points, Partial = reduced fixed points, No = 0, Unsure = 0",
-];
+function advancedFormulasFor(language: UiLanguage) {
+  if (language === "et") {
+    return [
+      "Domeeni tulemus = ümarda((teenitud domeenipunktid / maksimaalsed domeenipunktid) * 100)",
+      "Üldtulemus = ümarda((hinnatud domeenide protsentide summa) / hinnatud domeenide arv)",
+      "Täidetuse määr = ümarda((vastatud kohustuslikud küsimused / kõik kohustuslikud küsimused) * 100)",
+      "Jah = täispunktid, Osaliselt = vähendatud punktid, Ei = 0, Ei tea = 0",
+    ];
+  }
+  return [
+    "Domain score = round((earned domain points / max domain points) * 100)",
+    "Overall score = round((sum of scored domain percentages) / scored domain count)",
+    "Completion rate = round((answered required questions / total required questions) * 100)",
+    "Yes = full fixed points, Partial = reduced fixed points, No = 0, Unsure = 0",
+  ];
+}
 
-const rawDomains = [
-  ["Backups & recovery", "5 questions", "100 max points"],
-  ["MFA & access", "4 questions", "100 max points"],
-  ["Patching", "4 questions", "100 max points"],
-  ["Admin rights", "4 questions", "100 max points"],
-  ["Incident response", "5 questions", "120 max points"],
-  ["Detection & monitoring", "5 questions", "100 max points"],
-];
+function rawDomainsFor(language: UiLanguage) {
+  if (language === "et") {
+    return [
+      ["Varukoopiad ja taastamine", "5 küsimust", "100 maksimum punkti"],
+      ["MFA ja ligipääs", "4 küsimust", "100 maksimum punkti"],
+      ["Paikamine", "4 küsimust", "100 maksimum punkti"],
+      ["Administraatoriõigused", "4 küsimust", "100 maksimum punkti"],
+      ["Intsidendile reageerimine", "5 küsimust", "120 maksimum punkti"],
+      ["Tuvastus ja seire", "5 küsimust", "100 maksimum punkti"],
+    ];
+  }
+  return [
+    ["Backups & recovery", "5 questions", "100 max points"],
+    ["MFA & access", "4 questions", "100 max points"],
+    ["Patching", "4 questions", "100 max points"],
+    ["Admin rights", "4 questions", "100 max points"],
+    ["Incident response", "5 questions", "120 max points"],
+    ["Detection & monitoring", "5 questions", "100 max points"],
+  ];
+}
 
-const riskBands = [
-  ["Low", "80-100"],
-  ["Medium", "60-79"],
-  ["High", "40-59"],
-  ["Critical", "0-39"],
-];
+function riskBandsFor(language: UiLanguage) {
+  if (language === "et") {
+    return [
+      ["Madal", "80-100"],
+      ["Keskmine", "60-79"],
+      ["Kõrge", "40-59"],
+      ["Kriitiline", "0-39"],
+    ];
+  }
+  return [
+    ["Low", "80-100"],
+    ["Medium", "60-79"],
+    ["High", "40-59"],
+    ["Critical", "0-39"],
+  ];
+}
 
 function SoftIcon({
   children,
@@ -301,7 +360,7 @@ export default function AboutOverlay({
             <section>
               <h3 className="text-2xl font-semibold text-white">{copy.howTitle}</h3>
               <p className="mt-2 text-sm leading-6 text-gray-400">
-                Three steps, one defensive report.
+                {copy.howSubtitle}
               </p>
               <div className="mt-6 space-y-4">
                 {copy.workflow.map((step, index) => {
@@ -330,7 +389,7 @@ export default function AboutOverlay({
             </section>
 
             <section>
-              <h3 className="text-2xl font-semibold text-white">What stays clear</h3>
+              <h3 className="text-2xl font-semibold text-white">{copy.clarityTitle}</h3>
               <div className="mt-6 divide-y divide-white/10 rounded-3xl border border-white/10 bg-white/[0.035]">
                 {copy.benefits.map((benefit, index) => {
                   const Icon = benefitIcons[index] || ShieldCheck;
@@ -379,10 +438,10 @@ export default function AboutOverlay({
                     <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                       <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
                         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                          Raw formulas
+                          {copy.rawFormulasTitle}
                         </p>
                         <div className="mt-4 space-y-2">
-                          {advancedFormulas.map((formula) => (
+                          {advancedFormulasFor(language).map((formula) => (
                             <div
                               key={formula}
                               className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 font-mono text-xs leading-5 text-gray-300"
@@ -395,10 +454,10 @@ export default function AboutOverlay({
 
                       <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
                         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                          Risk bands
+                          {copy.riskBandsTitle}
                         </p>
                         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          {riskBands.map(([label, range]) => (
+                          {riskBandsFor(language).map(([label, range]) => (
                             <div
                               key={label}
                               className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3"
@@ -412,10 +471,10 @@ export default function AboutOverlay({
 
                       <div className="rounded-3xl border border-white/10 bg-black/20 p-5 lg:col-span-2">
                         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                          Scored domains
+                          {copy.scoredDomainsTitle}
                         </p>
                         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-                          {rawDomains.map(([domain, questions, maxPoints]) => (
+                          {rawDomainsFor(language).map(([domain, questions, maxPoints]) => (
                             <div
                               key={domain}
                               className="grid gap-1 border-b border-white/10 px-4 py-3 last:border-b-0 sm:grid-cols-[1.35fr_0.7fr_0.7fr] sm:items-center"
@@ -427,8 +486,7 @@ export default function AboutOverlay({
                           ))}
                         </div>
                         <p className="mt-4 text-sm leading-6 text-gray-400">
-                          Optional employee hygiene guidance can appear in the report, but it does not change the
-                          official readiness score.
+                          {copy.scoredDomainsNote}
                         </p>
                       </div>
                     </div>

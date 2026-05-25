@@ -24,7 +24,7 @@ export default function Header({
             variant="secondary"
             onClick={onToggleSidebar}
             className="h-10 w-10 px-0 lg:hidden"
-            aria-label="Toggle sessions"
+            aria-label="Ava või sulge sessioonid"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -33,7 +33,7 @@ export default function Header({
               Ransomware Readiness AI
             </h1>
             <p className="mt-1 truncate text-sm text-slate-600">
-              Controlled AI interview - Defensive-only - Rule-based scoring
+              Kontrollitud AI-intervjuu - ainult kaitsev - reeglipõhine tulemus
             </p>
           </div>
         </div>

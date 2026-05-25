@@ -22,15 +22,15 @@ import TechnicalJsonView from "./TechnicalJsonView";
 import { ArtifactCard, Tabs } from "./ui";
 
 const tabItems: Array<{ id: ArtifactId; label: string; icon: JSX.Element }> = [
-  { id: "readiness-report", label: "Readiness Report", icon: <FileText className="h-4 w-4" /> },
-  { id: "action-plan", label: "Action Plan", icon: <ClipboardList className="h-4 w-4" /> },
-  { id: "evidence-binder", label: "Evidence Binder", icon: <ListChecks className="h-4 w-4" /> },
+  { id: "readiness-report", label: "Valmisoleku raport", icon: <FileText className="h-4 w-4" /> },
+  { id: "action-plan", label: "Tegevusplaan", icon: <ClipboardList className="h-4 w-4" /> },
+  { id: "evidence-binder", label: "Tõendite kaust", icon: <ListChecks className="h-4 w-4" /> },
   {
     id: "ransomware-playbook",
-    label: "Ransomware Playbook",
+    label: "Lunavara juhend",
     icon: <BookOpenCheck className="h-4 w-4" />,
   },
-  { id: "technical-json", label: "Technical JSON", icon: <FileJson className="h-4 w-4" /> },
+  { id: "technical-json", label: "Tehniline JSON", icon: <FileJson className="h-4 w-4" /> },
 ];
 
 export default function ArtifactPanel({
@@ -73,36 +73,36 @@ export default function ArtifactPanel({
   }> = [
     {
       id: "readiness-report",
-      title: "Readiness Report",
-      description: hasReport ? "Score, risk, domain bars, risks, and next steps." : "Generate after a session has answers.",
+      title: "Valmisoleku raport",
+      description: hasReport ? "Tulemus, riskitase, domeenid, riskid ja järgmised sammud." : "Koosta pärast seda, kui sessioonis on vastuseid.",
       available: hasReport,
       icon: <FileText className="h-5 w-5" />,
     },
     {
       id: "action-plan",
-      title: "Action Plan",
-      description: hasActionPlan ? "Prioritized backend actions with owners and evidence." : "Waiting for action-plan data.",
+      title: "Tegevusplaan",
+      description: hasActionPlan ? "Prioriseeritud tegevused koos omanike ja tõenditega." : "Ootab tegevusplaani andmeid.",
       available: hasActionPlan,
       icon: <ClipboardList className="h-5 w-5" />,
     },
     {
       id: "evidence-binder",
-      title: "Evidence Binder",
-      description: hasEvidence ? "Evidence checklist grouped by domain." : "Backend checklist not available yet.",
+      title: "Tõendite kaust",
+      description: hasEvidence ? "Domeenide järgi grupeeritud tõendite kontrollnimekiri." : "Taustsüsteemi kontrollnimekiri pole veel saadaval.",
       available: hasEvidence,
       icon: <ListChecks className="h-5 w-5" />,
     },
     {
       id: "ransomware-playbook",
-      title: "Ransomware Playbook",
-      description: hasPlaybook ? "Operational defensive view built from report data." : "Generate a report first.",
+      title: "Lunavara juhend",
+      description: hasPlaybook ? "Raporti andmetest koostatud kaitsev töövaade." : "Koosta esmalt raport.",
       available: hasPlaybook,
       icon: <BookOpenCheck className="h-5 w-5" />,
     },
     {
       id: "technical-json",
-      title: "Technical Trace",
-      description: hasTrace ? "Debug payloads, provider state, and workflow trace." : "No trace collected yet.",
+      title: "Tehniline jälg",
+      description: hasTrace ? "Silumisandmed, teenusepakkuja olek ja töövoo jälg." : "Jälge pole veel kogutud.",
       available: hasTrace,
       icon: <FileJson className="h-5 w-5" />,
     },
@@ -111,7 +111,7 @@ export default function ArtifactPanel({
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-soft">
       <div className="border-b border-slate-200/80 bg-slate-50/90 px-4 py-3">
-        <div className="text-xs font-semibold uppercase text-slate-500">Artifacts</div>
+        <div className="text-xs font-semibold uppercase text-slate-500">Vaated</div>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {cards.map((card) => (
             <ArtifactCard

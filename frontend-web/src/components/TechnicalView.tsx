@@ -40,6 +40,7 @@ export default function TechnicalView({
   language?: UiLanguage;
 }) {
   const provider = providerStatus?.provider || lastResponse?.provider || "unknown";
+  const providerDisplay = valueLabel(language, provider);
   const fallbackUsed = providerStatus
     ? providerStatus.provider === "fallback"
     : (lastResponse?.used_fallback ?? provider === "fallback");
@@ -77,7 +78,7 @@ export default function TechnicalView({
                 />
                 <StatusRow
                   label="LLM"
-                  value={provider}
+                  value={providerDisplay}
                   tone={provider === "fallback" ? "warning" : "info"}
                 />
                 <StatusRow
@@ -241,16 +242,16 @@ function answerLabel(language: UiLanguage): string {
 function localizedFlowStep(language: UiLanguage, step: string): string {
   const normalized = step.toLowerCase();
   if (normalized.includes("prompt firewall")) {
-    return language === "ru" ? "Prompt firewall блокирует попытки изменить системные инструкции" : language === "en" ? "Prompt firewall blocks attempts to change system instructions" : "Prompt firewall blokeerib juhiste muutmise katsed";
+    return language === "ru" ? "Prompt firewall блокирует попытки изменить системные инструкции" : language === "en" ? "Prompt firewall blocks attempts to change system instructions" : "Juhiste kaitsefilter blokeerib juhiste muutmise katsed";
   }
   if (normalized.includes("redaction")) {
     return language === "ru" ? "Чувствительные данные редактируются перед LLM" : language === "en" ? "Sensitive data is redacted before LLM calls" : "Tundlikud andmed redigeeritakse enne LLM-i";
   }
   if (normalized.includes("confidence")) {
-    return language === "ru" ? "Confidence показывается отдельно от score" : language === "en" ? "Confidence is shown separately from score" : "Usaldusväärsus kuvatakse skoorist eraldi";
+    return language === "ru" ? "Confidence показывается отдельно от score" : language === "en" ? "Confidence is shown separately from score" : "Usaldusväärsus kuvatakse tulemusest eraldi";
   }
   if (normalized.includes("external")) {
-    return language === "ru" ? "External exposure self-check основан на самооценке, без сканирования" : language === "en" ? "External exposure self-check is self-reported, with no scanning" : "Välise nähtavuse enesekontroll on self-report, ilma skaneerimiseta";
+    return language === "ru" ? "External exposure self-check основан на самооценке, без сканирования" : language === "en" ? "External exposure self-check is self-reported, with no scanning" : "Välise nähtavuse enesekontroll põhineb kasutaja enda kinnitusel, ilma skaneerimiseta";
   }
   return step;
 }

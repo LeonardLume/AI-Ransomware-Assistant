@@ -84,7 +84,7 @@ export default function ActionPlanView({
           <div className="mx-auto mt-7 w-full max-w-[168px] rounded-[24px] border border-white/[0.08] bg-black/[0.18] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] lg:absolute lg:right-5 lg:top-5 lg:mt-0">
             <div className="text-right">
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                Actions
+                {actionCountLabel(language)}
               </div>
               <div className="mt-0.5 text-3xl font-semibold leading-none tracking-[-0.06em] text-white">
                 {items.length}
@@ -324,14 +324,14 @@ function actionFamily(text: string): ActionFamily {
 
 function guidanceEt(family: ActionFamily): ActionGuidance {
   const commonVerification = [
-    "Lisa tõend: link, screenshot, logiväljavõte, ticket või dokumendi versioon.",
+    "Lisa tõend: link, kuvatõmmis, logiväljavõte, tööpilet või dokumendi versioon.",
     "Palu omanikul kinnitada, et tegevus on tehtud ja vähendab raportis kirjeldatud riski.",
   ];
   if (family === "backup") {
     return {
       steps: [
         "Leia kriitilised süsteemid ja kontrolli, millal nende viimane varukoopia tegelikult valmis sai.",
-        "Tee taastamise proov väikese andmekogumiga, mitte ainult backup job'i staatuse kontroll.",
+        "Tee taastamise proov väikese andmekogumiga, mitte ainult varundustöö staatuse kontroll.",
         "Kinnita, et vähemalt üks koopia on eraldatud või muutmiskindel.",
       ],
       verification: ["Kirjuta üles taastamise aeg, kasutatud andmekogu ja tulemus.", ...commonVerification],
@@ -341,11 +341,11 @@ function guidanceEt(family: ActionFamily): ActionGuidance {
   if (family === "logging") {
     return {
       steps: [
-        "Vali logiallikad, mis aitavad lunavara uurida: endpoint, identity, file changes ja backup events.",
+        "Vali logiallikad, mis aitavad lunavara uurida: seadmed, identiteet, failimuudatused ja varundussündmused.",
         "Kontrolli, kas logid jõuavad ühte kohta ning kas säilitusperiood katab uurimise vajaduse.",
-        "Loo või uuenda alert-review protsess: kes vaatab, kui kiiresti ja kuhu eskaleeritakse.",
+        "Loo või uuenda hoiatuste ülevaatamise protsess: kes vaatab, kui kiiresti ja kuhu eskaleeritakse.",
       ],
-      verification: ["Ava näidisalert või logikirje ja kontrolli, et see sisaldab aega, hosti, kasutajat ja sündmust.", ...commonVerification],
+      verification: ["Ava näidishoiatus või logikirje ja kontrolli, et see sisaldab aega, seadet, kasutajat ja sündmust.", ...commonVerification],
       expectedResult: "Kui intsident juhtub, on uurimiseks vajalikud logid olemas ja keegi vastutab nende ülevaatamise eest.",
     };
   }
@@ -353,7 +353,7 @@ function guidanceEt(family: ActionFamily): ActionGuidance {
     return {
       steps: [
         "Kirjuta lühike lunavara stsenaarium: avastamine, isoleerimine, suhtlus, taastamine ja otsustajad.",
-        "Määra rollid: incident lead, IT, juhtkond, kommunikatsioon ja väline partner.",
+        "Määra rollid: intsidendi juht, IT, juhtkond, kommunikatsioon ja väline partner.",
         "Tee 60-90 minuti harjutus ning salvesta otsused ja paranduskohad.",
       ],
       verification: ["Kontrolli, et plaanis on kontaktid, eskalatsioon, esimese tunni tegevused ja taastamise otsused.", ...commonVerification],
@@ -364,10 +364,10 @@ function guidanceEt(family: ActionFamily): ActionGuidance {
     return {
       steps: [
         "Vaata üle admin- ja kaugjuurdepääsu kontod ning eemalda kasutamata õigused.",
-        "Lülita MFA sisse vähemalt admin-kontodele, VPN-ile ja pilveteenustele.",
+        "Lülita MFA sisse vähemalt administraatori kontodele, VPN-ile ja pilveteenustele.",
         "Kontrolli, kas hädaolukorra ligipääs on dokumenteeritud ja kaitstud.",
       ],
-      verification: ["Tee eksport või screenshot kontodest, rollidest ja MFA staatusest.", ...commonVerification],
+      verification: ["Tee kontode, rollide ja MFA staatuse eksport või kuvatõmmis.", ...commonVerification],
       expectedResult: "Lunavara operaatoril on raskem liikuda edasi varastatud parooli või liigsete õigustega.",
     };
   }
@@ -375,11 +375,11 @@ function guidanceEt(family: ActionFamily): ActionGuidance {
     return {
       steps: [
         "Koosta nimekiri internetist nähtavatest ja kriitilistest süsteemidest.",
-        "Määra patchimise prioriteet: aktiivselt kasutatav haavatavus, kriitiline server, kaugjuurdepääs.",
+        "Määra paikamise prioriteet: aktiivselt kasutatav haavatavus, kriitiline server, kaugjuurdepääs.",
         "Paika pane rütm, kes kontrollib CVE-sid ja millal parandused paigaldatakse.",
       ],
-      verification: ["Lisa vulnerability scan'i väljavõte, patch ticket või uuenduse versioon.", ...commonVerification],
-      expectedResult: "Kõige ohtlikumad augud ei jää kuudeks lahti ja patchimise omanik on selge.",
+      verification: ["Lisa haavatavuste kontrolli väljavõte, paikamise tööpilet või uuenduse versioon.", ...commonVerification],
+      expectedResult: "Kõige ohtlikumad augud ei jää kuudeks lahti ja paikamise omanik on selge.",
     };
   }
   if (family === "awareness") {
@@ -395,7 +395,7 @@ function guidanceEt(family: ActionFamily): ActionGuidance {
   }
   return {
     steps: [
-      "Määra vastutaja ja täpsusta, milline süsteem, protsess või dokument on skoopis.",
+      "Määra vastutaja ja täpsusta, milline süsteem, protsess või dokument on ulatuses.",
       "Kirjelda tänane seis: mis on olemas, mis puudub ja milline otsus on vaja teha.",
       "Tee konkreetne muudatus või dokument, mida saab hiljem tõendina näidata.",
     ],
@@ -594,6 +594,12 @@ function actionItemLabel(language: UiLanguage): string {
   if (language === "en") return "Action item";
   if (language === "ru") return "Action item";
   return "Tegevus";
+}
+
+function actionCountLabel(language: UiLanguage): string {
+  if (language === "en") return "Actions";
+  if (language === "ru") return "Действия";
+  return "Tegevused";
 }
 
 function infoLabel(language: UiLanguage): string {

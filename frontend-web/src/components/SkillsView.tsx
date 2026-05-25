@@ -89,7 +89,7 @@ function SkillsHeader({
           <div className="flex items-center gap-3 rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                Skills
+                {skillsCountLabel(language)}
               </div>
               <div className="mt-0.5 text-2xl font-semibold leading-none tracking-[-0.05em] text-white">
                 {count}
@@ -147,6 +147,12 @@ function SkillTile({
 
 function fallbackDomainLabel(language: UiLanguage): string {
   if (language === "en") return "Defensive skill";
-  if (language === "ru") return "Defensive skill";
+  if (language === "ru") return "Защитный навык";
   return "Kaitsev oskus";
+}
+
+function skillsCountLabel(language: UiLanguage): string {
+  if (language === "en") return "Skills";
+  if (language === "ru") return "Навыки";
+  return "Oskused";
 }

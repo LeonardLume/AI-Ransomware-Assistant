@@ -17,9 +17,9 @@ export default function ProviderStatus({
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs">
-      <Badge tone={backendOnline ? "success" : "danger"}>Backend: {backendOnline ? "online" : "offline"}</Badge>
-      <Badge tone={provider === "fallback" ? "warning" : "info"}>LLM: {provider}</Badge>
-      <Badge tone={fallbackUsed ? "warning" : "success"}>Fallback: {String(Boolean(fallbackUsed))}</Badge>
+      <Badge tone={backendOnline ? "success" : "danger"}>Taustsüsteem: {backendOnline ? "sees" : "väljas"}</Badge>
+      <Badge tone={provider === "fallback" ? "warning" : "info"}>LLM: {provider === "fallback" ? "varurežiim" : provider}</Badge>
+      <Badge tone={fallbackUsed ? "warning" : "success"}>Varurežiim: {fallbackUsed ? "jah" : "ei"}</Badge>
     </div>
   );
 }

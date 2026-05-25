@@ -109,5 +109,5 @@ function safetyText(language: UiLanguage): string {
   if (language === "ru") {
     return "Не вводи пароли, токены, точные IP-адреса или секреты. Данные могут отправляться настроенному LLM provider, если не используется fallback или local mode.";
   }
-  return "Ära sisesta paroole, tokeneid, täpseid IP-aadresse ega saladusi. Andmed võivad minna seadistatud LLM teenusepakkujale, kui fallback või local mode pole kasutusel.";
+  return "Ära sisesta paroole, tokeneid, täpseid IP-aadresse ega saladusi. Andmed võivad minna seadistatud LLM-teenusepakkujale, kui varurežiim või kohalik režiim pole kasutusel.";
 }
