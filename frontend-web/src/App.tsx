@@ -890,7 +890,6 @@ export default function App() {
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}
-              report={report}
               language={language}
               onLanguageChange={changeLanguage}
               onChat={() => setArtifactOverlayOpen(false)}
@@ -967,7 +966,6 @@ const artifactTabs: Array<{
 function ArtifactTopTabs({
   activeArtifact,
   artifactOverlayOpen,
-  report,
   language,
   onLanguageChange,
   onChat,
@@ -975,18 +973,12 @@ function ArtifactTopTabs({
 }: {
   activeArtifact: ArtifactId;
   artifactOverlayOpen: boolean;
-  report?: ReportResponse | null;
   language: UiLanguage;
   onLanguageChange: (language: UiLanguage) => void;
   onChat: () => void;
   onChange: (artifact: ArtifactId) => void;
 }) {
   const selectedArtifact = activeArtifact === "ransomware-playbook" ? "skills" : activeArtifact;
-  const tabReadyState: Partial<Record<ArtifactId, boolean>> = {
-    "action-plan": Boolean(report?.action_plan?.length),
-    "evidence-binder": Boolean(report?.evidence_checklist?.length),
-    skills: Boolean(report?.skill_references?.length),
-  };
 
   return (
     <div className="mb-4 rounded-2xl border border-white/10 bg-black/30 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.2)]">
@@ -1008,7 +1000,6 @@ function ArtifactTopTabs({
           {artifactTabs.map((tab) => {
             const active = artifactOverlayOpen && selectedArtifact === tab.id;
             const label = tab.labelKey ? t(language, tab.labelKey) : tab.label || tab.id;
-            const showReadyNotice = Boolean(tabReadyState[tab.id]);
             return (
               <button
                 key={tab.id}
@@ -1021,11 +1012,6 @@ function ArtifactTopTabs({
                     : "text-slate-400 hover:bg-white/10 hover:text-white",
                 )}
               >
-                {showReadyNotice ? (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-amber-300/40 bg-amber-300/22 px-1.5 text-[10px] font-black leading-none text-amber-50 shadow-[0_10px_22px_rgba(251,191,36,0.26)] ring-1 ring-amber-200/10">
-                    !
-                  </span>
-                ) : null}
                 {tab.icon}
                 {label}
               </button>

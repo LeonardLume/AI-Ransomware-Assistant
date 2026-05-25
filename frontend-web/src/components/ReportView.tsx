@@ -27,6 +27,7 @@ import {
   type UiLanguage,
 } from "../utils/i18n";
 import { EmptyState } from "./ui";
+import ArtifactTitleInfo from "./ArtifactTitleInfo";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
@@ -817,9 +818,12 @@ function ReportCockpit({
         <section className="report-panel rounded-[34px] px-6 pb-7 pt-4 sm:px-8 sm:pt-5 lg:px-10 lg:pb-9 lg:pt-6">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
             <div className="max-w-3xl">
-              <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
-                {r(language, "title")}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+                  {r(language, "title")}
+                </h2>
+                <ArtifactTitleInfo kind="report" language={language} />
+              </div>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
                 {summaryText || r(language, "subtitle")}
               </p>

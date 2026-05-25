@@ -7,6 +7,7 @@ import {
   type UiLanguage,
 } from "../utils/i18n";
 import { EmptyState } from "./ui";
+import ArtifactTitleInfo from "./ArtifactTitleInfo";
 
 export default function SkillsView({
   report,
@@ -73,9 +74,12 @@ function SkillsHeader({
     <section className="report-panel rounded-[34px] px-6 py-6 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-3xl">
-          <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
-            {t(language, "skills")}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+              {t(language, "skills")}
+            </h2>
+            <ArtifactTitleInfo kind="skills" language={language} />
+          </div>
           <p className="mt-3 max-w-2xl text-base leading-7 text-slate-400">
             {description}
           </p>
