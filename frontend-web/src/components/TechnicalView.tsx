@@ -170,20 +170,6 @@ export default function TechnicalView({
               <p className="mt-2">{t(language, "backendSourceText")}</p>
             </section>
             <PrivacySafetyCard lastResponse={lastResponse} language={language} />
-            {flow?.workflow?.length ? (
-              <section className="report-panel rounded-[30px] px-5 py-5 sm:px-6">
-                <h3 className="text-lg font-semibold tracking-[-0.03em] text-white">
-                  {t(language, "technicalTrace")}
-                </h3>
-                <ol className="mt-4 space-y-2 text-sm leading-6 text-slate-400">
-                  {flow.workflow.map((step, index) => (
-                    <li key={`${step}-${index}`} className="rounded-[18px] border border-white/[0.07] bg-white/[0.025] px-3 py-3">
-                      {localizedFlowStep(language, step)}
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ) : null}
           </div>
         </div>
       </div>
@@ -239,19 +225,3 @@ function answerLabel(language: UiLanguage): string {
   return "vastus";
 }
 
-function localizedFlowStep(language: UiLanguage, step: string): string {
-  const normalized = step.toLowerCase();
-  if (normalized.includes("prompt firewall")) {
-    return language === "ru" ? "Prompt firewall блокирует попытки изменить системные инструкции" : language === "en" ? "Prompt firewall blocks attempts to change system instructions" : "Juhiste kaitsefilter blokeerib juhiste muutmise katsed";
-  }
-  if (normalized.includes("redaction")) {
-    return language === "ru" ? "Чувствительные данные редактируются перед LLM" : language === "en" ? "Sensitive data is redacted before LLM calls" : "Tundlikud andmed redigeeritakse enne LLM-i";
-  }
-  if (normalized.includes("confidence")) {
-    return language === "ru" ? "Confidence показывается отдельно от score" : language === "en" ? "Confidence is shown separately from score" : "Usaldusväärsus kuvatakse tulemusest eraldi";
-  }
-  if (normalized.includes("external")) {
-    return language === "ru" ? "External exposure self-check основан на самооценке, без сканирования" : language === "en" ? "External exposure self-check is self-reported, with no scanning" : "Välise nähtavuse enesekontroll põhineb kasutaja enda kinnitusel, ilma skaneerimiseta";
-  }
-  return step;
-}

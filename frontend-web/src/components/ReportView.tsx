@@ -278,16 +278,23 @@ function ReportDisclosure({
   open,
   onOpenChange,
   children,
+  surface = "panel",
 }: {
   title: string;
   description: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
+  surface?: "panel" | "plain";
 }) {
+  const sectionClassName =
+    surface === "plain"
+      ? "border-y border-white/[0.08] bg-transparent px-0 py-4"
+      : "rounded-[30px] border border-white/[0.08] bg-white/[0.025] px-5 py-4 backdrop-blur-2xl sm:px-6";
+
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <section className="rounded-[30px] border border-white/[0.08] bg-white/[0.025] px-5 py-4 backdrop-blur-2xl sm:px-6">
+      <section className={sectionClassName}>
         <CollapsibleTrigger asChild>
           <button
             type="button"
@@ -976,46 +983,47 @@ function ReportCockpit({
             description={scoringOpen ? r(language, "expanded") : r(language, "howScoringWorksDescription")}
             open={scoringOpen}
             onOpenChange={setScoringOpen}
+            surface="plain"
           >
-            <div className="space-y-5 text-sm leading-7 text-slate-400">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
+            <div className="space-y-6 text-sm leading-7 text-slate-400">
+              <div className="grid gap-5 border-b border-white/[0.08] pb-5 sm:grid-cols-2 xl:grid-cols-4">
+                <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "method")}</div>
-                  <div className="mt-2 text-[15px] font-semibold text-white">
+                  <div className="mt-2 text-[15px] font-semibold leading-6 text-white">
                     {methodology?.methodology_name || "Ransomware Readiness Assessment"}
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
                     v{methodology?.methodology_version || report.score_explanation?.methodology_version || "n/a"}
                   </div>
                 </div>
-                <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
+                <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "questions")}</div>
-                  <div className="mt-2 text-[15px] font-semibold text-white">
+                  <div className="mt-2 text-[15px] font-semibold leading-6 text-white">
                     {methodology?.questions_version || r(language, "versioned")}
                   </div>
                 </div>
-                <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
+                <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "scoring")}</div>
-                  <div className="mt-2 text-[15px] font-semibold text-white">
+                  <div className="mt-2 text-[15px] font-semibold leading-6 text-white">
                     {methodology?.scoring_version || report.score_status || r(language, "deterministic")}
                   </div>
                 </div>
-                <div className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3">
+                <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{r(language, "scale")}</div>
-                  <div className="mt-2 text-[15px] font-semibold text-white">
+                  <div className="mt-2 text-[15px] font-semibold leading-6 text-white">
                     {methodology?.score_scale?.min ?? 0}-{methodology?.score_scale?.max ?? 100}
                   </div>
                 </div>
               </div>
 
               {scoreExplanationDomains.length ? (
-                <div className="space-y-3">
+                <div className="divide-y divide-white/[0.07]">
                   {scoreExplanationDomains.slice(0, 3).map((domain) => {
                     const highlighted = [...(domain.questions || [])]
                       .sort((a, b) => (b.points_lost || 0) - (a.points_lost || 0))
                       .slice(0, 2);
                     return (
-                      <div key={domain.domain} className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-4">
+                      <div key={domain.domain} className="py-5 first:pt-0 last:pb-0">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="text-[15px] font-semibold text-white">
                             {domainLabel(language, domain.domain)}
@@ -1024,18 +1032,22 @@ function ReportCockpit({
                             {domain.earned_points}/{domain.max_points} {r(language, "pointsShort")}
                           </Badge>
                         </div>
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-4 space-y-4 border-l border-white/[0.08] pl-4">
                           {highlighted.map((item) => (
-                            <div key={item.question_id} className="rounded-[18px] border border-white/[0.07] bg-black/20 px-3 py-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                            <div key={item.question_id} className="grid gap-2 sm:grid-cols-[minmax(8rem,12rem)_1fr_auto] sm:items-start">
+                              <div className="text-xs text-slate-500">
                                 <span>{item.question_id}</span>
+                              </div>
+                              {item.rationale ? (
+                                <p className="text-sm leading-6 text-slate-300">{item.rationale}</p>
+                              ) : (
+                                <span className="text-sm text-slate-500">-</span>
+                              )}
+                              <div className="text-xs text-slate-500 sm:text-right">
                                 <span>
                                   {item.points_awarded}/{item.max_points} {r(language, "pointsShort")}
                                 </span>
                               </div>
-                              {item.rationale ? (
-                                <p className="mt-2 text-sm leading-6 text-slate-300">{item.rationale}</p>
-                              ) : null}
                             </div>
                           ))}
                         </div>
@@ -1046,7 +1058,7 @@ function ReportCockpit({
               ) : null}
 
               {methodology?.important_note ? (
-                <div className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-4 py-3 text-slate-400">
+                <div className="border-l border-sky-300/30 pl-4 text-slate-400">
                   {methodology.important_note}
                 </div>
               ) : null}
@@ -1056,10 +1068,11 @@ function ReportCockpit({
           {narrativeText || report.external_exposure_self_check?.items?.length ? (
             <ReportDisclosure
               title={r(language, "detailedNarrative")}
-              description={narrativeOpen ? r(language, "expanded") : r(language, "collapsed")}
-              open={narrativeOpen}
-              onOpenChange={setNarrativeOpen}
-            >
+            description={narrativeOpen ? r(language, "expanded") : r(language, "collapsed")}
+            open={narrativeOpen}
+            onOpenChange={setNarrativeOpen}
+            surface="plain"
+          >
               <div className="space-y-5 text-sm leading-7 text-slate-400">
                 <p className="max-w-3xl">{summaryText}</p>
                 {narrativeText ? (
@@ -1095,10 +1108,11 @@ function ReportCockpit({
           {sources.length ? (
             <ReportDisclosure
               title={r(language, "sourcesUsed")}
-              description={sourcesOpen ? r(language, "expanded") : r(language, "collapsed")}
-              open={sourcesOpen}
-              onOpenChange={setSourcesOpen}
-            >
+            description={sourcesOpen ? r(language, "expanded") : r(language, "collapsed")}
+            open={sourcesOpen}
+            onOpenChange={setSourcesOpen}
+            surface="plain"
+          >
               <div className="divide-y divide-white/[0.06] rounded-[24px] border border-white/[0.07] bg-black/[0.14]">
                 {sources.map((source) => (
                   <article
