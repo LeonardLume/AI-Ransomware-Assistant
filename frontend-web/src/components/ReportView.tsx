@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   ChevronDown,
+  Download,
   ExternalLink,
   Info,
   RefreshCw,
@@ -24,6 +25,7 @@ import {
   valueLabel,
   type UiLanguage,
 } from "../utils/i18n";
+import { generateReadinessReportPdf } from "../utils/reportPdf";
 import ArtifactTitleInfo from "./ArtifactTitleInfo";
 import IncompleteReportBadge from "./IncompleteReportBadge";
 import { Badge } from "./ui/badge";
@@ -123,6 +125,8 @@ const reportCopy = {
     versioned: "Versioonitud",
     deterministic: "Deterministlik",
     pointsShort: "p",
+    downloadPdf: "PDF",
+    pdfBlockedReason: "PDF on saadaval, kui kõik küsimused on vastatud.",
   },
   en: {
     introLabel: "Readiness report",
@@ -169,6 +173,8 @@ const reportCopy = {
     versioned: "Versioned",
     deterministic: "Deterministic",
     pointsShort: "pts",
+    downloadPdf: "PDF",
+    pdfBlockedReason: "PDF is available after all questions are answered.",
   },
   ru: {
     introLabel: "Отчёт готовности",
@@ -215,6 +221,8 @@ const reportCopy = {
     versioned: "Версионировано",
     deterministic: "Детерминированно",
     pointsShort: "б.",
+    downloadPdf: "PDF",
+    pdfBlockedReason: "PDF доступен после ответа на все вопросы.",
   },
 } as const;
 
@@ -270,6 +278,65 @@ function normalizeReportSources(report?: ReportResponse | null): ReportSource[] 
       usedFor: typeof item.used_for === "string" ? item.used_for : undefined,
     }))
     .filter((item) => item.name);
+}
+
+function isCompleteReport(report?: ReportResponse | null): boolean {
+  if (!report) return false;
+  const totalQuestions = Number(report.total_questions ?? 0);
+  const answeredQuestions = Number(report.answered_questions ?? 0);
+  if (totalQuestions > 0 && answeredQuestions < totalQuestions) return false;
+  const completionRate = Number(report.completion_rate ?? 100);
+  if (Number.isFinite(completionRate) && completionRate < 100) return false;
+  if (String(report.score_status || "").toLowerCase() === "preliminary") return false;
+  return report.is_complete !== false;
+}
+
+function ReportActionButton({
+  children,
+  disabled,
+  disabledReason,
+  align = "right",
+  className,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  disabledReason?: string;
+  align?: "left" | "center" | "right";
+  className?: string;
+  onClick: () => void;
+}) {
+  const blocked = Boolean(disabledReason);
+  const tooltipPosition =
+    align === "center"
+      ? "left-1/2 -translate-x-1/2"
+      : align === "left"
+        ? "left-0"
+        : "right-0";
+
+  return (
+    <span className="group relative inline-flex">
+      <Button
+        type="button"
+        disabled={disabled || blocked}
+        onClick={blocked ? undefined : onClick}
+        className={className}
+      >
+        {children}
+      </Button>
+      {disabledReason ? (
+        <span
+          role="tooltip"
+          className={cn(
+            "pointer-events-none absolute bottom-full z-30 mb-3 w-72 rounded-2xl border border-amber-300/20 bg-slate-950/95 px-4 py-3 text-left text-xs font-medium leading-5 text-amber-50 opacity-0 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur-xl transition group-hover:opacity-100 group-focus-within:opacity-100",
+            tooltipPosition,
+          )}
+        >
+          {disabledReason}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 function ReportDisclosure({
@@ -569,12 +636,14 @@ function ReportLoadingSkeleton() {
 export default function ReportView({
   report,
   canGenerate,
+  generateBlockedReason,
   loading,
   onGenerate,
   language = "et",
 }: {
   report?: ReportResponse | null;
   canGenerate: boolean;
+  generateBlockedReason?: string;
   loading?: boolean;
   onGenerate: () => void;
   language?: UiLanguage;
@@ -594,16 +663,16 @@ export default function ReportView({
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
             {t(language, "noReportDescription")}
           </p>
-          <Button
-            type="button"
-            variant="primary"
+          <ReportActionButton
             disabled={!canGenerate || loading}
+            disabledReason={generateBlockedReason}
             onClick={onGenerate}
+            align="center"
             className="mt-7 rounded-full border-sky-500/20 bg-sky-600 px-6 text-white shadow-[0_16px_40px_rgba(2,132,199,0.22)] hover:bg-sky-500"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             {t(language, "generateReport")}
-          </Button>
+          </ReportActionButton>
         </section>
       </div>
     );
@@ -613,6 +682,7 @@ export default function ReportView({
     <ReportCockpit
       report={report}
       canGenerate={canGenerate}
+      generateBlockedReason={generateBlockedReason}
       loading={loading}
       onGenerate={onGenerate}
       language={language}
@@ -623,12 +693,14 @@ export default function ReportView({
 function ReportCockpit({
   report,
   canGenerate,
+  generateBlockedReason,
   loading,
   onGenerate,
   language,
 }: {
   report: ReportResponse;
   canGenerate: boolean;
+  generateBlockedReason?: string;
   loading?: boolean;
   onGenerate: () => void;
   language: UiLanguage;
@@ -752,22 +824,34 @@ function ReportCockpit({
       detail: r(language, "separateSignal"),
     },
   ];
+  const pdfBlockedReason = isCompleteReport(report) ? undefined : r(language, "pdfBlockedReason");
 
   return (
     <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.055),transparent_32%)]" />
 
       <div className="relative space-y-7">
-        <div className="flex justify-end">
-          <Button
-            type="button"
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ReportActionButton
+            disabled={loading}
+            disabledReason={pdfBlockedReason}
+            align="left"
+            onClick={() => void generateReadinessReportPdf(report, language)}
+            className="rounded-full border-white/10 bg-white/[0.06] px-5 text-slate-100 shadow-none hover:bg-white/[0.1]"
+          >
+            <Download className="h-4 w-4" />
+            {r(language, "downloadPdf")}
+          </ReportActionButton>
+          <ReportActionButton
             disabled={!canGenerate || loading}
+            disabledReason={generateBlockedReason}
             onClick={onGenerate}
+            align="right"
             className="rounded-full border-white/10 bg-white/[0.06] px-5 text-slate-100 shadow-none hover:bg-white/[0.1]"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             {t(language, "refreshReport")}
-          </Button>
+          </ReportActionButton>
         </div>
 
         <section className="report-panel rounded-[34px] px-6 pb-7 pt-4 sm:px-8 sm:pt-5 lg:px-10 lg:pb-9 lg:pt-6">
