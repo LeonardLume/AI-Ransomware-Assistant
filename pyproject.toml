@@ -28,8 +28,8 @@ legacy = [
   "pandas==2.2.3",
 ]
 
-[tool.setuptools]
-packages = ["backend"]
+[tool.setuptools.packages.find]
+include = ["backend*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
