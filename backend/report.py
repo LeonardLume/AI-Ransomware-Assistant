@@ -12,6 +12,7 @@ from backend.questions import (
     load_questions,
     load_source_notes,
     load_threat_overlay_notes,
+    resolve_source_refs,
 )
 from backend.redaction import redact_sensitive_text
 from backend.scoring import calculate_scores, explain_score
@@ -135,6 +136,7 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
 
     question_lookup = {q["id"]: q for q in load_questions()}
     domain_explanation = {item["domain"]: item for item in score_explanation.get("domains", [])}
+    evidence_checklist = _enrich_evidence_checklist(evidence_checklist, domain_explanation)
     answer_summary = []
     for qid, record in answer_records.items():
         if qid.startswith("followup__"):
@@ -245,6 +247,44 @@ def _enrich_findings(findings: list[dict[str, Any]], domain_explanation: dict[st
             )
         enriched.append({**finding, **trace})
     return enriched
+
+
+def _enrich_evidence_checklist(
+    groups: list[dict[str, Any]],
+    domain_explanation: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for group in groups:
+        domain = str(group.get("domain") or "")
+        explanation = domain_explanation.get(domain, {})
+        trace = _trace_from_questions(explanation.get("questions", []))
+        source_refs = list(trace.get("source_refs") or [])
+        enriched.append(
+            {
+                **group,
+                "source_refs": source_refs,
+                "source_links": _source_links_from_refs(source_refs),
+                "framework_mappings": trace.get("framework_mappings", {}),
+                "evidence_examples": trace.get("evidence_examples", []),
+            }
+        )
+    return enriched
+
+
+def _source_links_from_refs(source_refs: list[str]) -> list[dict[str, Any]]:
+    links: list[dict[str, Any]] = []
+    for source in resolve_source_refs(source_refs):
+        links.append(
+            {
+                "id": source.get("id"),
+                "name": source.get("name"),
+                "publisher": source.get("publisher"),
+                "type": source.get("type"),
+                "url": source.get("url"),
+                "note": source.get("note"),
+            }
+        )
+    return links
 
 
 def _trace_from_questions(questions: list[dict[str, Any]]) -> dict[str, Any]:

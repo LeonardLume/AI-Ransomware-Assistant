@@ -73,3 +73,9 @@ def test_report_contains_score_explanation_and_methodology() -> None:
     assert risk["source_refs"]
     assert risk["framework_mappings"]
     assert risk["scoring_rationale_summary"]
+
+    evidence_group = next(item for item in report["evidence_checklist"] if item["domain"] == "backups")
+    assert evidence_group["source_refs"]
+    assert evidence_group["source_links"]
+    assert any(link["url"] for link in evidence_group["source_links"])
+    assert evidence_group["evidence_examples"]

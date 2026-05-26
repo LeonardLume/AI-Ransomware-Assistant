@@ -146,12 +146,25 @@ export interface ActionItem {
   based_on_skill?: string;
 }
 
+export interface SourceLink {
+  id?: string;
+  name?: string;
+  publisher?: string;
+  type?: string;
+  url?: string;
+  note?: string;
+}
+
 export interface EvidenceItem {
   domain?: string;
   based_on_skill?: string;
   title?: string;
   nist_csf?: string[];
   items?: string[];
+  source_refs?: string[];
+  source_links?: SourceLink[];
+  framework_mappings?: Record<string, string[]>;
+  evidence_examples?: string[];
 }
 
 export interface SkillReference {
