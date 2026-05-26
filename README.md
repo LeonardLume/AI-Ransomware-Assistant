@@ -170,6 +170,8 @@ docker compose up -d --build
 
 Open `http://localhost`.
 
+For a shared or public deployment, set `API_AUTH_TOKEN` in `.env` and pass the same value to the frontend as `VITE_API_AUTH_TOKEN` at build time. Keep `API_AUTH_TOKEN` empty only for local demos on a trusted machine.
+
 | Docker piece | Role |
 | --- | --- |
 | Caddy | Serves the built frontend |
