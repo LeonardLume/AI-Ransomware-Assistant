@@ -1,9 +1,9 @@
-:80 {
+:{$PORT:80} {
 	encode gzip zstd
 
 	handle /api/* {
 		uri strip_prefix /api
-		reverse_proxy backend:8000
+		reverse_proxy {$API_UPSTREAM:backend:8000}
 	}
 
 	handle {

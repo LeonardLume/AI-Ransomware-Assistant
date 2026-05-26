@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: ransomware-readiness-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    dockerCommand: python -m backend.serve --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    disk:
+      name: session-data
+      mountPath: /app/data_runtime
+      sizeGB: 1
+    envVars:
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini
+      - key: OPENAI_BASE_URL
+        value: https://api.openai.com/v1
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "120"
+      - key: DATABASE_URL
+        value: sqlite:////app/data_runtime/sessions.db
+      - key: APP_ENV
+        value: production
+      - key: TRUST_PROXY_HEADERS
+        value: "1"
+      - key: RATE_LIMIT_CHAT_PER_MINUTE
+        value: "20"
+      - key: RATE_LIMIT_REPORT_PER_MINUTE
+        value: "10"
+      - key: RATE_LIMIT_DEMO_PER_MINUTE
+        value: "5"
+
+  - type: web
+    name: ransomware-readiness-web
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.frontend
+    dockerContext: .
+    envVars:
+      - key: API_UPSTREAM
+        fromService:
+          type: web
+          name: ransomware-readiness-api
+          property: hostport
