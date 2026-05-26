@@ -45,7 +45,4 @@ services:
     dockerContext: .
     envVars:
       - key: API_UPSTREAM
-        fromService:
-          type: web
-          name: ransomware-readiness-api
-          property: hostport
+        value: https://ransomware-readiness-api.onrender.com
