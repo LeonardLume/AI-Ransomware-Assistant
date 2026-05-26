@@ -106,7 +106,7 @@ run_backend.bat
 Or manually:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m backend.serve --host 127.0.0.1 --port 8000
 ```
 
 ### Run Frontend Only
