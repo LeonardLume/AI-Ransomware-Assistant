@@ -1,4 +1,4 @@
-:{$PORT:80} {
+:{$PORT:10000} {
 	encode gzip zstd
 
 	handle /api/* {
