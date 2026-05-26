@@ -1,6 +1,6 @@
 # Render deploy
 
-This project can be deployed on Render as two Docker services:
+This project can be deployed on Render as two free Docker web services:
 
 - `ransomware-readiness-web`: public frontend URL
 - `ransomware-readiness-api`: FastAPI backend used by `/api`
@@ -16,7 +16,7 @@ The OpenAI API key is configured only on the backend service.
 5. Wait until both services are deployed.
 6. Open the `ransomware-readiness-web` URL.
 
-The app should be opened from the frontend URL. The frontend calls the backend through `/api`, and Caddy proxies that request to the backend service over Render's private network.
+The app should be opened from the frontend URL. The frontend calls the backend through `/api`, and Caddy proxies that request to the backend service.
 
 ## Backend environment
 
@@ -27,11 +27,13 @@ LLM_PROVIDER=openai
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_BASE_URL=https://api.openai.com/v1
 APP_ENV=production
-DATABASE_URL=sqlite:////app/data_runtime/sessions.db
+DATABASE_URL=sqlite:////tmp/sessions.db
 ```
 
 `OPENAI_API_KEY` is intentionally marked with `sync: false`, so it is entered in Render and not committed to git.
 
 ## Notes
 
-The backend uses a small persistent disk for SQLite session data. For a larger production deployment, move sessions to managed Postgres and add stronger access controls before sharing the link broadly.
+This free demo configuration stores SQLite session data in `/tmp`. Session data may be lost when the service restarts, sleeps, or is redeployed.
+
+For a larger production deployment, move sessions to managed Postgres or attach persistent storage, and add stronger access controls before sharing the link broadly.
