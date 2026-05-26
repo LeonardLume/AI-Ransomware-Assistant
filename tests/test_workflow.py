@@ -195,6 +195,23 @@ def test_auth_can_be_enabled_without_touching_public_healthcheck(monkeypatch: py
     assert authorized.status_code == 200
 
 
+def test_cors_preflight_allows_vite_fallback_port_when_auth_enabled(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("API_AUTH_TOKEN", "topsecret")
+
+    response = client.options(
+        "/questions",
+        headers={
+            "Origin": "http://localhost:5174",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5174"
+    assert "authorization" in response.headers["access-control-allow-headers"].lower()
+
+
 def test_chat_rate_limit_returns_429(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("RATE_LIMIT_CHAT_PER_MINUTE", "1")
 

@@ -41,6 +41,7 @@ from backend.chat_interview import (
 from backend.config import (
     ai_fallback_user_visible,
     allow_scripted_ai_fallback,
+    get_cors_settings,
     get_security_settings,
     llm_status,
     use_langgraph_dialog,
@@ -89,17 +90,11 @@ PUBLIC_PATH_PREFIXES = {
     "/provider/status",
 }
 
+cors_settings = get_cors_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-        "http://localhost:8501",
-        "http://127.0.0.1:8501",
-    ],
-    allow_origin_regex=r"https?://([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\]):(5173|4173|8501)",
+    allow_origins=cors_settings["allow_origins"],
+    allow_origin_regex=cors_settings["allow_origin_regex"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

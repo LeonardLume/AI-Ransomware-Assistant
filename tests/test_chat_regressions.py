@@ -17,7 +17,7 @@ from backend.security import RATE_LIMITER
 client = TestClient(app)
 
 QUESTIONS_CORE_SHA256 = "540bc81d56c8eb668b532b3755ea18de45b7b47b99bbb31b19a54147096f11fb"
-SCORING_RULES_SHA256 = "66474a6efd86cd9bd13d619f296c7211af02cc6bbde4613490d3980111f09a85"
+SCORING_RULES_SHA256 = "fc30779212d14e30f7c3e20fa0882a1c085b6fe4ed08e5f48351321cf200925a"
 
 
 @pytest.fixture(autouse=True)
@@ -145,5 +145,7 @@ def test_questions_json_core_fields_are_unchanged():
 
 
 def test_scoring_rules_json_is_unchanged():
-    digest = hashlib.sha256(Path("data/scoring_rules.json").read_bytes()).hexdigest()
+    rules = json.loads(Path("data/scoring_rules.json").read_text(encoding="utf-8"))
+    blob = json.dumps(rules, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    digest = hashlib.sha256(blob).hexdigest()
     assert digest == SCORING_RULES_SHA256

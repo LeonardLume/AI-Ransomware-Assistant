@@ -18,7 +18,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[dev]"
       - name: Lint backend
-        run: python -m ruff check backend/config.py backend/main.py backend/storage.py backend/security.py tests/test_workflow.py --ignore E501
+        run: python -m ruff check backend/config.py backend/main.py backend/serve.py backend/storage.py backend/security.py tests/test_workflow.py tests/test_chat_regressions.py --ignore E501
       - name: Run backend tests
         run: python -m pytest -q
 

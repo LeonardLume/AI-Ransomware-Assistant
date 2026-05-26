@@ -5,6 +5,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 PROMPTS_DIR = BASE_DIR / "prompts"
 OPENAI_KEY_PLACEHOLDERS = {"your-api-key-here", "your-openrouter-key-here"}
+DEFAULT_CORS_ALLOW_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+]
+DEFAULT_CORS_ALLOW_ORIGIN_REGEX = (
+    r"https?://([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\]):"
+    r"(3000|3001|41(?:7[3-9]|[8-9][0-9])|51(?:7[3-9]|[8-9][0-9])|8501)"
+)
 
 
 def load_dotenv(path: Path) -> dict[str, str]:
@@ -59,6 +71,10 @@ def _parse_bool(value: str, default: bool = False) -> bool:
     return default
 
 
+def _parse_csv(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 def get_app_env() -> str:
     app_env = get_config_value("APP_ENV", "development").strip().lower()
     return app_env if app_env in {"development", "test", "production"} else "development"
@@ -95,6 +111,18 @@ def get_security_settings() -> dict[str, object]:
         "rate_limit_chat_per_minute": _parse_int(get_config_value("RATE_LIMIT_CHAT_PER_MINUTE", "20"), 20),
         "rate_limit_report_per_minute": _parse_int(get_config_value("RATE_LIMIT_REPORT_PER_MINUTE", "10"), 10),
         "rate_limit_demo_per_minute": _parse_int(get_config_value("RATE_LIMIT_DEMO_PER_MINUTE", "5"), 5),
+    }
+
+
+def get_cors_settings() -> dict[str, object]:
+    configured_origins = _parse_csv(get_config_value("CORS_ALLOW_ORIGINS"))
+    allow_origins = list(dict.fromkeys([*DEFAULT_CORS_ALLOW_ORIGINS, *configured_origins]))
+    allow_origin_regex = get_config_value("CORS_ALLOW_ORIGIN_REGEX", DEFAULT_CORS_ALLOW_ORIGIN_REGEX).strip()
+    if allow_origin_regex.lower() in {"", "0", "false", "none"}:
+        allow_origin_regex = None
+    return {
+        "allow_origins": allow_origins,
+        "allow_origin_regex": allow_origin_regex,
     }
 
 

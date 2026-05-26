@@ -138,7 +138,11 @@ if ($PublicTunnel) {
 }
 Write-Host ""
 
-$BackendArgs = @("-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "$BackendPort")
+if (-not $env:CORS_ALLOW_ORIGIN_REGEX) {
+  $env:CORS_ALLOW_ORIGIN_REGEX = "https?://([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\]):$FrontendPort"
+}
+
+$BackendArgs = @("-m", "backend.serve", "--host", "0.0.0.0", "--port", "$BackendPort")
 $BackendProcess = Start-Process -FilePath $VenvPython -ArgumentList $BackendArgs -WorkingDirectory $Root -PassThru
 $FrontendProcess = $null
 

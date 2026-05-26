@@ -136,7 +136,11 @@ else
 fi
 echo ""
 
-"$ROOT/.venv/bin/python" -m uvicorn backend.main:app --host 0.0.0.0 --port "$BACKEND_PORT" &
+if [ -z "${CORS_ALLOW_ORIGIN_REGEX:-}" ]; then
+  export CORS_ALLOW_ORIGIN_REGEX="https?://([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\]):$FRONTEND_PORT"
+fi
+
+"$ROOT/.venv/bin/python" -m backend.serve --host 0.0.0.0 --port "$BACKEND_PORT" &
 BACKEND_PID=$!
 FRONTEND_PID=""
 
