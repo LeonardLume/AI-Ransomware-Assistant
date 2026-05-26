@@ -8,6 +8,7 @@ import {
 } from "../utils/i18n";
 import { EmptyState } from "./ui";
 import ArtifactTitleInfo from "./ArtifactTitleInfo";
+import IncompleteReportBadge from "./IncompleteReportBadge";
 
 export default function SkillsView({
   report,
@@ -26,6 +27,7 @@ export default function SkillsView({
           <SkillsHeader
             language={language}
             description={t(language, "skillsDescription")}
+            report={report}
           />
           <EmptyState
             title={t(language, "skillsNotLoaded")}
@@ -45,6 +47,7 @@ export default function SkillsView({
           language={language}
           description={t(language, "skillsMatchedDescription")}
           count={skills.length}
+          report={report}
         />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -65,20 +68,25 @@ function SkillsHeader({
   language,
   description,
   count,
+  report,
 }: {
   language: UiLanguage;
   description: string;
   count?: number;
+  report?: ReportResponse | null;
 }) {
   return (
     <section className="report-panel rounded-[34px] px-6 py-6 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
               {t(language, "skills")}
             </h2>
             <ArtifactTitleInfo kind="skills" language={language} />
+          </div>
+          <div className="mt-3">
+            <IncompleteReportBadge report={report} language={language} />
           </div>
           <p className="mt-3 max-w-2xl text-base leading-7 text-slate-400">
             {description}

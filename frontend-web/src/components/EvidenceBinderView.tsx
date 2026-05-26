@@ -8,6 +8,7 @@ import {
 } from "../utils/i18n";
 import { EmptyState } from "./ui";
 import ArtifactTitleInfo from "./ArtifactTitleInfo";
+import IncompleteReportBadge from "./IncompleteReportBadge";
 
 export default function EvidenceBinderView({
   report,
@@ -25,11 +26,14 @@ export default function EvidenceBinderView({
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.055),transparent_32%)]" />
         <div className="relative space-y-6">
           <section className="report-panel rounded-[34px] px-6 py-10 text-center sm:px-8">
-            <div className="inline-flex items-center justify-center gap-3">
+            <div className="inline-flex flex-wrap items-center justify-center gap-3">
               <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
                 {t(language, "evidenceBinder")}
               </h2>
               <ArtifactTitleInfo kind="evidenceBinder" language={language} />
+            </div>
+            <div className="mt-3">
+              <IncompleteReportBadge report={report} language={language} />
             </div>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
               {t(language, "evidenceBinderDescription")}
@@ -51,11 +55,14 @@ export default function EvidenceBinderView({
       <div className="relative space-y-7">
         <section className="report-panel relative rounded-[34px] px-6 py-10 sm:px-8 lg:min-h-[250px] lg:px-10 lg:py-12">
           <div className="mx-auto flex max-w-3xl flex-col items-center justify-center text-center lg:min-h-[170px]">
-            <div className="inline-flex items-center justify-center gap-3">
+            <div className="inline-flex flex-wrap items-center justify-center gap-3">
               <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
                 {t(language, "evidenceBinder")}
               </h2>
               <ArtifactTitleInfo kind="evidenceBinder" language={language} />
+            </div>
+            <div className="mt-3">
+              <IncompleteReportBadge report={report} language={language} />
             </div>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
               {t(language, "evidenceBinderDescription")}
