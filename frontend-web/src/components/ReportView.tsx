@@ -296,6 +296,7 @@ function ReportActionButton({
   disabled,
   disabledReason,
   align = "right",
+  tooltipPlacement = "top",
   className,
   onClick,
 }: {
@@ -303,6 +304,7 @@ function ReportActionButton({
   disabled?: boolean;
   disabledReason?: string;
   align?: "left" | "center" | "right";
+  tooltipPlacement?: "top" | "bottom";
   className?: string;
   onClick: () => void;
 }) {
@@ -328,8 +330,9 @@ function ReportActionButton({
         <span
           role="tooltip"
           className={cn(
-            "pointer-events-none absolute bottom-full z-30 mb-3 w-72 rounded-2xl border border-amber-300/20 bg-slate-950/95 px-4 py-3 text-left text-xs font-medium leading-5 text-amber-50 opacity-0 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur-xl transition group-hover:opacity-100 group-focus-within:opacity-100",
+            "pointer-events-none absolute z-30 w-72 rounded-2xl border border-amber-300/20 bg-slate-950/95 px-4 py-3 text-left text-xs font-medium leading-5 text-amber-50 opacity-0 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur-xl transition group-hover:opacity-100 group-focus-within:opacity-100",
             tooltipPosition,
+            tooltipPlacement === "bottom" ? "top-full mt-3" : "bottom-full mb-3",
           )}
         >
           {disabledReason}
@@ -636,14 +639,12 @@ function ReportLoadingSkeleton() {
 export default function ReportView({
   report,
   canGenerate,
-  generateBlockedReason,
   loading,
   onGenerate,
   language = "et",
 }: {
   report?: ReportResponse | null;
   canGenerate: boolean;
-  generateBlockedReason?: string;
   loading?: boolean;
   onGenerate: () => void;
   language?: UiLanguage;
@@ -665,7 +666,6 @@ export default function ReportView({
           </p>
           <ReportActionButton
             disabled={!canGenerate || loading}
-            disabledReason={generateBlockedReason}
             onClick={onGenerate}
             align="center"
             className="mt-7 rounded-full border-sky-500/20 bg-sky-600 px-6 text-white shadow-[0_16px_40px_rgba(2,132,199,0.22)] hover:bg-sky-500"
@@ -682,7 +682,6 @@ export default function ReportView({
     <ReportCockpit
       report={report}
       canGenerate={canGenerate}
-      generateBlockedReason={generateBlockedReason}
       loading={loading}
       onGenerate={onGenerate}
       language={language}
@@ -693,14 +692,12 @@ export default function ReportView({
 function ReportCockpit({
   report,
   canGenerate,
-  generateBlockedReason,
   loading,
   onGenerate,
   language,
 }: {
   report: ReportResponse;
   canGenerate: boolean;
-  generateBlockedReason?: string;
   loading?: boolean;
   onGenerate: () => void;
   language: UiLanguage;
@@ -836,6 +833,7 @@ function ReportCockpit({
             disabled={loading}
             disabledReason={pdfBlockedReason}
             align="left"
+            tooltipPlacement="bottom"
             onClick={() => void generateReadinessReportPdf(report, language)}
             className="rounded-full border-white/10 bg-white/[0.06] px-5 text-slate-100 shadow-none hover:bg-white/[0.1]"
           >
@@ -844,7 +842,6 @@ function ReportCockpit({
           </ReportActionButton>
           <ReportActionButton
             disabled={!canGenerate || loading}
-            disabledReason={generateBlockedReason}
             onClick={onGenerate}
             align="right"
             className="rounded-full border-white/10 bg-white/[0.06] px-5 text-slate-100 shadow-none hover:bg-white/[0.1]"

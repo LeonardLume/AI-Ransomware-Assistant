@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BookOpenCheck,
   ClipboardList,
@@ -42,7 +42,6 @@ import {
 } from "./state/sessionStore";
 import type {
   ArtifactId,
-  AnswerRecord,
   BackendChatMessage,
   ChatRequestOptions,
   ChatResponse,
@@ -283,73 +282,6 @@ function artifactNeedsReport(artifact: ArtifactId): boolean {
     artifact === "ransomware-playbook";
 }
 
-type ReportGenerationGate = {
-  canGenerate: boolean;
-  blockedReason?: string;
-};
-
-function hasAnswered(record?: AnswerRecord): boolean {
-  return Boolean(String(record?.answer || "").trim());
-}
-
-function reportBlockedReason(language: UiLanguage, answered: number, total: number): string {
-  const progress = total > 0 ? ` (${answered}/${total})` : "";
-  if (language === "ru") {
-    return `Ответьте на все вопросы перед созданием полного отчёта${progress}.`;
-  }
-  if (language === "en") {
-    return `Answer all questions before generating the full report${progress}.`;
-  }
-  return `Vasta kõigile küsimustele enne täisraporti koostamist${progress}.`;
-}
-
-function buildReportGenerationGate({
-  activeSessionId,
-  session,
-  questions,
-  report,
-  language,
-}: {
-  activeSessionId?: string | null;
-  session?: SessionStateResponse | null;
-  questions: Question[];
-  report?: ReportResponse | null;
-  language: UiLanguage;
-}): ReportGenerationGate {
-  if (!activeSessionId) {
-    return {
-      canGenerate: false,
-      blockedReason:
-        language === "ru"
-          ? "Сначала начните или загрузите оценку."
-          : language === "en"
-            ? "Start or load an assessment first."
-            : "Alusta või laadi hindamine esmalt.",
-    };
-  }
-
-  const requiredQuestions = questions.filter((question) => question.required !== false);
-  const answerRecords = session?.answers || {};
-  const derivedTotal = requiredQuestions.length;
-  const derivedAnswered = requiredQuestions.filter((question) => hasAnswered(answerRecords[question.id])).length;
-  const progressTotal = Number(session?.progress?.total_required ?? report?.total_questions ?? derivedTotal);
-  const progressAnswered = Number(session?.progress?.answered_required ?? report?.answered_questions ?? derivedAnswered);
-  const total = Number.isFinite(progressTotal) && progressTotal > 0 ? progressTotal : derivedTotal;
-  const answered = Number.isFinite(progressAnswered) && progressAnswered >= 0 ? progressAnswered : derivedAnswered;
-  const complete =
-    Boolean(session?.progress?.is_complete || session?.interview_complete || report?.is_complete) ||
-    (total > 0 && answered >= total);
-
-  if (total > 0 && !complete) {
-    return {
-      canGenerate: false,
-      blockedReason: reportBlockedReason(language, answered, total),
-    };
-  }
-
-  return { canGenerate: true };
-}
-
 export default function App() {
   const didInitialLoadRef = useRef(false);
   const initialUiStateRef = useRef(readPersistedUiState());
@@ -388,17 +320,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const [lastUserOptions, setLastUserOptions] = useState<ChatRequestOptions>({});
-  const reportGate = useMemo(
-    () =>
-      buildReportGenerationGate({
-        activeSessionId,
-        session: sessionState,
-        questions,
-        report,
-        language,
-      }),
-    [activeSessionId, language, questions, report, sessionState],
-  );
 
   function resetWorkspaceState() {
     setActiveSessionId(null);
@@ -879,10 +800,6 @@ export default function App() {
   }
 
   async function generateReport() {
-    if (!reportGate.canGenerate) {
-      setError(reportGate.blockedReason || "Complete the assessment before generating a report.");
-      return;
-    }
     if (!activeSessionId) {
       setError("Start an assessment or load a demo before generating a report.");
       return;
@@ -951,7 +868,7 @@ export default function App() {
             score={score}
             sending={sending}
             language={language}
-            canGenerateReport={reportGate.canGenerate}
+            canGenerateReport={Boolean(activeSessionId)}
             reportLoading={artifactLoading}
             onPrompt={sendNewSessionMessage}
             onStartAssessment={startAssessment}
@@ -1010,8 +927,7 @@ export default function App() {
                 providerStatus={providerStatus}
                 backendOnline={backendOnline}
                 questions={questions}
-                canGenerateReport={reportGate.canGenerate}
-                generateBlockedReason={reportGate.blockedReason}
+                canGenerateReport={Boolean(activeSessionId)}
                 loading={artifactLoading || sending}
                 language={language}
                 onGenerateReport={generateReport}

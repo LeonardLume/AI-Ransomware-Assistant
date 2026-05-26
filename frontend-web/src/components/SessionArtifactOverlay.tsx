@@ -43,7 +43,6 @@ export default function SessionArtifactOverlay({
   backendOnline,
   questions,
   canGenerateReport,
-  generateBlockedReason,
   loading,
   language = "et",
   onGenerateReport,
@@ -61,7 +60,6 @@ export default function SessionArtifactOverlay({
   backendOnline: boolean;
   questions: Question[];
   canGenerateReport: boolean;
-  generateBlockedReason?: string;
   loading?: boolean;
   language?: UiLanguage;
   onGenerateReport: () => void;
@@ -94,7 +92,6 @@ export default function SessionArtifactOverlay({
             <ReportView
               report={report}
               canGenerate={canGenerateReport}
-              generateBlockedReason={generateBlockedReason}
               loading={loading}
               onGenerate={onGenerateReport}
               language={language}
