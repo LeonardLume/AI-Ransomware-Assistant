@@ -10,7 +10,11 @@ RUN npm run build
 
 FROM caddy:2-alpine
 
+USER root
+RUN apk add --no-cache libcap \
+    && setcap -r /usr/bin/caddy || true
+
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=builder /app/dist /usr/share/caddy
 
-EXPOSE 80
+EXPOSE 10000
