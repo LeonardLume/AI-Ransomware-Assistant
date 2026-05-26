@@ -2,16 +2,12 @@ services:
   - type: web
     name: ransomware-readiness-api
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     dockerfilePath: ./Dockerfile.backend
     dockerContext: .
     dockerCommand: python -m backend.serve --host 0.0.0.0 --port $PORT
     healthCheckPath: /
-    disk:
-      name: session-data
-      mountPath: /app/data_runtime
-      sizeGB: 1
     envVars:
       - key: LLM_PROVIDER
         value: openai
@@ -24,7 +20,7 @@ services:
       - key: REQUEST_TIMEOUT_SECONDS
         value: "120"
       - key: DATABASE_URL
-        value: sqlite:////app/data_runtime/sessions.db
+        value: sqlite:////tmp/sessions.db
       - key: APP_ENV
         value: production
       - key: TRUST_PROXY_HEADERS
@@ -39,7 +35,7 @@ services:
   - type: web
     name: ransomware-readiness-web
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     dockerfilePath: ./Dockerfile.frontend
     dockerContext: .
