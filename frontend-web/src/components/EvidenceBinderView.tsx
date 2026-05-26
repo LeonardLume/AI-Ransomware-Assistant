@@ -107,9 +107,6 @@ export default function EvidenceBinderView({
                       {group.nist_csf?.length ? ` - NIST CSF: ${group.nist_csf.join(", ")}` : ""}
                     </p>
                   </div>
-                  <div className="text-sm font-medium text-slate-500">
-                    {items.length} / {totalItems}
-                  </div>
                 </div>
 
                 <div className="mt-6 divide-y divide-white/[0.06] rounded-[26px] border border-white/[0.07] bg-white/[0.022]">

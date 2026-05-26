@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import type { ReportResponse, SkillReference } from "../types/api";
 import {
   domainLabel,
@@ -117,6 +118,8 @@ function SkillTile({
   skill: SkillReference;
   language: UiLanguage;
 }) {
+  const proofLinks = proofLinksFor(skill, language);
+
   return (
     <article className="group rounded-[28px] border border-white/[0.065] bg-white/[0.026] px-5 py-5 backdrop-blur-xl transition-colors hover:border-white/[0.12] hover:bg-white/[0.04]">
       <div className="flex min-h-full flex-col gap-4">
@@ -148,9 +151,83 @@ function SkillTile({
             ))}
           </div>
         ) : null}
+
+        <div className="mt-auto border-t border-white/[0.06] pt-4">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            {proofLabel(language)}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            {matchedByBackendText(language)}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {proofLinks.map((link) => (
+              <a
+                key={`${skill.id}-${link.href}`}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-1 text-xs font-medium text-cyan-100 transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/[0.10]"
+              >
+                <span className="truncate">{link.label}</span>
+                <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
     </article>
   );
+}
+
+function proofLinksFor(skill: SkillReference, language: UiLanguage): Array<{ label: string; href: string }> {
+  const links: Array<{ label: string; href: string }> = [];
+  const skillId = String(skill.id || "").trim();
+
+  if (skillId) {
+    links.push({
+      label: `${localSkillLabel(language)}: ${skillId}.md`,
+      href: `https://github.com/LeonardLume/AI-Ransomware-Assistant/blob/main/skills/${encodeURIComponent(skillId)}.md`,
+    });
+  }
+
+  if (skill.nist_csf?.length) {
+    links.push({
+      label: `NIST CSF ${skill.nist_csf.slice(0, 2).join(", ")}`,
+      href: "https://www.nist.gov/cyberframework",
+    });
+  }
+
+  links.push({
+    label: "CISA StopRansomware",
+    href: "https://www.cisa.gov/resources-tools/resources/stopransomware-guide",
+  });
+
+  if (skillId.includes("patch") || skillId.includes("admin") || skillId.includes("mfa")) {
+    links.push({
+      label: "CIS Controls v8",
+      href: "https://www.cisecurity.org/controls/v8",
+    });
+  }
+
+  return links;
+}
+
+function proofLabel(language: UiLanguage): string {
+  if (language === "en") return "Proof / sources";
+  if (language === "ru") return "Подтверждение / источники";
+  return "Tõendus / allikad";
+}
+
+function matchedByBackendText(language: UiLanguage): string {
+  if (language === "en") return "Matched by the backend skills layer, not handwritten only in the UI.";
+  if (language === "ru") return "Подобрано backend skills layer, а не просто вручную нарисовано в UI.";
+  return "Valitud backend'i oskuste kihist, mitte ainult UI-s käsitsi joonistatud.";
+}
+
+function localSkillLabel(language: UiLanguage): string {
+  if (language === "en") return "Local skill file";
+  if (language === "ru") return "Локальный skill file";
+  return "Kohalik skill-fail";
 }
 
 function fallbackDomainLabel(language: UiLanguage): string {

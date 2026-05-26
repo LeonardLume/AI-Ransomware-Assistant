@@ -10,7 +10,6 @@ export default function TechnicalTransparencyView({
   providerStatus?: ProviderStatusResponse | null;
   language?: UiLanguage;
 }) {
-  const workflow = workflowFor(language);
   const cards = infoCardsFor(language, providerStatus?.provider || "unknown");
 
   return (
@@ -37,31 +36,6 @@ export default function TechnicalTransparencyView({
                 {valueLabel(language, providerStatus?.provider || "unknown")}
               </div>
             </div>
-          </div>
-        </section>
-
-        <section className="report-panel rounded-[32px] px-5 py-6 sm:px-7">
-          <h3 className="text-xl font-semibold tracking-[-0.03em] text-white">
-            {t(language, "workflow")}
-          </h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">
-            {workflowDescription(language)}
-          </p>
-
-          <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
-            {workflow.map((step, index) => (
-              <article
-                key={step}
-                className="rounded-[22px] border border-white/[0.07] bg-white/[0.025] px-3 py-3"
-              >
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                  {stepLabel(language)} {index + 1}
-                </div>
-                <div className="mt-2 text-sm font-medium leading-5 text-slate-100">
-                  {step}
-                </div>
-              </article>
-            ))}
           </div>
         </section>
 
@@ -116,46 +90,6 @@ function InfoCard({
   );
 }
 
-function workflowFor(language: UiLanguage): string[] {
-  if (language === "ru") {
-    return [
-      "Сообщение пользователя",
-      "Prompt firewall",
-      "Редакция чувствительных данных",
-      "Определение намерения",
-      "LLM объяснение или извлечение",
-      "Backend validation",
-      "Структурированные ответы",
-      "Rule-based score",
-      "Отчёт и план действий",
-    ];
-  }
-  if (language === "en") {
-    return [
-      "User message",
-      "Prompt firewall",
-      "Redaction",
-      "Intent detection",
-      "LLM extraction/advisor",
-      "Backend validation",
-      "Structured answers",
-      "Rule-based scoring",
-      "Report/action plan",
-    ];
-  }
-  return [
-    "Kasutaja sõnum",
-    "Juhiste kaitsefilter",
-    "Tundlike andmete redigeerimine",
-    "Kavatsuse tuvastus",
-    "LLM selgitus või väljavõte",
-    "Taustsüsteemi valideerimine",
-    "Struktureeritud vastused",
-    "Reeglipõhine tulemus",
-    "Raport ja tegevusplaan",
-  ];
-}
-
 function infoCardsFor(language: UiLanguage, provider: string) {
   if (language === "ru") {
     return [
@@ -195,18 +129,6 @@ function subtitleFor(language: UiLanguage): string {
     return "Что отправляет UI, на что может влиять LLM, и что остаётся детерминированным в FastAPI.";
   }
   return "Mida kasutajaliides saadab, mida LLM mõjutab ja mis jääb FastAPI-s deterministlikuks.";
-}
-
-function workflowDescription(language: UiLanguage): string {
-  if (language === "en") return "The main path from user input to validated answers, scoring, and report output.";
-  if (language === "ru") return "Основной путь от сообщения пользователя до validated answers, scoring и отчёта.";
-  return "Põhitee kasutaja sisendist valideeritud vastuste, tulemuse ja raportini.";
-}
-
-function stepLabel(language: UiLanguage): string {
-  if (language === "en") return "Step";
-  if (language === "ru") return "Шаг";
-  return "Samm";
 }
 
 function providerLabel(language: UiLanguage): string {

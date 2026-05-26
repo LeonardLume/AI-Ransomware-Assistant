@@ -43,6 +43,7 @@ export default function ArtifactTitleInfo({
         <div className="mt-5 space-y-3">
           <InfoPanel label={whatLabel(language)} text={info.what} />
           <InfoPanel label={howLabel(language)} text={info.how} />
+          <InfoPanel label={checkLabel(language)} text={info.check} />
         </div>
       </DialogContent>
     </Dialog>
@@ -65,27 +66,31 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
     const content = {
       report: {
         title: "Raport",
-        short: "Главный отчёт по готовности к ransomware.",
-        what: "Здесь собраны score, уровень риска, краткое резюме, главные findings, приоритетные шаги и готовность по доменам.",
-        how: "Score и risk рассчитывает backend по правилам. LLM помогает объяснять результат, но не придумывает баллы. Эту вкладку удобно показывать первой.",
+        short: "Главный отчёт по готовности к ransomware: score, risk и объяснение результата.",
+        what: "Здесь собраны официальный score, уровень риска, процент заполнения, сильные и слабые домены, critical findings, priority actions и объяснение scoring. Это основной executive-view для быстрого понимания состояния.",
+        how: "Score и risk рассчитывает backend по versioned questions и scoring_rules. LLM может помогать с readable summary и explanations, но не меняет ответы, веса, баллы или итоговый score. Если ответы неполные, report помечается как preliminary/partial.",
+        check: "Сначала смотри completion и confidence, затем lowest domain scores, critical findings и priority steps. Если нужно доказать результат, переходи в Evidence Binder; если нужно понять capability behind recommendation, переходи в Oskused.",
       },
       actionPlan: {
         title: "Tegevusplaan",
-        short: "Практический план улучшений после отчёта.",
-        what: "Здесь backend превращает findings и risks в задачи: что сделать, кто владелец, какой effort и deadline.",
-        how: "Сначала открой Raport, затем используй эту вкладку как backlog. Кнопки i у задач объясняют конкретные шаги и evidence.",
+        short: "Практический backlog улучшений, собранный из рисков отчёта.",
+        what: "Здесь findings и слабые домены превращаются в конкретные remediation tasks: что сделать, кому назначить, какой effort, приоритет, срок и какие evidence понадобятся для проверки.",
+        how: "Backend связывает action items с доменами, risk level и matched skills. Это не отдельный AI wishlist: задачи выводятся из report data, scoring signals и защитных playbooks. LLM может помогать формулировкой, но структура плана backend-owned.",
+        check: "Используй вкладку как рабочий backlog: начни с critical/high, назначь owner, определи deadline и evidence. После выполнения возвращайся к вопросам assessment и обновляй report, чтобы score отражал изменения.",
       },
       evidenceBinder: {
         title: "Tõendite kaust",
-        short: "Список доказательств, которые подтверждают готовность.",
-        what: "Здесь собраны документы, screenshots, tickets, log examples и другие материалы, которые стоит подготовить для проверки.",
-        how: "Вкладка не считает score. Она помогает доказать, что action plan реально выполнен и что ответы в assessment можно подтвердить.",
+        short: "Папка доказательств: что показать, чтобы подтвердить ответы и readiness.",
+        what: "Здесь перечислены документы, screenshots, tickets, policy excerpts, restore-test results, patch reports, access reviews, log examples и другие artefacts, которые подтверждают ответы assessment.",
+        how: "Evidence Binder не меняет score сам по себе. Он связывает report/action plan с проверяемыми материалами, чтобы пользователь мог доказать, что control реально существует, протестирован и поддерживается.",
+        check: "Собирай evidence по доменам. Хороший evidence должен иметь дату, владельца, систему в scope и результат проверки. Если evidence нет, это сигнал, что ответ может быть слабее или confidence ниже.",
       },
       skills: {
         title: "Oskused",
-        short: "Защитные skills/playbooks, связанные с отчётом.",
-        what: "Это reference layer: навыки и практики, которые помогают объяснять рекомендации, evidence и action plan.",
-        how: "Skills не считают numeric score. Они показывают, какие defensive capabilities связаны с найденными рисками.",
+        short: "Reference layer: defensive skills/playbooks, связанные с рисками отчёта.",
+        what: "Oskused показывают, какие defensive capabilities стоят за рекомендациями: backup recovery, MFA/access control, patch management, admin rights review, incident response, detection и другие практики.",
+        how: "Backend подбирает skills из локальных markdown playbooks в папке skills/ и связывает их с доменами, NIST CSF mappings, tags и action/evidence logic. Это показывает происхождение рекомендаций, а не просто декоративные карточки.",
+        check: "Открывай links в proof/source block: local skill file показывает исходный playbook, NIST/CISA/CIS links подтверждают framework context. Используй эту вкладку, когда нужно объяснить why/how за конкретным action item.",
       },
     };
     return content[kind];
@@ -95,27 +100,31 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
     const content = {
       report: {
         title: "Report",
-        short: "The main ransomware readiness report.",
-        what: "It brings together score, risk level, summary, key findings, priority steps, and domain readiness.",
-        how: "The backend calculates score and risk using rules. The LLM helps explain the result, but does not invent points. This is the best first tab to show.",
+        short: "The main ransomware readiness view: score, risk, and result explanation.",
+        what: "This tab brings together the official score, risk level, completion, strongest and weakest domains, critical findings, priority actions, and scoring explanation. It is the executive overview of the assessment.",
+        how: "The backend calculates score and risk from versioned questions and scoring_rules. The LLM may help with readable summaries and explanations, but it does not change answers, weights, points, or the official score. Incomplete answers make the report partial/preliminary.",
+        check: "Start with completion and confidence, then review the lowest domain scores, critical findings, and priority steps. Use Evidence Binder to prove the result and Oskused to understand the defensive capability behind a recommendation.",
       },
       actionPlan: {
         title: "Action Plan",
-        short: "A practical improvement plan generated from the report.",
-        what: "Backend findings and risks are turned into tasks with owner, effort, deadline, and evidence expectations.",
-        how: "Open the report first, then use this as a backlog. The i buttons on actions explain concrete steps and evidence.",
+        short: "A practical remediation backlog generated from report risks.",
+        what: "Findings and weak domains are converted into concrete remediation tasks: what to do, who should own it, expected effort, priority, deadline, and evidence needed for verification.",
+        how: "The backend links action items to domains, risk level, and matched skills. This is not a separate AI wishlist: tasks are derived from report data, scoring signals, and defensive playbooks. The LLM may help wording, but the structure is backend-owned.",
+        check: "Use it as a working backlog: start with critical/high items, assign owners, set deadlines, and collect evidence. After remediation, update assessment answers and refresh the report so score reflects the change.",
       },
       evidenceBinder: {
         title: "Evidence Binder",
-        short: "A checklist of proof that supports readiness.",
-        what: "It lists documents, screenshots, tickets, log examples, and other materials that should be prepared for review.",
-        how: "This tab does not calculate score. It helps prove that the action plan is real and assessment answers can be validated.",
+        short: "A proof checklist: what to show to support answers and readiness.",
+        what: "This tab lists documents, screenshots, tickets, policy excerpts, restore-test results, patch reports, access reviews, log examples, and other artefacts that support assessment answers.",
+        how: "Evidence Binder does not change score by itself. It connects the report and action plan to verifiable materials so a user can prove that a control exists, has been tested, and is maintained.",
+        check: "Collect evidence by domain. Good evidence has a date, owner, scoped system, and test/review result. Missing evidence is a signal that the answer may be weaker or confidence may be lower.",
       },
       skills: {
         title: "Skills",
-        short: "Defensive skills and playbooks linked to the report.",
-        what: "This is a reference layer: practices that support explanations, evidence, and the action plan.",
-        how: "Skills do not calculate numeric score. They show which defensive capabilities connect to the reported risks.",
+        short: "A reference layer: defensive skills and playbooks linked to report risks.",
+        what: "Oskused shows the defensive capabilities behind recommendations: backup recovery, MFA/access control, patch management, admin rights review, incident response, detection, and related practices.",
+        how: "The backend matches skills from local markdown playbooks in the skills/ folder and connects them to domains, NIST CSF mappings, tags, action items, and evidence logic. This shows recommendation provenance, not just decorative UI cards.",
+        check: "Open the proof/source links: the local skill file shows the source playbook, while NIST/CISA/CIS links show framework context. Use this tab when you need to explain the why/how behind an action item.",
       },
     };
     return content[kind];
@@ -124,27 +133,31 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
   const content = {
     report: {
       title: "Raport",
-      short: "Peamine lunavara valmisoleku raport.",
-      what: "Siin on koos skoor, riskitase, kokkuvõte, olulisemad leiud, prioriteetsed sammud ja domeenide valmisolek.",
-      how: "Tulemuse ja riski arvutab taustsüsteem reeglitega. LLM aitab tulemust selgitada, kuid ei mõtle punkte välja. Seda vaadet on mõistlik näidata esimesena.",
+      short: "Peamine lunavara valmisoleku vaade: skoor, risk ja tulemuse selgitus.",
+      what: "Siin on koos ametlik skoor, riskitase, täitmise protsent, tugevamad ja nõrgemad domeenid, kriitilised leiud, prioriteetsed sammud ja scoring'u selgitus. See on hindamise juhtivaate kokkuvõte.",
+      how: "Skoori ja riski arvutab backend versioonitud küsimuste ja scoring_rules reeglite põhjal. LLM võib aidata kokkuvõtte ja selgitustega, kuid ei muuda vastuseid, kaale, punkte ega ametlikku tulemust. Puudulikud vastused muudavad raporti osaliseks/esialgseks.",
+      check: "Alusta completion'i ja confidence'i vaatamisest, seejärel kontrolli madalaimaid domeene, kriitilisi leide ja prioriteetseid samme. Tõendamiseks kasuta Tõendite kausta; soovituste tausta mõistmiseks kasuta Oskused vaadet.",
     },
     actionPlan: {
       title: "Tegevusplaan",
-      short: "Praktiline parandusplaan raporti põhjal.",
-      what: "Taustsüsteemi leiud ja riskid muutuvad tegevusteks: mida teha, kes vastutab, kui suur on pingutus ja mis on tähtaeg.",
-      how: "Ava esmalt raport, seejärel kasuta seda tööjärjekorrana. Tegevuste juures olevad i-nupud selgitavad konkreetseid samme ja tõendeid.",
+      short: "Praktiline paranduste backlog, mis tekib raporti riskidest.",
+      what: "Leiud ja nõrgad domeenid muudetakse konkreetseteks tegevusteks: mida teha, kes võiks vastutada, milline on pingutus, prioriteet, tähtaeg ja milliseid tõendeid on vaja kontrollimiseks.",
+      how: "Backend seob tegevused domeenide, riskitaseme ja sobitatud oskustega. See ei ole eraldi AI soovinimekiri: ülesanded tulevad raporti andmetest, scoring-signaalidest ja kaitse-playbook'idest. LLM võib aidata sõnastust, kuid struktuur on backend-owned.",
+      check: "Kasuta seda tööjärjekorrana: alusta critical/high tegevustest, määra omanik, pane tähtaeg ja kogu tõendid. Pärast parandusi uuenda assessment'i vastuseid ja värskenda raportit, et skoor muutust näitaks.",
     },
     evidenceBinder: {
       title: "Tõendite kaust",
-      short: "Tõendite nimekiri, mis toetab valmisolekut.",
-      what: "Siin on dokumendid, kuvatõmmised, tööpiletid, logide näited ja muud materjalid, mida tasub kontrolliks ette valmistada.",
-      how: "See vaade ei arvuta tulemust. See aitab näidata, et tegevusplaan on päriselt tehtud ja hindamise vastuseid saab kinnitada.",
+      short: "Tõendite kontrollnimekiri: mida näidata, et vastuseid ja valmisolekut kinnitada.",
+      what: "Siin on dokumendid, kuvatõmmised, tööpiletid, poliitikakatked, taastamistesti tulemused, patch report'id, ligipääsude ülevaatused, logide näited ja muud artefaktid, mis toetavad assessment'i vastuseid.",
+      how: "Tõendite kaust ei muuda skoori otse. See seob raporti ja tegevusplaani kontrollitavate materjalidega, et kasutaja saaks näidata, et kontrollmeede on olemas, testitud ja hooldatud.",
+      check: "Kogu tõendeid domeenide kaupa. Hea tõend sisaldab kuupäeva, omanikku, skoopi kuuluvat süsteemi ja testi või ülevaatuse tulemust. Tõendi puudumine on signaal, et vastus võib olla nõrgem või confidence madalam.",
     },
     skills: {
       title: "Oskused",
-      short: "Raportiga seotud kaitseoskused ja juhendid.",
-      what: "See on tugikiht: praktikad, mis toetavad selgitusi, tõendeid ja tegevusplaani.",
-      how: "Oskused ei arvuta numbrilist tulemust. Need näitavad, millised kaitsevõimed on raporti riskidega seotud.",
+      short: "Tugikiht: raporti riskidega seotud kaitseoskused ja playbook'id.",
+      what: "Oskused näitavad, millised kaitsevõimed seisavad soovituste taga: backup recovery, MFA ja ligipääsukontroll, patch management, admin rights review, incident response, detection ja seotud praktikad.",
+      how: "Backend sobitab oskused lokaalse skills/ kausta markdown playbook'idest ning seob need domeenide, NIST CSF mapping'ute, tag'ide, tegevuste ja tõendite loogikaga. See näitab soovituste päritolu, mitte ainult dekoratiivseid UI-kaarte.",
+      check: "Ava proof/source lingid: kohalik skill-fail näitab algset playbook'i ning NIST/CISA/CIS lingid näitavad framework-konteksti. Kasuta seda vaadet, kui pead selgitama konkreetse action item'i why/how poolt.",
     },
   };
   return content[kind];
@@ -166,4 +179,10 @@ function howLabel(language: UiLanguage): string {
   if (language === "en") return "How it works";
   if (language === "ru") return "Как работает";
   return "Kuidas see töötab";
+}
+
+function checkLabel(language: UiLanguage): string {
+  if (language === "en") return "What to check";
+  if (language === "ru") return "Что смотреть";
+  return "Mida vaadata";
 }
