@@ -17,7 +17,7 @@ export default function RansomwarePlaybookView({ report }: { report?: ReportResp
           <div>
             <h3 className="text-lg font-semibold text-slate-950">Lunavara juhend</h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Kaitsev töövaade, mis koondab taustsüsteemi raporti soovitused ja tõendinõuded.
+              Kaitsev töövaade, mis koondab raporti tegevused ja tõendinõuded.
               See ei arvuta tulemust.
             </p>
           </div>

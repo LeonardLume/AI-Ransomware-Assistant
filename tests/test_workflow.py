@@ -1,3 +1,4 @@
+import json
 import os
 
 os.environ["LLM_PROVIDER"] = "fallback"
@@ -6,6 +7,7 @@ os.environ["RRA_IGNORE_DOTENV"] = "1"
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.llm_client import LLMResult
 from backend.main import app
 from backend.redaction import has_sensitive_data, redact_sensitive_text
 from backend.report import generate_report
@@ -102,6 +104,57 @@ def test_report_sections_do_not_affect_numeric_score():
     assert score_after == score_before
     assert report["overall_score"] == score_before["overall_score"]
     assert report["domain_scores"] == score_before["domain_scores"]
+
+
+def test_llm_rewrites_action_plan_text_without_changing_structure(monkeypatch: pytest.MonkeyPatch):
+    answers = {
+        "backups_exist": {"answer": "yes", "details": ""},
+        "restore_tested": {"answer": "no", "details": "Restore test has not been run."},
+        "backup_isolated": {"answer": "no", "details": ""},
+    }
+    score_before = calculate_scores(answers)
+    base_plan = build_action_plan_from_skills(score_before, answers)
+    assert base_plan
+
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+
+    from backend import action_plan_llm
+
+    def fake_generate_text(*_: object, **__: object) -> LLMResult:
+        return LLMResult(
+            text=json.dumps(
+                {
+                    "action_plan": [
+                        {
+                            "id": 0,
+                            "title": "Run a controlled restore test and record the result",
+                            "owner_suggestion": "IT / MSP",
+                            "deadline": "14 days",
+                            "effort": "Medium",
+                            "evidence_required": ["Restore test report", "List of restored systems"],
+                        }
+                    ]
+                }
+            ),
+            provider="openai",
+            model="gpt-test",
+            used_real_llm=True,
+        )
+
+    monkeypatch.setattr(action_plan_llm, "generate_text", fake_generate_text)
+
+    report = generate_report(answers, {"organization_name": "Test"})
+    first = report["action_plan"][0]
+
+    assert first["title"] == "Run a controlled restore test and record the result"
+    assert first["owner_suggestion"] == "IT / MSP"
+    assert first["domain"] == base_plan[0]["domain"]
+    assert first["based_on_skill"] == base_plan[0]["based_on_skill"]
+    assert report["next_steps"][0] == "Run a controlled restore test and record the result"
+    assert report["llm"]["provider"] == "openai"
+    assert report["llm"]["used_real_llm"] is True
 
 
 def test_redaction_redacts_email_ip_and_secret():

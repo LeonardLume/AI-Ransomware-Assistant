@@ -275,6 +275,13 @@ export interface ReportResponse extends ScoreResponse {
     error?: string | null;
     report_prompt_preview?: string;
   };
+  action_plan_generation?: {
+    provider?: ProviderName;
+    model?: string;
+    used_real_llm?: boolean;
+    error?: string | null;
+    prompt_preview?: string;
+  };
   sources?: unknown;
   methodology?: AssessmentMethodologySummary;
   score_explanation?: {

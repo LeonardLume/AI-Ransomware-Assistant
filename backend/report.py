@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.action_plan_llm import generate_llm_action_plan
 from backend.confidence import calculate_domain_confidence, calculate_overall_confidence
 from backend.exposure import build_external_exposure_self_check
 from backend.findings import build_findings
@@ -154,6 +155,17 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
 
     findings = _enrich_findings(findings, domain_explanation)
     risks = _enrich_risks(risks, domain_explanation)
+    action_plan, action_plan_generation = generate_llm_action_plan(
+        base_action_plan=action_plan,
+        scores=scores,
+        risks=risks,
+        findings=findings,
+        answers=answer_summary,
+    )
+    action_plan_uses_llm = bool(
+        action_plan_generation.get("used_real_llm") and not action_plan_generation.get("error")
+    )
+    next_steps = _next_steps_from_action_plan(action_plan, next_steps)
 
     base_summary = (
         f"Organisatsiooni lunavararünnakuks valmisoleku skoor on {scores['overall_score']}/100 "
@@ -181,6 +193,7 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         "findings": findings,
         "next_steps": next_steps,
         "action_plan": action_plan,
+        "action_plan_generation": action_plan_generation,
         "evidence_checklist": evidence_checklist,
         "skill_references": skill_references,
         "overall_confidence": overall_confidence,
@@ -202,11 +215,11 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         "llm_report_text": report_text,
         "report_text": report_text,
         "llm": {
-            "provider": "backend_rule_based",
-            "model": "deterministic-report",
-            "used_real_llm": False,
-            "error": None,
-            "report_prompt_preview": "",
+            "provider": action_plan_generation.get("provider") if action_plan_uses_llm else "backend_rule_based",
+            "model": action_plan_generation.get("model") if action_plan_uses_llm else "deterministic-report",
+            "used_real_llm": action_plan_uses_llm,
+            "error": None if action_plan_uses_llm else action_plan_generation.get("error"),
+            "report_prompt_preview": action_plan_generation.get("prompt_preview", "") if action_plan_uses_llm else "",
         },
         "sources": load_source_notes(),
     }
@@ -247,6 +260,15 @@ def _enrich_findings(findings: list[dict[str, Any]], domain_explanation: dict[st
             )
         enriched.append({**finding, **trace})
     return enriched
+
+
+def _next_steps_from_action_plan(action_plan: list[dict[str, Any]], fallback: list[str]) -> list[str]:
+    steps = [
+        str(item.get("title", "")).strip()
+        for item in action_plan
+        if str(item.get("title", "")).strip()
+    ]
+    return steps[:5] or fallback
 
 
 def _enrich_evidence_checklist(

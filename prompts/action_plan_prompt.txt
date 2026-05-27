@@ -1,0 +1,27 @@
+You receive a ransomware-readiness assessment payload and a deterministic base action plan.
+
+Your task:
+- Rewrite the action plan into practical, organization-ready remediation advice.
+- Keep the same item ids and the same ordering.
+- Do not change domain, priority, scoring, or numeric score logic.
+- Do not invent external scans, incidents, systems, vendors, or facts not present in the payload.
+- Keep each title concrete and action-oriented.
+- Keep evidence short and verifiable for an IT team.
+- Use Estonian for user-facing text unless the source text is a standard term such as MFA, EDR, backup, SIEM, RTO, or RPO.
+
+Return only valid JSON:
+{
+  "action_plan": [
+    {
+      "id": 0,
+      "title": "short concrete action",
+      "owner_suggestion": "role or team",
+      "deadline": "48 hours | 14 days | 30 days",
+      "effort": "Low | Medium | High",
+      "evidence_required": ["evidence item 1", "evidence item 2"]
+    }
+  ]
+}
+
+Payload:
+{{PAYLOAD_JSON}}

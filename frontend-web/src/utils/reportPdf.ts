@@ -215,7 +215,7 @@ export async function generateReadinessReportPdf(report: ReportResponse, languag
         .join(" | "),
       0,
     );
-    bullet("Official score, risk and action priorities are derived from backend assessment answers and scoring rules.", 0);
+    bullet("Official score and risk are calculated from assessment answers and scoring rules; remediation actions are LLM-written from the report risks.", 0);
   }
 
   if (truncated && canFit(18)) {

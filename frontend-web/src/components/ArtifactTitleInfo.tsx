@@ -75,7 +75,7 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
         title: "Tegevusplaan",
         short: "Практический backlog улучшений, собранный из рисков отчёта.",
         what: "Здесь findings и слабые домены превращаются в конкретные remediation tasks: что сделать, кому назначить, какой effort, приоритет, срок и какие evidence понадобятся для проверки.",
-        how: "Backend связывает action items с доменами, risk level и matched skills. Это не отдельный AI wishlist: задачи выводятся из report data, scoring signals и защитных playbooks. LLM может помогать формулировкой, но структура плана backend-owned.",
+        how: "Backend сохраняет score, risk, домены и matched skills как каркас, а LLM формулирует финальные action items для пользователя. Поэтому план остаётся привязанным к report data и scoring signals, но текст советов пишет LLM.",
         check: "Используй вкладку как рабочий backlog: начни с critical/high, назначь owner, определи deadline и evidence. После выполнения возвращайся к вопросам assessment и обновляй report, чтобы score отражал изменения.",
       },
       evidenceBinder: {
@@ -109,7 +109,7 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
         title: "Action Plan",
         short: "A practical remediation backlog generated from report risks.",
         what: "Findings and weak domains are converted into concrete remediation tasks: what to do, who should own it, expected effort, priority, deadline, and evidence needed for verification.",
-        how: "The backend links action items to domains, risk level, and matched skills. This is not a separate AI wishlist: tasks are derived from report data, scoring signals, and defensive playbooks. The LLM may help wording, but the structure is backend-owned.",
+        how: "The backend keeps score, risk, domains, and matched skills as the structure, while the LLM writes the final action-item advice for the user. The plan stays grounded in report data and scoring signals, but the recommendation text is LLM-written.",
         check: "Use it as a working backlog: start with critical/high items, assign owners, set deadlines, and collect evidence. After remediation, update assessment answers and refresh the report so score reflects the change.",
       },
       evidenceBinder: {
@@ -142,7 +142,7 @@ function artifactInfoContent(language: UiLanguage, kind: ArtifactTitleInfoKind) 
       title: "Tegevusplaan",
       short: "Praktiline paranduste backlog, mis tekib raporti riskidest.",
       what: "Leiud ja nõrgad domeenid muudetakse konkreetseteks tegevusteks: mida teha, kes võiks vastutada, milline on pingutus, prioriteet, tähtaeg ja milliseid tõendeid on vaja kontrollimiseks.",
-      how: "Backend seob tegevused domeenide, riskitaseme ja sobitatud oskustega. See ei ole eraldi AI soovinimekiri: ülesanded tulevad raporti andmetest, scoring-signaalidest ja kaitse-playbook'idest. LLM võib aidata sõnastust, kuid struktuur on backend-owned.",
+      how: "Backend hoiab skoori, riski, domeenid ja sobitatud oskused struktuurina, LLM aga sõnastab kasutajale lõplikud tegevussoovitused. Plaan jääb seotud raporti andmete ja scoring-signaalidega, kuid soovituste tekst on LLM-i kirjutatud.",
       check: "Kasuta seda tööjärjekorrana: alusta critical/high tegevustest, määra omanik, pane tähtaeg ja kogu tõendid. Pärast parandusi uuenda assessment'i vastuseid ja värskenda raportit, et skoor muutust näitaks.",
     },
     evidenceBinder: {

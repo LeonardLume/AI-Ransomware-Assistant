@@ -98,7 +98,7 @@ const reportCopy = {
     criticalFindings: "Kriitilised leiud",
     criticalFindingsDescription: "Olulised riskid, mis vajavad enne järgmist sammu tähelepanu.",
     prioritySteps: "Prioriteetsed sammud",
-    priorityStepsDescription: "Kõige mõistlikum tegevusjärjekord raporti põhjal.",
+    priorityStepsDescription: "LLM-i sõnastatud tegevusjärjekord raporti riskide põhjal.",
     items: "kirjet",
     noFindings: "Kompaktseid leide pole veel. Värskenda taustsüsteemi raportit.",
     noSteps: "Prioriseeritud samme pole veel.",
@@ -146,7 +146,7 @@ const reportCopy = {
     criticalFindings: "Critical findings",
     criticalFindingsDescription: "The main risks to address before the next step.",
     prioritySteps: "Priority next steps",
-    priorityStepsDescription: "The most useful action order based on the report.",
+    priorityStepsDescription: "LLM-written action order based on report risks.",
     items: "items",
     noFindings: "No compact findings available yet. Refresh the backend report.",
     noSteps: "No prioritized next steps available yet.",
@@ -194,7 +194,7 @@ const reportCopy = {
     criticalFindings: "Критические находки",
     criticalFindingsDescription: "Главные риски, которые стоит закрыть перед следующим шагом.",
     prioritySteps: "Приоритетные шаги",
-    priorityStepsDescription: "Самый полезный порядок действий по результатам отчёта.",
+    priorityStepsDescription: "Порядок действий, сформулированный LLM на основе рисков отчёта.",
     items: "шт.",
     noFindings: "Компактных findings пока нет. Обнови backend отчёт.",
     noSteps: "Приоритетных шагов пока нет.",
@@ -486,7 +486,7 @@ function sectionInfoContent(language: UiLanguage, section: SectionInfoKey) {
     if (section === "prioritySteps") {
       return {
         short: "Это короткий порядок действий: что стоит делать первым, чтобы быстрее снизить риск.",
-        what: "Секция собирает самые важные next steps из backend-отчёта и показывает их как практический список, а не как длинный технический текст.",
+        what: "Секция собирает LLM-сформулированные remediation steps и показывает их как практический список, а не как длинный технический текст.",
         why: "Она нужна, чтобы пользователь не терялся в score и findings: сначала закрываются действия с самым большим влиянием на ransomware readiness.",
         how: "Используй это как рабочий backlog: назначь владельца, перенеси пункты в action plan, подготовь evidence и обнови отчёт после выполнения.",
         tip: "На защите можно сказать: report не просто оценивает риск, а сразу превращает его в приоритетный план улучшений.",
@@ -514,7 +514,7 @@ function sectionInfoContent(language: UiLanguage, section: SectionInfoKey) {
     if (section === "prioritySteps") {
       return {
         short: "A short action order showing what to do first to reduce risk fastest.",
-        what: "This section turns backend recommendations into a practical sequence instead of leaving the user with a long technical report.",
+        what: "This section turns LLM-written remediation advice into a short practical sequence instead of leaving the user with a long technical report.",
         why: "It helps the user move from assessment to execution: the highest-impact actions are made visible immediately.",
         how: "Use it as a working backlog: assign an owner, move items into the action plan, prepare evidence, and refresh the report after changes.",
         tip: "For the defense, explain that the report does not only score risk; it converts risk into a prioritized improvement plan.",
@@ -541,7 +541,7 @@ function sectionInfoContent(language: UiLanguage, section: SectionInfoKey) {
   if (section === "prioritySteps") {
     return {
       short: "Lühike tegevusjärjekord: mida teha esimesena, et riski kõige kiiremini vähendada.",
-      what: "See sektsioon muudab taustsüsteemi soovitused praktiliseks tööjärjekorraks, mitte ainult pikaks tehniliseks raportiks.",
+      what: "See sektsioon muudab LLM-i sõnastatud parandussammud praktiliseks tööjärjekorraks, mitte ainult pikaks tehniliseks raportiks.",
       why: "See aitab liikuda hindamisest tegutsemiseni: kõige suurema mõjuga sammud on kohe nähtavad.",
       how: "Kasuta seda tööjärjekorrana: määra omanik, vii punkt tegevusplaani, kogu tõendid ja värskenda raport pärast parandusi.",
       tip: "Kaitsmisel saad öelda, et raport ei anna ainult skoori, vaid muudab riski prioriseeritud parandusplaaniks.",
