@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import {
   BookOpenCheck,
   ClipboardList,
@@ -22,6 +22,7 @@ import {
 } from "./api/client";
 import AssessmentStatusFooter from "./components/AssessmentStatusFooter";
 import ChatPanel from "./components/ChatPanel";
+const DarkVeil = lazy(() => import("./components/DarkVeil"));
 import HeroDashboard from "./components/HeroDashboard";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import Layout, { type AppView } from "./components/Layout";
@@ -884,10 +885,23 @@ export default function App() {
         interview: (
           <section
             className={cn(
-              "interview-scene relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
+              "interview-scene darkveil-session relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
               artifactOverlayOpen ? "bg-[#07090d] overflow-visible" : "overflow-hidden",
             )}
           >
+            <div className="darkveil-session-canvas pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[26px]">
+              <Suspense fallback={null}>
+                <DarkVeil
+                  hueShift={290}
+                  noiseIntensity={0}
+                  scanlineIntensity={0}
+                  speed={0.5}
+                  scanlineFrequency={0}
+                  warpAmount={0}
+                  resolutionScale={1}
+                />
+              </Suspense>
+            </div>
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}

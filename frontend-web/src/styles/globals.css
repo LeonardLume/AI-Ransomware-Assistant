@@ -164,14 +164,17 @@ textarea {
 }
 
 .main-workspace[data-view="interview"]::before {
-  opacity: 0.08;
-  transform: scale(1.03);
-  filter: saturate(72%);
+  opacity: 0;
+  background: none;
+  transform: none;
+  filter: none;
 }
 
 .main-workspace[data-view="interview"]::after {
-  opacity: 1;
-  transform: scale(1);
+  opacity: 0;
+  background: none;
+  transform: none;
+  filter: none;
 }
 
 .main-workspace[data-view="home"]::before,
@@ -203,9 +206,31 @@ textarea {
   opacity: 0.98;
 }
 
-.interview-scene > * {
+.interview-scene.darkveil-session::before {
+  content: none;
+  background: none;
+  opacity: 0;
+}
+
+.interview-scene.darkveil-session::after {
+  content: none;
+  background: none;
+  opacity: 0;
+}
+
+.darkveil-session-canvas {
+  background: none;
+}
+
+.interview-scene > :not(.darkveil-session-canvas) {
   position: relative;
   z-index: 1;
+}
+
+.darkveil-session-canvas {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0 !important;
 }
 
 .chat-panel-shell::before {
@@ -369,14 +394,16 @@ textarea {
 }
 
 .chat-bubble-assistant {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.008)),
-    rgba(255, 255, 255, 0.028) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(12, 12, 16, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 8px 22px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(26px) saturate(118%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(0, 0, 0, 0.18);
+  backdrop-filter: none;
+}
+
+.chat-bubble-assistant::before {
+  opacity: 0;
 }
 
 .chat-bubble-user {
