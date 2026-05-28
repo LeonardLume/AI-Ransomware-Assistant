@@ -269,7 +269,7 @@ function GuidanceBlock({ title, items }: { title: string; items: string[] }) {
 
 function InfoMetaLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.07] bg-black/[0.16] px-3 py-2">
+    <div className="flex items-start justify-between gap-4 border-b border-white/[0.06] py-2 last:border-b-0">
       <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">{label}</span>
       <span className="min-w-0 truncate text-right text-slate-300">{value}</span>
     </div>
@@ -284,8 +284,8 @@ function MetaLine({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/[0.06] bg-black/[0.12] px-3 py-2">
-      <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+    <div className="flex min-w-0 items-start gap-2 border-b border-white/[0.06] py-2 last:border-b-0">
+      <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
         {label}
       </span>
       <span className="min-w-0 truncate text-slate-300">{value}</span>

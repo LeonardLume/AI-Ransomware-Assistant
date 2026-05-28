@@ -1,12 +1,8 @@
 import type {
   ArtifactId,
-  ChatResponse,
-  ProviderStatusResponse,
   Question,
   ReportResponse,
-  ScoreResponse,
   SessionStateResponse,
-  TechnicalFlowResponse,
 } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
 import ActionPlanView from "./ActionPlanView";
@@ -14,7 +10,6 @@ import EvidenceBinderView from "./EvidenceBinderView";
 import ReportRequiredState from "./ReportRequiredState";
 import ReportView from "./ReportView";
 import SkillsView from "./SkillsView";
-import TechnicalTransparencyView from "./TechnicalTransparencyView";
 import TechnicalView from "./TechnicalView";
 
 function normalizeArtifact(artifact: ArtifactId): ArtifactId {
@@ -36,11 +31,6 @@ export default function SessionArtifactOverlay({
   activeSessionId,
   report,
   session,
-  score,
-  lastResponse,
-  flow,
-  providerStatus,
-  backendOnline,
   questions,
   canGenerateReport,
   loading,
@@ -53,11 +43,11 @@ export default function SessionArtifactOverlay({
   activeSessionId?: string | null;
   report?: ReportResponse | null;
   session?: SessionStateResponse | null;
-  score?: ScoreResponse | null;
-  lastResponse?: ChatResponse | null;
-  flow?: TechnicalFlowResponse | null;
-  providerStatus?: ProviderStatusResponse | null;
-  backendOnline: boolean;
+  score?: unknown;
+  lastResponse?: unknown;
+  flow?: unknown;
+  providerStatus?: unknown;
+  backendOnline?: boolean;
   questions: Question[];
   canGenerateReport: boolean;
   loading?: boolean;
@@ -116,24 +106,11 @@ export default function SessionArtifactOverlay({
             <SkillsView report={report} language={language} />
           ) : null}
           {activeSessionId && selectedArtifact === "technical-json" ? (
-            <div className="space-y-5">
-              <TechnicalTransparencyView
-                flow={flow}
-                providerStatus={providerStatus}
-                language={language}
-              />
-              <TechnicalView
-                backendOnline={backendOnline}
-                providerStatus={providerStatus}
-                lastResponse={lastResponse}
-                session={session}
-                score={score}
-                report={report}
-                questions={questions}
-                flow={flow}
-                language={language}
-              />
-            </div>
+            <TechnicalView
+              session={session}
+              questions={questions}
+              language={language}
+            />
           ) : null}
         </div>
         <div className="mt-8 h-px rounded-full bg-white/10" aria-hidden="true" />
