@@ -181,7 +181,7 @@ float cnoise(vec3 P){
 `;
 
 export default function Beams({
-  beamWidth = 2,
+  beamWidth = 0.7,
   beamHeight = 15,
   beamNumber = 12,
   lightColor = "#ffffff",

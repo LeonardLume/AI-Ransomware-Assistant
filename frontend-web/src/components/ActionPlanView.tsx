@@ -71,9 +71,9 @@ export default function ActionPlanView({
     <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_82%_10%,rgba(255,255,255,0.055),transparent_32%)]" />
 
-      <div className="relative space-y-7">
-        <section className="report-hero relative px-2 py-10 sm:px-3 lg:min-h-[250px] lg:px-4 lg:py-12">
-          <div className="mx-auto flex max-w-3xl flex-col items-center justify-center text-center lg:min-h-[170px]">
+      <div className="relative space-y-5">
+        <section className="report-hero relative px-2 pb-6 pt-6 sm:px-3 sm:pb-7 sm:pt-7 lg:px-4 lg:pb-8 lg:pt-8">
+          <div className="mx-auto flex max-w-3xl flex-col items-center justify-center text-center">
             <div className="inline-flex flex-wrap items-center justify-center gap-3">
               <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
                 {t(language, "actionPlan")}
@@ -88,7 +88,7 @@ export default function ActionPlanView({
             </p>
           </div>
 
-          <div className="mx-auto mt-7 w-full max-w-[168px] rounded-[24px] border border-white/[0.08] bg-black/[0.18] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] lg:absolute lg:right-5 lg:top-5 lg:mt-0">
+          <div className="mx-auto mt-5 w-full max-w-[168px] rounded-[24px] border border-white/[0.08] bg-black/[0.18] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] lg:absolute lg:right-5 lg:top-5 lg:mt-0">
             <div className="text-right">
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
                 {actionCountLabel(language)}

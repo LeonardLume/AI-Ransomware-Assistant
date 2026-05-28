@@ -410,19 +410,21 @@ function SectionHeader({
   language: UiLanguage;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
+    <div className="min-w-0">
+      <div>
         <div className="flex items-center gap-2">
           <h3 className="text-xl font-semibold tracking-[-0.03em] text-white">
             {title}
           </h3>
           {infoKey ? <SectionInfoDialog section={infoKey} title={title} language={language} /> : null}
         </div>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+      </div>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm leading-6 text-slate-400">
           {description}
         </p>
+        {meta ? <div className="shrink-0">{meta}</div> : null}
       </div>
-      {meta}
     </div>
   );
 }
