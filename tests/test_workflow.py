@@ -270,6 +270,35 @@ def test_external_exposure_checklist_endpoint_works():
     assert data["items"]
 
 
+def test_security_agent_profile_is_defensive_and_bounded():
+    response = client.get("/security-agent/profile")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["name"] == "Ransomware Readiness Security Agent"
+    assert data["framework_status"]["package"] == "cai-framework"
+    assert data["framework_status"]["execution_enabled"] is False
+    assert any(agent["id"] == "safety_reviewer" for agent in data["agents"])
+    assert "exploit execution" in data["inspiration"]["not_enabled"]
+    assert any("backend-owned" in guardrail for guardrail in data["guardrails"])
+
+
+def test_cai_bridge_is_optional_and_never_executes_tools(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("CAI_AGENT_ENABLED", raising=False)
+    monkeypatch.delenv("CAI_ALLOW_TOOL_EXECUTION", raising=False)
+
+    response = client.get("/security-agent/cai")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["name"] == "CAI Defensive Bridge"
+    assert data["status"]["package"] == "cai-framework"
+    assert data["status"]["enabled"] is False
+    assert data["status"]["execution_enabled"] is False
+    assert "exploit_execution" in data["status"]["blocked_capabilities"]
+    assert any("structured interview remains" in rule for rule in data["routing_policy"])
+
+
 def test_auth_can_be_enabled_without_touching_public_healthcheck(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("API_AUTH_TOKEN", "topsecret")
 

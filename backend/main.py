@@ -19,6 +19,7 @@ from backend.ai_trace import (
     trace_guardrail,
     trace_intent_decision,
 )
+from backend.cai_adapter import cai_security_manifest
 from backend.chat import ChatController
 from backend.chat.transparency import build_assistant_transparency
 from backend.chat_interview import (
@@ -71,6 +72,7 @@ from backend.security import (
     is_request_authorized,
     resolve_client_ip,
 )
+from backend.security_agent import security_agent_profile
 from backend.storage import SessionConflictError, SessionState, load_session, save_session
 
 app = FastAPI(
@@ -765,6 +767,37 @@ def _chat_simplified_flow(
             answer_source="quick_answer",
         )
 
+    if intent_mode in {"clarification", "advisory", "context_note"} and current_question is not None:
+        if intent_mode == "clarification":
+            return _handle_clarification_turn(
+                state=state,
+                message=message,
+                request_id=request_id,
+                current_question=current_question,
+                base_answers=base_answers,
+                intent="clarification",
+                action="answer_clarification",
+                intent_confidence="high",
+            )
+        if intent_mode == "advisory":
+            return _handle_general_advisory_turn(
+                state=state,
+                message=message,
+                request_id=request_id,
+                current_question=current_question,
+                base_answers=base_answers,
+                intent="general_advisory_chat",
+                action="answer_advisory",
+                intent_confidence="high",
+            )
+        return _handle_context_note_turn(
+            state=state,
+            message=message,
+            current_question=current_question,
+            intent_confidence="high",
+            assistant_message=_context_note_message(_language_code(message)),
+        )
+
     if state.pending_answer and current_question is not None and message:
         pending_response = _handle_pending_answer_resolution_turn(
             state=state,
@@ -1366,6 +1399,16 @@ def get_employee_security_hygiene_checklist():
         "scoring_impact": "none",
         "items": load_employee_hygiene_checklist(),
     }
+
+
+@app.get("/security-agent/profile")
+def get_security_agent_profile():
+    return security_agent_profile()
+
+
+@app.get("/security-agent/cai")
+def get_security_agent_cai_manifest():
+    return cai_security_manifest()
 
 
 @app.get("/session/{session_id}")
@@ -2405,6 +2448,10 @@ def _pending_answer_resolution(message: str) -> str | None:
         "okay, save it",
         "jah",
         "salvesta",
+        "да",
+        "подтверждаю",
+        "сохрани",
+        "сохранить",
     }
     reject_values = {
         "no",
@@ -2415,6 +2462,9 @@ def _pending_answer_resolution(message: str) -> str | None:
         "ei",
         "ara salvesta",
         "kontekst",
+        "нет",
+        "не сохраняй",
+        "только контекст",
     }
     if text in confirm_values:
         return "confirm"

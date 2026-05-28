@@ -956,6 +956,7 @@ export default function App() {
                   animateMessageId={animateMessageId}
                   language={language}
                   currentQuestion={currentQuestion}
+                  pendingAnswer={sessionState?.pending_answer || lastResponse?.pending_answer || null}
                   sending={sending}
                   error={error}
                   onStart={startAssessment}

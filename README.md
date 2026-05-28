@@ -1,6 +1,6 @@
 # AI Ransomware Readiness Assistant
 
-**Turn messy ransomware readiness conversations into a scored interview, a practical report, and a next-step plan your team can actually use.**
+**An AI security-assessment workspace for ransomware readiness: agent-guided controls, backend-owned scoring, evidence guidance, and an IT-ready action plan.**
 
 ```powershell
 copy .env.example .env
@@ -9,17 +9,19 @@ start.bat
 
 Open `http://127.0.0.1:5173` and start answering.
 
-This project is for teams that want a guided ransomware readiness check without handing scoring control to the model. The chat feels natural. The score stays backend-controlled. The output is something you can review with IT, leadership, or a client.
+This project is for teams that want more than a questionnaire. It keeps the structured readiness controls, but wraps them in an AI Security Agent that can explain controls, help classify answers, request evidence, and prepare a report your IT team, MSP, leadership, or client can actually review.
+
+The agentic design is inspired by cybersecurity agent frameworks such as CAI: multiple roles, tool boundaries, guardrails, tracing, and human confirmation. Offensive automation is not enabled. The product is designed as an authorized defensive assessor, not an exploit runner.
 
 ## Why It Exists
 
 | You need | What this app gives you |
 | --- | --- |
-| A fast ransomware readiness review | A guided interview with quick answers and free-text chat |
+| A serious security-assessment workflow | AI-guided controls instead of a plain questionnaire |
 | Consistent scoring | Deterministic backend rules from `data/scoring_rules.json` |
-| Plain-language explanations | LLM-powered clarification and advisory replies |
+| AI help that understands security context | Clarification, answer classification, evidence guidance, and advisory replies |
 | A usable outcome | Report, findings, action plan, and evidence checklist |
-| Safe behavior | Guardrails for prompt injection and offensive requests |
+| Safe agentic behavior | Guardrails for prompt injection, unsafe requests, and score tampering |
 
 ## What You Get
 
@@ -31,6 +33,46 @@ This project is for teams that want a guided ransomware readiness check without 
 | `data/` | Questions, scoring rules, demo profiles, checklists |
 | `prompts/` | LLM prompts for chat, clarification, advisory, and reporting |
 | `tests/` | Backend regression and unit tests |
+
+## Security Agent Layer
+
+The assistant is moving from a simple interview into a bounded AI security agent.
+
+| Agent role | What it does |
+| --- | --- |
+| Assessment Guide | Runs the interview and keeps the user on the current readiness control |
+| Answer Classifier | Maps natural-language answers to `yes / partial / no / unsure` only after validation |
+| Evidence Advisor | Suggests documents, logs, screenshots, or policies that would support the answer |
+| Source Researcher | Grounds explanations in curated defensive sources and future allowlisted web research |
+| Report Writer | Turns backend-owned scores and findings into a concise report and action plan |
+| Safety Reviewer | Blocks offensive or unsafe requests before scoring state changes |
+
+Available profile endpoint:
+
+```text
+GET /security-agent/profile
+GET /security-agent/cai
+```
+
+Important boundary: this product does not enable exploit execution, credential theft, malware generation, MFA bypass, persistence, evasion, or unauthorized scanning. Future external checks should be read-only, allowlisted, and explicitly authorized by the asset owner.
+
+### Optional CAI Bridge
+
+CAI is added as an optional defensive bridge, not as the default chat engine. This protects the existing interview, scoring, report cache, and fallback behavior.
+
+```powershell
+python -m venv .venv-cai
+.\.venv-cai\Scripts\pip install -r requirements-cai.txt
+```
+
+Then enable only metadata-level integration:
+
+```env
+CAI_AGENT_ENABLED=1
+CAI_ALLOW_TOOL_EXECUTION=0
+```
+
+The bridge currently exposes status and a safe capability manifest. It does not execute CAI tools against targets and does not replace `/chat`, `/questions`, scoring, or fallback mode.
 
 ## Quick Start
 
@@ -183,6 +225,7 @@ For a shared or public deployment, set `API_AUTH_TOKEN` in `.env` and pass the s
 | Chat behavior | Result |
 | --- | --- |
 | Quick answer buttons | Save structured `yes / partial / no / unsure` immediately |
+| Help decide / Evidence / Good state buttons | Ask the agent for guidance without changing the official answer |
 | Free-text answer | LLM proposes intent and normalized answer |
 | Ambiguous free-text | Backend asks for confirmation instead of auto-saving |
 | Clarification request | Assistant explains the current question |

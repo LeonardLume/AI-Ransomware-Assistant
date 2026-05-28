@@ -177,6 +177,21 @@ def test_mocked_llm_advisory_does_not_save_or_advance(monkeypatch: pytest.Monkey
     assert _session(sid)["answers"] == {}
 
 
+def test_explicit_coach_mode_routes_to_clarification_without_saving(monkeypatch: pytest.MonkeyPatch):
+    _mock_non_answer_handlers(monkeypatch)
+
+    start = _start_chat()
+    sid = start["session_id"]
+    current_q = start["current_question_id"]
+
+    data = _chat(sid, "Help me decide how to answer this control.", intent_mode="clarification")
+
+    assert data["response_type"] == "client_question"
+    assert data["current_question_id"] == current_q
+    assert data["extracted_answers"] == {}
+    assert _session(sid)["answers"] == {}
+
+
 def test_mocked_llm_keep_context_stores_note_and_keeps_score(monkeypatch: pytest.MonkeyPatch):
     _mock_chat_decision(
         monkeypatch,

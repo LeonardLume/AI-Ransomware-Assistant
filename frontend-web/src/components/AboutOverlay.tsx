@@ -53,10 +53,10 @@ type AboutCopy = {
 
 const copyByLanguage: Record<UiLanguage, AboutCopy> = {
   et: {
-    eyebrow: "AI-toega enesehindamine",
-    title: "Lunavara valmisolek, lihtsalt selgitatud.",
+    eyebrow: "AI turvahindamise agent",
+    title: "Piiritletud AI turvaagent lunavara valmisoleku hindamiseks.",
     subtitle:
-      "Lühike kaitsevõime intervjuu, mis aitab mõista nõrku kohti ilma tehnilist auditit või skaneerimist lubamata.",
+      "Mitte lihtsalt küsimustik: agent juhib turvakontrolle, aitab vastuseid liigitada, küsib tõendeid ja jätab ametliku skoori backend'i kontrolli alla.",
     close: "Sulge",
     start: "Alusta hindamist",
     howTitle: "Kuidas kasutada",
@@ -64,36 +64,36 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     clarityTitle: "Mis jääb selgeks",
     workflow: [
       {
-        title: "Vasta loomulikult",
-        description: "Kirjelda oma olukorda vabas vormis. Assistent aitab vastuse struktureerida.",
+        title: "Räägi agendiga",
+        description: "Kirjelda olukorda vabas vormis. Agent aitab selle muuta valideeritud kontrolli vastuseks.",
       },
       {
-        title: "Küsi selgitust",
-        description: "Kui mõiste või risk jääb segaseks, küsi näidet või lihtsamat seletust.",
+        title: "Kinnita tõendid",
+        description: "Küsi, mis tõend sobib: poliitika, logi, ekraanipilt, taastamistesti kirje või omanike nimekiri.",
       },
       {
         title: "Vaata tegevusplaani",
-        description: "Raport näitab skoori, nõrgemaid domeene, tõendeid ja järgmisi samme.",
+        description: "Raport näitab backend'i kontrollitud skoori, nõrku kohti, tõendeid ja järgmisi samme.",
       },
     ],
     benefits: [
       {
-        title: "Taustsüsteem kontrollib tulemust",
-        description: "LLM aitab vestlusega, kuid ametlik valmisoleku tulemus tuleb fikseeritud reeglitest.",
+        title: "Agentic, aga piiritletud",
+        description: "Disain järgib CAI-laadset agentide mustrit, kuid ohtlikke offensive tööriistu ei lubata.",
       },
       {
-        title: "Ainult kaitsele suunatud disain",
-        description: "Süsteem suunab vestluse kaitse, tõendite ja valmisoleku parandamise juurde.",
+        title: "Backend kontrollib skoori",
+        description: "LLM võib selgitada ja soovitada, kuid ametlik valmisoleku skoor tuleb fikseeritud backend'i reeglitest.",
       },
       {
-        title: "Sobib väikese ja keskmise ettevõtte konteksti",
-        description: "Küsimused on praktilised: varukoopiad, MFA, paikamine, administraatoriõigused, intsidendile reageerimine ja seire.",
+        title: "Kasulik IT/MSP üleandmiseks",
+        description: "Tulemus on struktureeritud kontrollide, tõendite, riskide ja prioriseeritud paranduste järgi.",
       },
     ],
     principles: [
-      { label: "Küsimused", value: "27 kohustuslikku" },
-      { label: "Tulemus", value: "Reeglipõhine" },
-      { label: "LLM-i roll", value: "Selgitab ja tuvastab" },
+      { label: "Kontrollid", value: "27 kohustuslikku" },
+      { label: "Skoor", value: "Backend'i kontrollitud" },
+      { label: "Agendi režiim", value: "Ainult kaitsev" },
     ],
     advancedTitle: "Täpsemad tulemuse arvutuse detailid",
     advancedClosed: "Näita tehnilisi detaile",
@@ -105,10 +105,10 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
       "Töötajate turvahügieeni soovitused võivad raportis ilmuda, kuid need ei muuda ametlikku valmisoleku tulemust.",
   },
   en: {
-    eyebrow: "AI-assisted self-assessment",
-    title: "Lunavara valmisolek, lihtsalt selgitatud.",
+    eyebrow: "AI security assessment agent",
+    title: "A bounded AI security agent for ransomware readiness.",
     subtitle:
-      "A short defensive readiness interview that turns plain-language answers into a clear report, evidence list and action plan.",
+      "Not just a questionnaire: the agent guides security controls, helps classify answers, asks for evidence, and keeps official scoring under backend control.",
     close: "Close",
     start: "Start assessment",
     howTitle: "How to use",
@@ -116,36 +116,36 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
     clarityTitle: "What stays clear",
     workflow: [
       {
-        title: "Answer naturally",
-        description: "Describe the current situation in plain language. The assistant structures it safely.",
+        title: "Talk to the agent",
+        description: "Describe the current situation in plain language. The agent helps turn it into a validated control answer.",
       },
       {
-        title: "Ask for clarity",
-        description: "If a term or risk is unclear, ask for a simple explanation or an example.",
+        title: "Validate evidence",
+        description: "Ask what proof would support the answer: policies, logs, screenshots, restore-test records or owner lists.",
       },
       {
         title: "Review the plan",
-        description: "The report shows the score, weak areas, evidence to collect and next actions.",
+        description: "The report shows backend-owned score, weak areas, evidence to collect and next actions.",
       },
     ],
     benefits: [
       {
+        title: "Agentic, but bounded",
+        description: "The design follows CAI-style agent patterns, but unsafe offensive tools are not enabled.",
+      },
+      {
         title: "Backend owns scoring",
-        description: "The LLM helps with conversation, but the official readiness score comes from fixed rules.",
+        description: "The LLM can explain and propose, but official readiness score comes from fixed backend rules.",
       },
       {
-        title: "Defensive by design",
-        description: "The experience stays focused on preparation, evidence and practical risk reduction.",
-      },
-      {
-        title: "Built for SME context",
-        description: "The assessment covers backups, MFA, patching, admin rights, IR and monitoring.",
+        title: "Useful for IT and MSP handoff",
+        description: "The output is structured around controls, evidence, risks and prioritized remediation.",
       },
     ],
     principles: [
-      { label: "Questions", value: "27 required" },
-      { label: "Score", value: "Rule-based" },
-      { label: "LLM role", value: "Explain + extract" },
+      { label: "Controls", value: "27 required" },
+      { label: "Score", value: "Backend-owned" },
+      { label: "Agent mode", value: "Defensive only" },
     ],
     advancedTitle: "Advanced Scoring Details",
     advancedClosed: "Show technical details",
@@ -157,47 +157,47 @@ const copyByLanguage: Record<UiLanguage, AboutCopy> = {
       "Optional employee hygiene guidance can appear in the report, but it does not change the official readiness score.",
   },
   ru: {
-    eyebrow: "AI-assisted self-assessment",
-    title: "Lunavara valmisolek, lihtsalt selgitatud.",
+    eyebrow: "AI security assessment agent",
+    title: "AI-агент для оценки готовности к ransomware.",
     subtitle:
-      "Короткое defensive-интервью: ответы обычным языком превращаются в отчет, список доказательств и план действий.",
+      "Это не просто questionnaire: агент ведет по security controls, помогает выбрать ответ, запрашивает доказательства и оставляет официальный score под контролем backend.",
     close: "Закрыть",
     start: "Начать оценку",
     howTitle: "Как использовать",
-    howSubtitle: "Три шага и один защитный отчёт.",
+    howSubtitle: "Три шага и один IT-ready отчёт.",
     clarityTitle: "Что остаётся прозрачным",
     workflow: [
       {
-        title: "Отвечайте естественно",
-        description: "Опишите ситуацию своими словами. Ассистент аккуратно структурирует ответ.",
+        title: "Говорите с агентом",
+        description: "Опишите ситуацию обычным языком. Агент поможет превратить это в валидированный ответ по контролю.",
       },
       {
-        title: "Уточняйте",
-        description: "Если термин или риск непонятен, попросите простое объяснение или пример.",
+        title: "Проверяйте доказательства",
+        description: "Спросите, какие policy, логи, screenshots, restore-test records или списки владельцев подтверждают ответ.",
       },
       {
         title: "Смотрите план",
-        description: "Отчет показывает score, слабые области, доказательства и следующие шаги.",
+        description: "Отчет показывает backend-owned score, слабые области, доказательства и следующие действия.",
       },
     ],
     benefits: [
       {
+        title: "Agentic, но bounded",
+        description: "Архитектура вдохновлена CAI-style agent patterns, но опасные offensive tools не включены.",
+      },
+      {
         title: "Score считает backend",
-        description: "LLM помогает с диалогом, но официальный readiness score идет из фиксированных правил.",
+        description: "LLM может объяснять и предлагать, но официальный readiness score идет из фиксированных backend rules.",
       },
       {
-        title: "Только защита",
-        description: "Интерфейс фокусируется на готовности, доказательствах и снижении риска.",
-      },
-      {
-        title: "Для SME-контекста",
-        description: "Проверяются backup, MFA, patching, admin-права, IR и monitoring.",
+        title: "Ценность для IT/MSP",
+        description: "Результат структурирован вокруг controls, evidence, risks и prioritized remediation.",
       },
     ],
     principles: [
-      { label: "Questions", value: "27 required" },
-      { label: "Score", value: "Rule-based" },
-      { label: "LLM role", value: "Explain + extract" },
+      { label: "Controls", value: "27 required" },
+      { label: "Score", value: "Backend-owned" },
+      { label: "Agent mode", value: "Defensive only" },
     ],
     advancedTitle: "Advanced Scoring Details",
     advancedClosed: "Показать технические детали",

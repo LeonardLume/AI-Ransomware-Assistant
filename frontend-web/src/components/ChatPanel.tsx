@@ -11,6 +11,7 @@ export default function ChatPanel({
   animateMessageId,
   language = "et",
   currentQuestion,
+  pendingAnswer,
   sending,
   error,
   onStart,
@@ -22,6 +23,7 @@ export default function ChatPanel({
   animateMessageId?: string | null;
   language?: UiLanguage;
   currentQuestion?: Question | null;
+  pendingAnswer?: Record<string, unknown> | null;
   sending: boolean;
   error?: string | null;
   onStart: () => void;
@@ -170,6 +172,7 @@ export default function ChatPanel({
             disabled={sending}
             language={language}
             currentQuestion={currentQuestion}
+            pendingAnswer={pendingAnswer}
             onSend={onSend}
           />
         </div>

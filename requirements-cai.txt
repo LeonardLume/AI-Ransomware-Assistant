@@ -1,0 +1,6 @@
+# Optional CAI framework integration.
+#
+# Keep this separate from requirements.txt for now: cai-framework 0.5.10
+# pins newer OpenAI/Pydantic dependencies than the stable backend currently uses.
+# Install this in a separate worker environment when enabling CAI_AGENT_ENABLED=1.
+cai-framework==0.5.10

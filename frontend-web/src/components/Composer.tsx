@@ -1,4 +1,12 @@
-import { HelpCircle, SendHorizontal } from "lucide-react";
+import {
+  CheckCircle2,
+  FileSearch,
+  HelpCircle,
+  Lightbulb,
+  SendHorizontal,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 import type { AssessmentAnswer, ChatRequestOptions, Question } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
@@ -17,10 +25,104 @@ const answerLabels: Record<UiLanguage, Record<AssessmentAnswer, string>> = {
 };
 
 const quickAnswers: AssessmentAnswer[] = ["yes", "partial", "no", "unsure"];
+type CoachAction = "decide" | "evidence" | "good";
 const quickAnswerLabel: Record<UiLanguage, string> = {
   et: "Kiirvastus",
   en: "Quick answer",
   ru: "Быстрый ответ",
+};
+
+const coachCopy: Record<
+  UiLanguage,
+  Record<CoachAction, { label: string; message: string; mode: "clarification" | "advisory" }>
+> = {
+  et: {
+    decide: {
+      label: "Aita otsustada",
+      message:
+        "Aita mul otsustada, kas selle kontrolli vastus peaks olema jah, osaliselt, ei või ei tea. Selgita lühidalt, mille põhjal valida.",
+      mode: "clarification",
+    },
+    evidence: {
+      label: "Tõendid",
+      message: "Millised tõendid sobivad selle kontrolli kinnitamiseks?",
+      mode: "advisory",
+    },
+    good: {
+      label: "Hea tase",
+      message: "Mis loetakse selle kontrolli puhul heaks valmisolekuks?",
+      mode: "clarification",
+    },
+  },
+  en: {
+    decide: {
+      label: "Help decide",
+      message:
+        "Help me decide whether this control should be answered yes, partial, no, or unsure. Briefly explain what to check.",
+      mode: "clarification",
+    },
+    evidence: {
+      label: "Evidence",
+      message: "What evidence would prove readiness for this control?",
+      mode: "advisory",
+    },
+    good: {
+      label: "Good state",
+      message: "What counts as a good readiness state for this control?",
+      mode: "clarification",
+    },
+  },
+  ru: {
+    decide: {
+      label: "Помочь решить",
+      message:
+        "Помоги решить, какой ответ подходит для этого контроля: да, частично, нет или не знаю. Кратко объясни, что проверить.",
+      mode: "clarification",
+    },
+    evidence: {
+      label: "Доказательства",
+      message: "Какие доказательства подтвердят готовность по этому контролю?",
+      mode: "advisory",
+    },
+    good: {
+      label: "Хороший уровень",
+      message: "Что считается хорошим уровнем готовности по этому контролю?",
+      mode: "clarification",
+    },
+  },
+};
+
+const pendingCopy: Record<
+  UiLanguage,
+  {
+    title: string;
+    save: string;
+    context: string;
+    saveMessage: string;
+    contextMessage: string;
+  }
+> = {
+  et: {
+    title: "AI soovitus",
+    save: "Kinnita",
+    context: "Ainult kontekst",
+    saveMessage: "jah",
+    contextMessage: "ei",
+  },
+  en: {
+    title: "AI suggestion",
+    save: "Save answer",
+    context: "Keep context",
+    saveMessage: "yes",
+    contextMessage: "no",
+  },
+  ru: {
+    title: "AI-предложение",
+    save: "Сохранить",
+    context: "Только контекст",
+    saveMessage: "да",
+    contextMessage: "нет",
+  },
 };
 
 const llmInfoCopy: Record<
@@ -119,15 +221,18 @@ export default function Composer({
   disabled,
   language = "et",
   currentQuestion,
+  pendingAnswer,
   onSend,
 }: {
   disabled?: boolean;
   language?: UiLanguage;
   currentQuestion?: Question | null;
+  pendingAnswer?: Record<string, unknown> | null;
   onSend: (message: string, options?: ChatRequestOptions) => void;
 }) {
   const [value, setValue] = useState("");
   const canSend = value.trim().length > 0 && !disabled;
+  const suggestedAnswer = normalizePendingAnswer(pendingAnswer?.suggested_answer);
 
   function send() {
     const message = value.trim();
@@ -148,10 +253,83 @@ export default function Composer({
     });
   }
 
+  function askCoach(action: CoachAction) {
+    if (disabled) {
+      return;
+    }
+    const next = coachCopy[language][action];
+    onSend(next.message, { intent_mode: next.mode });
+  }
+
+  function confirmPending(accepted: boolean) {
+    if (disabled) {
+      return;
+    }
+    const copy = pendingCopy[language];
+    onSend(accepted ? copy.saveMessage : copy.contextMessage);
+  }
+
   return (
     <div className="chat-composer-shell space-y-2.5 p-3">
+      {suggestedAnswer ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3 py-2">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {pendingCopy[language].title}
+          </span>
+          <span className="rounded-full border border-white/[0.1] bg-black/20 px-2.5 py-1 text-xs font-semibold text-slate-100">
+            {answerLabels[language][suggestedAnswer]}
+          </span>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => confirmPending(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1.5 text-xs font-semibold text-emerald-100 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.14] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {pendingCopy[language].save}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => confirmPending(false)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-white/[0.18] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            {pendingCopy[language].context}
+          </button>
+        </div>
+      ) : null}
+
       {currentQuestion ? (
         <div className="flex flex-wrap items-center gap-2 px-1">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => askCoach("decide")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:border-white/[0.22] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Lightbulb className="h-3.5 w-3.5" />
+            {coachCopy[language].decide.label}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => askCoach("evidence")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:border-white/[0.22] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <FileSearch className="h-3.5 w-3.5" />
+            {coachCopy[language].evidence.label}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => askCoach("good")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:border-white/[0.22] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {coachCopy[language].good.label}
+          </button>
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             {quickAnswerLabel[language]}
           </span>
@@ -161,7 +339,7 @@ export default function Composer({
               type="button"
               disabled={disabled}
               onClick={() => sendQuickAnswer(answer)}
-              className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-all duration-200 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-45"
+              className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-all duration-200 hover:border-white/[0.22] hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
             >
               {answerLabels[language][answer]}
             </button>
@@ -198,6 +376,16 @@ export default function Composer({
       </div>
     </div>
   );
+}
+
+function normalizePendingAnswer(value: unknown): AssessmentAnswer | null {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "yes" ||
+    normalized === "partial" ||
+    normalized === "no" ||
+    normalized === "unsure"
+    ? normalized
+    : null;
 }
 
 function LlmInfoDialog({ language }: { language: UiLanguage }) {

@@ -1,7 +1,7 @@
 export type ProviderName = "openai" | "ollama" | "fallback" | "guardrail" | string;
 export type RiskLevel = "Low" | "Medium" | "High" | "Critical" | string;
 export type ScoreStatus = "preliminary" | "final" | "not ready" | string;
-export type ChatIntentMode = "direct_answer";
+export type ChatIntentMode = "direct_answer" | "clarification" | "advisory" | "context_note";
 export type AssessmentAnswer = "yes" | "partial" | "no" | "unsure";
 export type ArtifactId =
   | "readiness-report"
@@ -41,6 +41,10 @@ export interface Question {
   options?: string[];
   required?: boolean;
   source_refs?: string[];
+  why_it_matters?: string;
+  what_good_looks_like?: string;
+  evidence_examples?: string[];
+  how_to_answer?: string;
 }
 
 export interface AnswerRecord {
