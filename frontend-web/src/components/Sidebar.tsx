@@ -123,8 +123,8 @@ export default function Sidebar({
                     className={cn(
                       "group rounded-xl border px-2.5 py-2.5 transition-all duration-200 ease-out",
                       active
-                        ? "border-sky-400/30 bg-sky-500/15"
-                        : "border-transparent bg-transparent hover:bg-white/[0.07]",
+                        ? "border-white/10 bg-white/[0.07] shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+                        : "border-transparent bg-transparent hover:bg-white/[0.05]",
                     )}
                   >
                     <div className="flex items-start gap-2">
@@ -170,7 +170,7 @@ export default function Sidebar({
           </div>
         </section>
 
-        <div className={cn("mt-4 rounded-xl border border-white/[0.07] bg-white/[0.025] p-2", collapsed && "lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0")}>
+        <div className={cn("mt-4 p-1", collapsed && "lg:mt-auto lg:p-0")}>
           <div className={cn("mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500", collapsed && "lg:hidden")}>
             Demo profiles
           </div>
@@ -179,7 +179,10 @@ export default function Sidebar({
               type="button"
               variant="secondary"
               onClick={() => onLoadDemo("weak_sme")}
-              className={cn("h-9 justify-center border-white/10 bg-white/[0.035] text-xs shadow-none hover:bg-white/[0.07]", collapsed && "lg:h-10 lg:w-10 lg:px-0")}
+              className={cn(
+                "h-9 justify-center rounded-xl border-white/10 bg-white/[0.02] text-xs text-slate-200 shadow-none hover:border-white/16 hover:bg-white/[0.05]",
+                collapsed && "lg:h-10 lg:w-10 lg:px-0",
+              )}
               title="Weak SME"
             >
               <ShieldAlert className="h-4 w-4" />
@@ -189,7 +192,10 @@ export default function Sidebar({
               type="button"
               variant="secondary"
               onClick={() => onLoadDemo("better_sme")}
-              className={cn("h-9 justify-center border-white/10 bg-white/[0.035] text-xs shadow-none hover:bg-white/[0.07]", collapsed && "lg:h-10 lg:w-10 lg:px-0")}
+              className={cn(
+                "h-9 justify-center rounded-xl border-white/10 bg-white/[0.02] text-xs text-slate-200 shadow-none hover:border-white/16 hover:bg-white/[0.05]",
+                collapsed && "lg:h-10 lg:w-10 lg:px-0",
+              )}
               title="Better SME"
             >
               <ShieldCheck className="h-4 w-4" />

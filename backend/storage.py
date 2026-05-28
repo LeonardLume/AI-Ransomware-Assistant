@@ -35,6 +35,7 @@ class SessionState:
     session_id: str
     org_info: dict[str, Any] = field(default_factory=dict)
     answers: dict[str, dict[str, Any]] = field(default_factory=dict)
+    report: dict[str, Any] | None = None
     followups: list[dict[str, Any]] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     chat_history: list[dict[str, Any]] = field(default_factory=list)

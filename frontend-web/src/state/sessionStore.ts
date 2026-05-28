@@ -1,6 +1,7 @@
-import type { SessionSummary } from "../types/api";
+import type { ReportResponse, SessionSummary } from "../types/api";
 
 const STORAGE_KEY = "ransomware-readiness.sessions";
+const REPORTS_STORAGE_KEY = "ransomware-readiness.reports";
 
 function isSessionSummary(value: unknown): value is SessionSummary {
   if (!value || typeof value !== "object") {
@@ -30,6 +31,39 @@ export function getSessions(): SessionSummary[] {
 
 export function saveSessions(sessions: SessionSummary[]): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+}
+
+function getStoredReports(): Record<string, ReportResponse> {
+  try {
+    const raw = window.localStorage.getItem(REPORTS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+    return parsed as Record<string, ReportResponse>;
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredReports(reports: Record<string, ReportResponse>): void {
+  window.localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(reports));
+}
+
+export function getStoredReport(sessionId: string): ReportResponse | null {
+  return getStoredReports()[sessionId] || null;
+}
+
+export function saveStoredReport(sessionId: string, report: ReportResponse): void {
+  const reports = getStoredReports();
+  reports[sessionId] = report;
+  saveStoredReports(reports);
+}
+
+export function removeStoredReport(sessionId: string): void {
+  const reports = getStoredReports();
+  delete reports[sessionId];
+  saveStoredReports(reports);
 }
 
 export function upsertSession(summary: SessionSummary): SessionSummary[] {
@@ -63,6 +97,7 @@ export function updateSession(
 export function removeSession(id: string): SessionSummary[] {
   const next = getSessions().filter((item) => item.id !== id);
   saveSessions(next);
+  removeStoredReport(id);
   return next;
 }
 

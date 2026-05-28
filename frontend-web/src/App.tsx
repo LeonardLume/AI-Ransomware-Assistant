@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BookOpenCheck,
   ClipboardList,
@@ -22,7 +22,6 @@ import {
 } from "./api/client";
 import AssessmentStatusFooter from "./components/AssessmentStatusFooter";
 import ChatPanel from "./components/ChatPanel";
-const DarkVeil = lazy(() => import("./components/DarkVeil"));
 import HeroDashboard from "./components/HeroDashboard";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import Layout, { type AppView } from "./components/Layout";
@@ -36,9 +35,11 @@ import {
 } from "./utils/assessmentUi";
 import { t, type UiLanguage } from "./utils/i18n";
 import {
+  getStoredReport,
   getSessions,
   makeSessionSummary,
   removeSession,
+  saveStoredReport,
   upsertSession,
 } from "./state/sessionStore";
 import type {
@@ -60,6 +61,16 @@ function normalizeRole(role: BackendChatMessage["role"]): UiMessage["role"] {
   return role === "user" || role === "assistant" ? role : "system";
 }
 
+function stableMessageId(
+  role: BackendChatMessage["role"],
+  index: number,
+  content: string,
+): string {
+  const normalizedRole = normalizeRole(role);
+  const normalizedContent = String(content || "").replace(/\s+/g, " ").trim();
+  return `${normalizedRole}-${index}-${normalizedContent}`;
+}
+
 function toUiMessages(
   history: BackendChatMessage[] | undefined,
 ): UiMessage[] {
@@ -71,7 +82,7 @@ function toUiMessages(
           ? new Date(message.timestamp).toISOString()
           : message.timestamp || new Date().toISOString();
       return {
-        id: `${message.role || "message"}-${index}-${timestamp}`,
+        id: stableMessageId(message.role, index, String(message.content || "")),
         role: normalizeRole(message.role),
         content:
           normalizeRole(message.role) === "assistant"
@@ -230,6 +241,15 @@ function mergeChatResponseMessages(
   );
 }
 
+function latestAssistantMessageId(messages: UiMessage[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "assistant") {
+      return messages[index].id;
+    }
+  }
+  return null;
+}
+
 function messageFromError(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
@@ -300,6 +320,7 @@ export default function App() {
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [animateMessageId, setAnimateMessageId] = useState<string | null>(null);
   const [activeArtifact, setActiveArtifact] = useState<ArtifactId>(
     initialUiStateRef.current.activeArtifact ?? "readiness-report",
   );
@@ -329,6 +350,7 @@ export default function App() {
     setReport(null);
     setLastResponse(null);
     setMessages([]);
+    setAnimateMessageId(null);
     setLastUserMessage(null);
     setLastUserOptions({});
     setActiveArtifact("readiness-report");
@@ -394,6 +416,7 @@ export default function App() {
         setSessionState(sessionResult.value);
         if (options.updateMessages !== false && sessionResult.value.chat_history) {
           setMessages(toUiMessages(sessionResult.value.chat_history));
+          setAnimateMessageId(null);
         }
       }
       if (scoreResult.status === "fulfilled") {
@@ -403,6 +426,7 @@ export default function App() {
       if (options.includeReport) {
         const nextReport = await getReport(sessionId);
         setReport(nextReport);
+        saveStoredReport(sessionId, nextReport);
         nextScore = nextReport;
       }
 
@@ -422,20 +446,32 @@ export default function App() {
   );
 
   const applyChatResponse = useCallback(
-    async (response: ChatResponse) => {
+    async (
+      response: ChatResponse,
+      options: { animateLatestAssistant?: boolean } = {},
+    ) => {
       setActiveSessionId(response.session_id);
       setLastResponse(response);
       setBackendOnline(true);
       setError(null);
       setSessionState((current) => buildSessionSnapshot(current, response));
 
-      setMessages((current) => mergeChatResponseMessages(current, response, questions));
+      let nextAnimatedMessageId: string | null = null;
+      setMessages((current) => {
+        const merged = mergeChatResponseMessages(current, response, questions);
+        if (options.animateLatestAssistant) {
+          nextAnimatedMessageId = latestAssistantMessageId(merged);
+        }
+        return merged;
+      });
+      setAnimateMessageId(options.animateLatestAssistant ? nextAnimatedMessageId : null);
 
       if (response.score) {
         setScore(response.score);
       }
       if (response.report) {
         setReport(response.report);
+        saveStoredReport(response.session_id, response.report);
         setActiveArtifact("readiness-report");
         setArtifactOverlayOpen(true);
         setActiveView("interview");
@@ -487,17 +523,19 @@ export default function App() {
       const shouldKeepReport = sessionId === activeSessionId && Boolean(report);
       const shouldLoadReport =
         artifactOverlayOpen && artifactNeedsReport(activeArtifact);
+      const cachedReport = getStoredReport(sessionId);
       setError(null);
       if (!shouldKeepReport) {
-        setReport(null);
+        setReport(cachedReport);
       }
       setMessages([]);
+      setAnimateMessageId(null);
       setActiveSessionId(sessionId);
       setActiveView("interview");
       setSidebarOpen(false);
       try {
         await refreshBackendState(sessionId, {
-          includeReport: shouldLoadReport || shouldKeepReport,
+          includeReport: (shouldLoadReport || shouldKeepReport) && !cachedReport,
           touchSession: false,
         });
       } catch (selectError) {
@@ -533,7 +571,9 @@ export default function App() {
     const sessionId = restoredSessionExists ? restored.activeSessionId : null;
 
     if (sessionId) {
+      const cachedReport = getStoredReport(sessionId);
       setActiveSessionId(sessionId);
+      setReport(cachedReport);
       setActiveView(restored.activeView ?? "home");
       setActiveArtifact(restored.activeArtifact ?? "readiness-report");
       setArtifactOverlayOpen(Boolean(restored.artifactOverlayOpen));
@@ -541,7 +581,8 @@ export default function App() {
         touchSession: false,
         includeReport: Boolean(
           restored.artifactOverlayOpen &&
-          artifactNeedsReport(restored.activeArtifact ?? "readiness-report"),
+          artifactNeedsReport(restored.activeArtifact ?? "readiness-report") &&
+          !cachedReport,
         ),
       }).catch(async (restoreError) => {
         if (restoreError instanceof ApiError && restoreError.status === 404) {
@@ -563,6 +604,7 @@ export default function App() {
       setReport(null);
       setLastResponse(null);
       setMessages([]);
+      setAnimateMessageId(null);
       setArtifactOverlayOpen(false);
       if (restored.activeView === "interview") {
         setActiveView("home");
@@ -613,6 +655,7 @@ export default function App() {
     setSending(true);
     setError(null);
     setReport(null);
+    setAnimateMessageId(null);
     setArtifactOverlayOpen(false);
     setActiveView("interview");
     setSidebarOpen(false);
@@ -637,6 +680,7 @@ export default function App() {
     setError(null);
     setLastUserMessage(message);
     setLastUserOptions(options);
+    setAnimateMessageId(null);
     setArtifactOverlayOpen(false);
     setActiveView("interview");
 
@@ -650,7 +694,7 @@ export default function App() {
 
       setMessages((current) => [...current, makeLocalMessage("user", message)]);
       const response = await chat(sessionId, message, options);
-      await applyChatResponse(response);
+      await applyChatResponse(response, { animateLatestAssistant: true });
     } catch (sendError) {
       if (sendError instanceof ApiError && sendError.status === 404 && activeSessionId) {
         const staleSessionId = activeSessionId;
@@ -661,7 +705,7 @@ export default function App() {
           await applyChatResponse(startResponse);
           setMessages((current) => [...current, makeLocalMessage("user", message)]);
           const response = await chat(startResponse.session_id, message, options);
-          await applyChatResponse(response);
+          await applyChatResponse(response, { animateLatestAssistant: true });
           return;
         } catch (retryError) {
           setBackendOnline(false);
@@ -690,6 +734,7 @@ export default function App() {
     setScore(null);
     setSessionState(null);
     setLastResponse(null);
+    setAnimateMessageId(null);
     setArtifactOverlayOpen(false);
     setActiveView("interview");
     setSidebarOpen(false);
@@ -699,7 +744,7 @@ export default function App() {
       const session = await createSession();
       setActiveSessionId(session.session_id);
       const response = await chat(session.session_id, trimmedMessage);
-      await applyChatResponse(response);
+      await applyChatResponse(response, { animateLatestAssistant: true });
     } catch (sendError) {
       setBackendOnline(false);
       setError(messageFromError(sendError));
@@ -727,6 +772,7 @@ export default function App() {
       const demo = await loadDemoProfile(profileId);
       const sessionId = demo.session_id;
       setActiveSessionId(sessionId);
+      setAnimateMessageId(null);
 
       const [sessionResult, scoreResult, reportResult] = await Promise.allSettled([
         getSession(sessionId),
@@ -741,6 +787,7 @@ export default function App() {
       }
       if (reportResult.status === "fulfilled") {
         setReport(reportResult.value);
+        saveStoredReport(sessionId, reportResult.value);
         setActiveArtifact("readiness-report");
         setActiveView("interview");
       }
@@ -762,6 +809,7 @@ export default function App() {
         chat_history: [{ role: "assistant", content: assistantMessage }],
       };
       setLastResponse(demoResponse);
+      setAnimateMessageId(null);
       setMessages([
         makeLocalMessage("assistant", assistantMessage, {
           technicalDetails: buildTechnicalDetails(demoResponse, questions),
@@ -810,6 +858,7 @@ export default function App() {
     try {
       const nextReport = await getReport(activeSessionId);
       setReport(nextReport);
+      saveStoredReport(activeSessionId, nextReport);
       setScore(nextReport);
       setActiveArtifact("readiness-report");
       setArtifactOverlayOpen(true);
@@ -885,23 +934,10 @@ export default function App() {
         interview: (
           <section
             className={cn(
-              "interview-scene darkveil-session relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
-              artifactOverlayOpen ? "bg-[#07090d] overflow-visible" : "overflow-hidden",
+              "interview-scene interview-static-scene relative isolate -m-4 flex min-h-[calc(100vh-7.75rem)] flex-col rounded-[26px] bg-[#111111] p-4 sm:-m-5 sm:min-h-[calc(100vh-8.25rem)] sm:p-5 lg:-m-6 lg:min-h-[calc(100vh-8.75rem)] lg:p-6",
+              artifactOverlayOpen ? "overflow-visible" : "overflow-hidden",
             )}
           >
-            <div className="darkveil-session-canvas pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[26px]">
-              <Suspense fallback={null}>
-                <DarkVeil
-                  hueShift={290}
-                  noiseIntensity={0}
-                  scanlineIntensity={0}
-                  speed={0.5}
-                  scanlineFrequency={0}
-                  warpAmount={0}
-                  resolutionScale={1}
-                />
-              </Suspense>
-            </div>
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}
@@ -914,21 +950,24 @@ export default function App() {
               }}
             />
             <div className="relative min-h-0 min-w-0 flex-1">
-              <ChatPanel
-                messages={messages}
-                language={language}
-                currentQuestion={currentQuestion}
-                sending={sending}
-                error={error}
-                onStart={startAssessment}
-                onSend={sendMessage}
-                onRetry={retryLastMessage}
-                onOpenArtifact={(artifact) => {
-                  setActiveArtifact(artifact === "ransomware-playbook" ? "skills" : artifact);
-                  setArtifactOverlayOpen(true);
-                  setActiveView("interview");
-                }}
-              />
+              {!artifactOverlayOpen ? (
+                <ChatPanel
+                  messages={messages}
+                  animateMessageId={animateMessageId}
+                  language={language}
+                  currentQuestion={currentQuestion}
+                  sending={sending}
+                  error={error}
+                  onStart={startAssessment}
+                  onSend={sendMessage}
+                  onRetry={retryLastMessage}
+                  onOpenArtifact={(artifact) => {
+                    setActiveArtifact(artifact === "ransomware-playbook" ? "skills" : artifact);
+                    setArtifactOverlayOpen(true);
+                    setActiveView("interview");
+                  }}
+                />
+              ) : null}
               <SessionArtifactOverlay
                 open={artifactOverlayOpen}
                 activeArtifact={activeArtifact}
@@ -1005,7 +1044,7 @@ function ArtifactTopTabs({
             className={cn(
               "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out",
               !artifactOverlayOpen
-                ? "bg-sky-500 text-white shadow-[0_12px_28px_rgba(14,165,233,0.22)]"
+                ? "border border-white/10 bg-white/[0.12] text-white shadow-[0_12px_28px_rgba(0,0,0,0.24)]"
                 : "text-slate-400 hover:bg-white/10 hover:text-white",
             )}
           >
@@ -1023,7 +1062,7 @@ function ArtifactTopTabs({
                 className={cn(
                   "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out",
                   active
-                    ? "bg-sky-500 text-white shadow-[0_12px_28px_rgba(14,165,233,0.22)]"
+                    ? "border border-white/10 bg-white/[0.12] text-white shadow-[0_12px_28px_rgba(0,0,0,0.24)]"
                     : "text-slate-400 hover:bg-white/10 hover:text-white",
                 )}
               >

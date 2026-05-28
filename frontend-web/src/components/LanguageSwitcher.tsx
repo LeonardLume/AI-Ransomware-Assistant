@@ -21,7 +21,7 @@ export default function LanguageSwitcher({
           className={cn(
             "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-300 ease-out",
             option.id === language
-              ? "bg-sky-500 text-white shadow-[0_10px_24px_rgba(14,165,233,0.22)]"
+              ? "border border-white/10 bg-white/[0.12] text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]"
               : "text-slate-400 hover:bg-white/10 hover:text-white",
           )}
         >

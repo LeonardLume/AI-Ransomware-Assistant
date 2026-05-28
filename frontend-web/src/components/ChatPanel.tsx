@@ -8,6 +8,7 @@ import { Alert, Button, EmptyState, LoadingSteps } from "./ui";
 
 export default function ChatPanel({
   messages,
+  animateMessageId,
   language = "et",
   currentQuestion,
   sending,
@@ -18,6 +19,7 @@ export default function ChatPanel({
   onOpenArtifact,
 }: {
   messages: UiMessage[];
+  animateMessageId?: string | null;
   language?: UiLanguage;
   currentQuestion?: Question | null;
   sending: boolean;
@@ -112,9 +114,14 @@ export default function ChatPanel({
             <EmptyState
               title={t(language, "chatEmptyTitle")}
               description={t(language, "chatEmptyDescription")}
-              icon={<Play className="h-5 w-5" />}
               action={
-                <Button type="button" variant="primary" onClick={onStart} disabled={sending}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onStart}
+                  disabled={sending}
+                  className="h-12 rounded-full border-white/10 bg-white/[0.08] px-6 text-white shadow-[0_16px_40px_rgba(0,0,0,0.22)] hover:border-white/20 hover:bg-white/[0.12]"
+                >
                   <Play className="h-4 w-4" />
                   {t(language, "startNewAssessment")}
                 </Button>
@@ -122,14 +129,19 @@ export default function ChatPanel({
             />
           </div>
         ) : (
-          messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              language={language}
-              onOpenArtifact={onOpenArtifact}
-            />
-          ))
+          messages.map((message) => {
+            const animateText =
+              message.role === "assistant" && animateMessageId === message.id;
+            return (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                language={language}
+                onOpenArtifact={onOpenArtifact}
+                animateText={animateText}
+              />
+            );
+          })
         )}
 
         {sending ? (

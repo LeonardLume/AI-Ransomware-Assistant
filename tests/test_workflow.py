@@ -7,6 +7,7 @@ os.environ["RRA_IGNORE_DOTENV"] = "1"
 import pytest
 from fastapi.testclient import TestClient
 
+import backend.main as main_module
 from backend.llm_client import LLMResult
 from backend.main import app
 from backend.redaction import has_sensitive_data, redact_sensitive_text
@@ -49,6 +50,41 @@ def test_demo_profile_end_to_end():
     assert report["evidence_checklist"]
     assert report["llm"]["provider"] == "backend_rule_based"
     assert report["llm"]["used_real_llm"] is False
+
+
+def test_report_is_cached_per_session_until_answers_change(monkeypatch: pytest.MonkeyPatch):
+    sid = client.post("/session", json={"organization_name": "Test"}).json()["session_id"]
+    save = client.post("/answer", json={"session_id": sid, "question_id": "backups_exist", "answer": "yes"})
+    assert save.status_code == 200
+
+    call_count = 0
+    real_generate_report = main_module.generate_report
+
+    def tracked_generate_report(*args: object, **kwargs: object):
+        nonlocal call_count
+        call_count += 1
+        return real_generate_report(*args, **kwargs)
+
+    monkeypatch.setattr(main_module, "generate_report", tracked_generate_report)
+
+    first = client.get(f"/report/{sid}")
+    second = client.get(f"/report/{sid}")
+    session_data = client.get(f"/session/{sid}")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert session_data.status_code == 200
+    assert call_count == 1
+    assert first.json() == second.json()
+    assert session_data.json()["report"] == first.json()
+
+    changed = client.post("/answer", json={"session_id": sid, "question_id": "restore_tested", "answer": "no"})
+    assert changed.status_code == 200
+    assert client.get(f"/session/{sid}").json()["report"] is None
+
+    third = client.get(f"/report/{sid}")
+    assert third.status_code == 200
+    assert call_count == 2
 
 
 def test_skills_load_correctly():

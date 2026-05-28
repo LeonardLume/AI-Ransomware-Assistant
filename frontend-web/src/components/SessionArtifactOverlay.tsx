@@ -79,8 +79,8 @@ export default function SessionArtifactOverlay({
       selectedArtifact === "skills");
 
   return (
-    <div className="absolute inset-x-0 top-0 z-30 min-h-full rounded-xl bg-transparent">
-      <div className="relative z-10 bg-transparent p-3 sm:p-4">
+    <div className="h-full min-h-full overflow-y-auto rounded-[26px] bg-transparent">
+      <div className="min-h-full bg-transparent p-3 sm:p-4">
         <div key={selectedArtifact} className="artifact-tab-transition">
           {!activeSessionId ? (
             <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">

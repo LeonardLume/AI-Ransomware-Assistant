@@ -851,7 +851,7 @@ function ReportCockpit({
           </ReportActionButton>
         </div>
 
-        <section className="report-panel rounded-[34px] px-6 pb-7 pt-4 sm:px-8 sm:pt-5 lg:px-10 lg:pb-9 lg:pt-6">
+        <section className="report-hero px-2 pb-7 pt-4 sm:px-3 sm:pt-5 lg:px-4 lg:pb-9 lg:pt-6">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-3">

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { ArtifactId, UiMessage } from "../types/api";
 import type { UiLanguage } from "../utils/i18n";
@@ -63,11 +63,13 @@ function MessageBubble({
   onOpenArtifact,
   language = "et",
   showTechnicalDetails = false,
+  animateText = false,
 }: {
   message: UiMessage;
   onOpenArtifact?: (artifact: ArtifactId) => void;
   language?: UiLanguage;
   showTechnicalDetails?: boolean;
+  animateText?: boolean;
 }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
@@ -78,14 +80,65 @@ function MessageBubble({
     ? "chat-bubble-user !text-white"
     : isSystem
       ? "chat-bubble-system !text-amber-100"
-      : "chat-bubble-assistant !text-slate-100";
+      : "!text-slate-100";
   const transparency = isAssistant ? message.assistantTransparency : undefined;
+  const [displayedContent, setDisplayedContent] = useState(
+    animateText && isAssistant ? "" : message.content,
+  );
+  const [isStreaming, setIsStreaming] = useState(animateText && isAssistant);
+  const rafRef = useRef<number | null>(null);
   const visibleSources = (transparency?.sources || []).slice(0, 3);
   const hiddenSourceCount = Math.max(
     0,
     (transparency?.sources || []).length - visibleSources.length,
   );
   const savedAnswers = (transparency?.saved_answers || []).slice(0, 2);
+
+  useEffect(() => {
+    if (!isAssistant || !animateText) {
+      setDisplayedContent(message.content);
+      setIsStreaming(false);
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion || message.content.length < 8) {
+      setDisplayedContent(message.content);
+      setIsStreaming(false);
+      return;
+    }
+
+    setDisplayedContent("");
+    setIsStreaming(true);
+
+    const totalLength = message.content.length;
+    const start = performance.now();
+    const duration = Math.min(2200, Math.max(520, totalLength * 12));
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const nextLength = Math.max(1, Math.floor(totalLength * progress));
+      setDisplayedContent(message.content.slice(0, nextLength));
+      if (progress < 1) {
+        rafRef.current = window.requestAnimationFrame(step);
+      } else {
+        setDisplayedContent(message.content);
+        setIsStreaming(false);
+        rafRef.current = null;
+      }
+    };
+
+    rafRef.current = window.requestAnimationFrame(step);
+
+    return () => {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [animateText, isAssistant, message.content, message.id]);
 
   const content = (
     <>
@@ -99,9 +152,11 @@ function MessageBubble({
         className={cn(
           "markdown-body text-inherit",
           isUser ? "text-[15px] font-medium leading-7" : "text-[15px] leading-8",
+          isAssistant && "assistant-stream-body",
         )}
       >
-        <ReactMarkdown>{message.content}</ReactMarkdown>
+        <ReactMarkdown>{displayedContent}</ReactMarkdown>
+        {isAssistant && isStreaming ? <span className="assistant-stream-caret" aria-hidden="true" /> : null}
       </div>
 
       {transparency ? (
@@ -169,14 +224,16 @@ function MessageBubble({
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "chat-bubble-frame chat-bubble w-full rounded-[22px] px-4 py-3.5",
+          isAssistant
+            ? "assistant-inline-block w-full max-w-[min(820px,100%)] px-1 py-1"
+            : "chat-bubble-frame chat-bubble w-full rounded-[22px] px-4 py-3.5",
           isUser
             ? compactUserAnswer
               ? "max-w-fit px-5 py-3"
               : "max-w-[min(360px,92%)] px-5 py-4"
             : isSystem
               ? "max-w-[min(720px,100%)] border-white/8 shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
-              : "max-w-[min(820px,100%)] px-5 py-4",
+              : "",
           toneClass,
         )}
       >

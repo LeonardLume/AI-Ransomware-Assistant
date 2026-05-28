@@ -304,11 +304,11 @@ export function EmptyState({
   icon?: ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center dark:border-slate-700 dark:bg-slate-900">
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent" />
-      {icon ? <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{icon}</div> : null}
-      <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{title}</h3>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600 dark:text-slate-400">{description}</p>
+    <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.028),rgba(255,255,255,0.015)),rgba(10,12,18,0.9)] p-8 text-center shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
+      <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/12 to-transparent" />
+      {icon ? <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-slate-300">{icon}</div> : null}
+      <h3 className="text-[clamp(1.6rem,2.3vw,2.25rem)] font-semibold text-white">{title}</h3>
+      <p className="mx-auto mt-3 max-w-2xl text-base leading-8 text-slate-400">{description}</p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );

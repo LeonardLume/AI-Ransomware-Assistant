@@ -206,31 +206,16 @@ textarea {
   opacity: 0.98;
 }
 
-.interview-scene.darkveil-session::before {
+.interview-scene.interview-static-scene::before,
+.interview-scene.interview-static-scene::after {
   content: none;
   background: none;
   opacity: 0;
 }
 
-.interview-scene.darkveil-session::after {
-  content: none;
-  background: none;
-  opacity: 0;
-}
-
-.darkveil-session-canvas {
-  background: none;
-}
-
-.interview-scene > :not(.darkveil-session-canvas) {
+.interview-scene > * {
   position: relative;
   z-index: 1;
-}
-
-.darkveil-session-canvas {
-  position: absolute !important;
-  inset: 0;
-  z-index: 0 !important;
 }
 
 .chat-panel-shell::before {
@@ -263,15 +248,13 @@ textarea {
 .status-question-card {
   position: relative;
   overflow: hidden;
-  border-color: rgba(125, 211, 252, 0.34);
+  border-color: rgba(255, 255, 255, 0.1);
   background:
-    linear-gradient(180deg, rgba(48, 66, 112, 0.38), rgba(14, 18, 28, 0.3)),
-    rgba(255, 255, 255, 0.055);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014)),
+    rgba(255, 255, 255, 0.05);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px rgba(125, 211, 252, 0.16),
-    0 18px 46px rgba(4, 12, 28, 0.34),
-    0 0 38px rgba(56, 189, 248, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 46px rgba(4, 12, 28, 0.26);
 }
 
 .status-question-card > * {
@@ -281,46 +264,7 @@ textarea {
 
 .status-question-card::before,
 .status-question-card::after {
-  position: absolute;
-  z-index: 0;
-  content: "";
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-.status-question-card::before {
-  inset: -1px;
-  padding: 1px;
-  background: conic-gradient(
-    from 0deg,
-    rgba(34, 211, 238, 0.95),
-    rgba(96, 165, 250, 0.98),
-    rgba(168, 85, 247, 0.92),
-    rgba(244, 114, 182, 0.86),
-    rgba(45, 212, 191, 0.94),
-    rgba(34, 211, 238, 0.95)
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.96;
-  animation:
-    status-question-pulse 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite,
-    status-question-border-flow 4.8s linear infinite;
-}
-
-.status-question-card::after {
-  inset: -10px;
-  border: 1px solid rgba(125, 211, 252, 0.16);
-  opacity: 0.72;
-  filter: blur(10px);
-  box-shadow:
-    0 0 22px rgba(34, 211, 238, 0.22),
-    0 0 34px rgba(96, 165, 250, 0.18),
-    0 0 48px rgba(168, 85, 247, 0.14);
-  animation: status-question-halo 2.8s ease-in-out infinite;
+  content: none;
 }
 
 .chat-composer-shell {
@@ -406,6 +350,25 @@ textarea {
   opacity: 0;
 }
 
+.assistant-inline-block {
+  position: relative;
+}
+
+.assistant-stream-body {
+  position: relative;
+}
+
+.assistant-stream-caret {
+  display: inline-block;
+  width: 0.62ch;
+  height: 1.1em;
+  margin-left: 0.08em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  vertical-align: text-bottom;
+  animation: assistant-stream-caret 0.92s ease-in-out infinite;
+}
+
 .chat-bubble-user {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.01)),
@@ -472,6 +435,17 @@ textarea {
 
 .report-scene .report-fade-up-delay-1 {
   animation-delay: 40ms;
+}
+
+@keyframes assistant-stream-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0.2;
+  }
 }
 
 .report-scene .report-fade-up-delay-2 {

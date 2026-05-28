@@ -225,6 +225,7 @@ def load_demo_profile(payload: DemoProfileIn):
     sid = str(uuid4())
     state = SessionState(session_id=sid, org_info=profile["org_info"])
     state.answers = profile["answers"]
+    state.report = None
     state.events.append({"type": "demo_profile_loaded", "profile_id": payload.profile_id})
     save_session(state)
     return {"session_id": sid, "profile_name": profile["name"], "org_info": state.org_info}
@@ -1295,6 +1296,7 @@ def submit_answer(payload: AnswerIn):
         "source": "manual",
         "confidence": 1.0,
     }
+    _invalidate_cached_report(state)
     followup_decision = decide_followup(q, payload.answer, payload.details)
 
     generated_followup = None
@@ -1333,6 +1335,7 @@ def submit_followup_answer(payload: FreeTextAnswerIn):
     if payload.question_id not in followup_ids:
         raise HTTPException(status_code=400, detail="Unknown follow-up question_id")
     state.answers[payload.question_id] = {"answer": "free_text", "details": payload.text}
+    _invalidate_cached_report(state)
     state.events.append({"type": "followup_answer_saved", "question_id": payload.question_id})
     save_session(state)
     return {"session_id": payload.session_id, "saved": {payload.question_id: payload.text}, "progress": _progress(state)}
@@ -1347,7 +1350,7 @@ def get_score(session_id: str):
 @app.get("/report/{session_id}")
 def get_report(session_id: str):
     state = _get_state(session_id)
-    return generate_report(_base_answers_only(state.answers), state.org_info)
+    return _get_or_build_session_report(state)
 
 
 @app.get("/external-exposure/checklist")
@@ -1372,6 +1375,7 @@ def get_session(session_id: str):
         "session_id": state.session_id,
         "org_info": state.org_info,
         "answers": state.answers,
+        "report": state.report,
         "followups": state.followups,
         "events": state.events,
         "chat_history": state.chat_history,
@@ -1584,7 +1588,8 @@ def _complete_chat(
     state.current_question_id = None
     state.current_domain = None
     score = calculate_scores(base_answers)
-    report = generate_report(base_answers, state.org_info)
+    report = state.report or generate_report(base_answers, state.org_info)
+    state.report = report
 
     assistant_message = "Intervjuu on valmis. Koostasin esmase readiness raporti."
     if completion_mode == "preliminary":
@@ -1816,6 +1821,17 @@ def _get_state(session_id: str) -> SessionState:
     return state
 
 
+def _invalidate_cached_report(state: SessionState) -> None:
+    state.report = None
+
+
+def _get_or_build_session_report(state: SessionState) -> dict[str, Any]:
+    if state.report is None:
+        state.report = generate_report(_base_answers_only(state.answers), state.org_info)
+        save_session(state)
+    return state.report
+
+
 def _base_answers_only(answers: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {qid: value for qid, value in answers.items() if not qid.startswith("followup__")}
 
@@ -1849,6 +1865,8 @@ def _apply_chat_extraction(
             "source": answer_source,
             "confidence": confidence_score,
         }
+        if previous != state.answers[qid]:
+            _invalidate_cached_report(state)
         state.events.append(
             {
                 "type": "chat_answer_saved",
