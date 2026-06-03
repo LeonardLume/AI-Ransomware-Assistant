@@ -16,6 +16,7 @@ from backend.questions import (
     resolve_source_refs,
 )
 from backend.redaction import redact_sensitive_text
+from backend.recovery_proof import run_recovery_proof
 from backend.scoring import calculate_scores, explain_score
 from backend.skills import (
     build_action_plan_from_skills,
@@ -118,7 +119,11 @@ def build_report_narrative(
     return "\n\n".join(lines)
 
 
-def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[str, Any] | None = None) -> dict[str, Any]:
+def generate_report(
+    answer_records: dict[str, dict[str, Any]],
+    org_info: dict[str, Any] | None = None,
+    recovery_evidence_items: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     org_info = org_info or {}
     scores = calculate_scores(answer_records)
     score_explanation = explain_score(answer_records)
@@ -134,6 +139,7 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
     external_exposure_self_check = build_external_exposure_self_check()
     methodology = load_assessment_methodology()
     threat_overlay = load_threat_overlay_notes()
+    recovery_proof = _build_recovery_proof_report(answer_records, recovery_evidence_items or [])
 
     question_lookup = {q["id"]: q for q in load_questions()}
     domain_explanation = {item["domain"]: item for item in score_explanation.get("domains", [])}
@@ -212,6 +218,11 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         },
         "score_explanation": score_explanation,
         "threat_overlay": threat_overlay,
+        "recovery_proof": recovery_proof,
+        "recovery_proof_score": recovery_proof.get("recovery_proof_score", 0),
+        "evidence_confidence": recovery_proof.get("evidence_confidence", 0),
+        "proof_gaps": recovery_proof.get("proof_gaps", []),
+        "remediation_tickets": recovery_proof.get("remediation_tickets", []),
         "llm_report_text": report_text,
         "report_text": report_text,
         "llm": {
@@ -223,6 +234,32 @@ def generate_report(answer_records: dict[str, dict[str, Any]], org_info: dict[st
         },
         "sources": load_source_notes(),
     }
+
+
+def _build_recovery_proof_report(
+    answer_records: dict[str, dict[str, Any]],
+    recovery_evidence_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    try:
+        return run_recovery_proof(answer_records, recovery_evidence_items)
+    except Exception as exc:
+        return {
+            "safe_defensive_only": True,
+            "engine_version": "recovery-proof-v1",
+            "recovery_proof_score": 0,
+            "evidence_confidence": 0,
+            "controls_count": 0,
+            "evidence_items_count": len(recovery_evidence_items),
+            "proven_controls": [],
+            "partially_proven_controls": [],
+            "unproven_controls": [],
+            "control_results": [],
+            "proof_gaps": [],
+            "remediation_tickets": [],
+            "client_summary": "Recovery proof controls could not be loaded, so the readiness report was generated without proof scoring.",
+            "technical_summary": f"Recovery Proof Engine failed safely: {type(exc).__name__}. Official readiness scoring was not changed.",
+            "error": type(exc).__name__,
+        }
 
 
 def _enrich_risks(risks: list[dict[str, Any]], domain_explanation: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:

@@ -2,6 +2,7 @@ import type {
   ArtifactId,
   Question,
   ReportResponse,
+  SessionPath,
   SessionStateResponse,
 } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
@@ -9,6 +10,7 @@ import ActionPlanView from "./ActionPlanView";
 import EvidenceBinderView from "./EvidenceBinderView";
 import ReportRequiredState from "./ReportRequiredState";
 import ReportView from "./ReportView";
+import RecoveryProofView from "./RecoveryProofView";
 import SkillsView from "./SkillsView";
 import TechnicalView from "./TechnicalView";
 
@@ -21,6 +23,7 @@ function artifactTitle(artifact: ArtifactId, language: UiLanguage): string {
   if (normalized === "readiness-report") return t(language, "report");
   if (normalized === "action-plan") return t(language, "actionPlan");
   if (normalized === "evidence-binder") return t(language, "evidenceBinder");
+  if (normalized === "recovery-proof") return t(language, "recoveryProof");
   if (normalized === "skills") return t(language, "skills");
   return t(language, "technical");
 }
@@ -30,18 +33,21 @@ export default function SessionArtifactOverlay({
   activeArtifact,
   activeSessionId,
   report,
+  sessionPath,
   session,
   questions,
   canGenerateReport,
   loading,
   language = "et",
   onGenerateReport,
+  onOpenArtifact,
   onOpenReport,
 }: {
   open: boolean;
   activeArtifact: ArtifactId;
   activeSessionId?: string | null;
   report?: ReportResponse | null;
+  sessionPath?: SessionPath;
   session?: SessionStateResponse | null;
   score?: unknown;
   lastResponse?: unknown;
@@ -53,6 +59,7 @@ export default function SessionArtifactOverlay({
   loading?: boolean;
   language?: UiLanguage;
   onGenerateReport: () => void;
+  onOpenArtifact: (artifact: ArtifactId) => void;
   onOpenReport: () => void;
   onClose: () => void;
 }) {
@@ -80,9 +87,11 @@ export default function SessionArtifactOverlay({
           {activeSessionId && selectedArtifact === "readiness-report" ? (
             <ReportView
               report={report}
+              sessionPath={sessionPath}
               canGenerate={canGenerateReport}
               loading={loading}
               onGenerate={onGenerateReport}
+              onOpenArtifact={onOpenArtifact}
               language={language}
             />
           ) : null}
@@ -101,6 +110,9 @@ export default function SessionArtifactOverlay({
           ) : null}
           {activeSessionId && !reportRequired && selectedArtifact === "evidence-binder" ? (
             <EvidenceBinderView report={report} language={language} />
+          ) : null}
+          {activeSessionId && selectedArtifact === "recovery-proof" ? (
+            <RecoveryProofView activeSessionId={activeSessionId} language={language} />
           ) : null}
           {activeSessionId && !reportRequired && selectedArtifact === "skills" ? (
             <SkillsView report={report} language={language} />

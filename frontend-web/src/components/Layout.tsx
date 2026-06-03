@@ -10,7 +10,8 @@ import Sidebar from "./Sidebar";
 import { Button } from "./ui";
 import { cn } from "./ui-helpers";
 
-export type AppView = "home" | "interview";
+export type AppView = "home" | "interview" | "landing" | "profile-create";
+type ShellView = Exclude<AppView, "landing" | "profile-create">;
 
 export default function Layout({
   backendOnline,
@@ -40,11 +41,11 @@ export default function Layout({
   sidebarCollapsed: boolean;
   sessions: SessionSummary[];
   activeSessionId?: string | null;
-  activeView: AppView;
+  activeView: ShellView;
   contentKey?: string;
   workspaceOverflowVisible?: boolean;
   language: UiLanguage;
-  pages: Record<AppView, ReactNode>;
+  pages: Record<ShellView, ReactNode>;
   onViewChange: (view: AppView) => void;
   onToggleSidebar: () => void;
   onToggleSidebarCollapsed: () => void;

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo_weak_asset_note",
+    "source": "manual",
+    "type": "asset_inventory",
+    "title": "Partial critical systems note",
+    "summary": "Accounting, email, and shared files are considered important, but there is no owner list or dependency map.",
+    "confidence": "low",
+    "related_control_ids": ["critical_assets_identified", "recovery_priority_list_exists"]
+  },
+  {
+    "id": "demo_weak_backup_note",
+    "source": "manual",
+    "type": "backup_config",
+    "title": "Backup vendor confirmation without restore evidence",
+    "summary": "MSP notes that backups exist for the file server, but no restore test report or immutability setting was provided.",
+    "confidence": "low",
+    "related_control_ids": ["backup_exists_for_critical_systems"]
+  }
+]

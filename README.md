@@ -9,9 +9,9 @@ start.bat
 
 Open `http://127.0.0.1:5173` and start answering.
 
-This project is for teams that want more than a questionnaire. It keeps the structured readiness controls, but wraps them in an AI Security Agent that can explain controls, help classify answers, request evidence, and prepare a report your IT team, MSP, leadership, or client can actually review.
+This project is for teams that want more than a questionnaire. It keeps the structured readiness controls, but wraps them in an AI Security Agent and Recovery Proof workflow that can explain controls, help classify answers, import evidence, identify proof gaps, and prepare a report your IT team, MSP, leadership, or client can actually review.
 
-The agentic design is inspired by cybersecurity agent frameworks such as CAI: multiple roles, tool boundaries, guardrails, tracing, and human confirmation. Offensive automation is not enabled. The product is designed as an authorized defensive assessor, not an exploit runner.
+The agentic design uses cybersecurity agent patterns such as multiple roles, tool boundaries, guardrails, tracing, and human confirmation. Offensive automation is not enabled. The product is designed as an authorized defensive assessor and evidence workspace, not an exploit runner.
 
 ## Why It Exists
 
@@ -254,6 +254,84 @@ Validate the assessment data:
 ```powershell
 python scripts/validate_assessment_data.py
 ```
+
+## Ransomware Recovery Proof
+
+Recovery Proof is the first version of a recovery proof platform for MSPs and small organizations. It runs alongside the existing questionnaire and helps answer a different question: what recovery capability can be proven with evidence?
+
+This is not an offensive simulator. It does not attack, scan, probe, exploit, run malware, call external APIs, or execute third-party security tools. The first version accepts imported or pasted evidence and static demo evidence only.
+
+What it does:
+
+| Capability | Description |
+| --- | --- |
+| Recovery controls | Loads backend-defined controls from `data/recovery_controls.json` |
+| Evidence import | Accepts normalized JSON evidence through `/recovery-proof/evidence` and pasted JSON/CSV/YAML through `/recovery-proof/import-text` |
+| Tool-output adapters | Maps imported Prowler, ScubaGear, Wazuh, DefectDojo, Sigma, and ComplianceAsCode-style outputs to recovery controls |
+| Deterministic proof | Maps evidence to controls with direct IDs, evidence types, and small keyword rules |
+| Proof gaps | Identifies missing or weak evidence that prevents controls from being proven |
+| Remediation tickets | Generates MSP-friendly work items from proof gaps |
+| Ticket export | Exports remediation tickets as Markdown or Jira-style JSON |
+| Report integration | Adds `recovery_proof`, `recovery_proof_score`, `evidence_confidence`, `proof_gaps`, and `remediation_tickets` to reports |
+
+The official readiness score remains backend-owned and unchanged. Questionnaire answers can support partial proof, but they do not make a control fully proven without imported evidence.
+
+API endpoints:
+
+```text
+GET  /recovery-proof/controls
+GET  /recovery-proof/import-adapters
+POST /recovery-proof/evidence
+POST /recovery-proof/import-text
+POST /recovery-proof/import-tool-output
+GET  /recovery-proof/evidence/{session_id}
+POST /recovery-proof/run
+GET  /recovery-proof/tickets/{session_id}/export?format=markdown
+GET  /recovery-proof/tickets/{session_id}/export?format=jira_json
+```
+
+This version declares `PyYAML` as a backend dependency because YAML import support is useful for controls-as-code, Sigma-style rule metadata, ComplianceAsCode-style content, and vendor exports. CSV parsing uses the Python standard library.
+
+Current adapter behavior:
+
+| Adapter | Current capability |
+| --- | --- |
+| Generic | Parses JSON, CSV, or YAML into normalized evidence |
+| Prowler | Maps imported cloud posture rows to logging, MFA, backup, vulnerability, or external exposure evidence |
+| ScubaGear | Maps imported M365 baseline rows to admin MFA, logging, and external exposure evidence |
+| Wazuh | Maps imported detection, vulnerability, and endpoint summary rows to detection/logging and exposure evidence |
+| DefectDojo | Maps imported findings to vulnerability/exposure evidence and related proof gaps |
+| Sigma | Imports rule metadata as detection coverage evidence without converting or executing rules |
+| ComplianceAsCode | Imports control/remediation metadata as proof evidence without running checks |
+
+Demo evidence files live in `data/demo_evidence/`:
+
+```text
+weak_sme_recovery.json
+backup_restore_proven.json
+m365_admin_mfa_partial.json
+wazuh_detection_summary.json
+prowler_cloud_summary.json
+```
+
+Reference and integration target projects:
+
+| Project | Inspiration |
+| --- | --- |
+| Cartography | Future asset and relationship graph model |
+| Steampipe | Future queryable security evidence adapters |
+| Powerpipe | Future dashboards, benchmarks, and controls-as-code views |
+| CloudQuery | Future normalized inventory and evidence warehouse adapters |
+| Velociraptor | Future imported endpoint artifact evidence |
+| Wazuh | Future imported detection, vulnerability, and compliance evidence |
+| Prowler | Future cloud posture finding import parser |
+| CISA ScubaGear | Future M365 baseline import parser |
+| DefectDojo | Future findings, deduplication, remediation tracking, and reporting workflow |
+| Dradis | Future evidence workspace and client reporting workflow |
+| Sigma | Future vendor-neutral detection coverage mapping |
+| ComplianceAsCode | Future controls-as-code and remediation metadata imports |
+
+Dependencies and adapters should be added when they unlock concrete defensive product capability. The current boundary is that this app imports or parses evidence; it does not execute these tools, call their live APIs, scan targets, or probe networks.
 
 ## Testing
 

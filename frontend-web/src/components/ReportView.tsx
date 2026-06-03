@@ -1,13 +1,16 @@
 import {
   ArrowRight,
+  BookOpenCheck,
   ChevronDown,
   Download,
   ExternalLink,
+  FileSearch,
   Info,
   RefreshCw,
+  Settings2,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
-import type { DomainScore, ReportResponse, RiskLevel } from "../types/api";
+import type { ArtifactId, DomainScore, ReportResponse, RiskLevel, SessionPath } from "../types/api";
 import {
   isEarlyPreview,
   riskToneForCompletion,
@@ -278,17 +281,6 @@ function normalizeReportSources(report?: ReportResponse | null): ReportSource[] 
       usedFor: typeof item.used_for === "string" ? item.used_for : undefined,
     }))
     .filter((item) => item.name);
-}
-
-function isCompleteReport(report?: ReportResponse | null): boolean {
-  if (!report) return false;
-  const totalQuestions = Number(report.total_questions ?? 0);
-  const answeredQuestions = Number(report.answered_questions ?? 0);
-  if (totalQuestions > 0 && answeredQuestions < totalQuestions) return false;
-  const completionRate = Number(report.completion_rate ?? 100);
-  if (Number.isFinite(completionRate) && completionRate < 100) return false;
-  if (String(report.score_status || "").toLowerCase() === "preliminary") return false;
-  return report.is_complete !== false;
 }
 
 function ReportActionButton({
@@ -640,15 +632,19 @@ function ReportLoadingSkeleton() {
 
 export default function ReportView({
   report,
+  sessionPath = "questionnaire",
   canGenerate,
   loading,
   onGenerate,
+  onOpenArtifact,
   language = "et",
 }: {
   report?: ReportResponse | null;
+  sessionPath?: SessionPath;
   canGenerate: boolean;
   loading?: boolean;
   onGenerate: () => void;
+  onOpenArtifact?: (artifact: ArtifactId) => void;
   language?: UiLanguage;
 }) {
   if (loading && !report) {
@@ -656,15 +652,18 @@ export default function ReportView({
   }
 
   if (!report) {
+    const recoveryReport = sessionPath === "recovery-proof";
     return (
       <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_0%,rgba(125,211,252,0.10),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(255,255,255,0.055),transparent_32%)]" />
         <section className="report-panel relative flex min-h-[250px] flex-col items-center justify-center rounded-[34px] px-6 py-12 text-center sm:px-8">
           <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
-            {t(language, "noReportLoaded")}
+            {recoveryReport ? "No evidence report yet" : t(language, "noReportLoaded")}
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
-            {t(language, "noReportDescription")}
+            {recoveryReport
+              ? "Run Recovery Proof or refresh the report after importing recovery evidence."
+              : t(language, "noReportDescription")}
           </p>
           <ReportActionButton
             disabled={!canGenerate || loading}
@@ -683,9 +682,11 @@ export default function ReportView({
   return (
     <ReportCockpit
       report={report}
+      sessionPath={sessionPath}
       canGenerate={canGenerate}
       loading={loading}
       onGenerate={onGenerate}
+      onOpenArtifact={onOpenArtifact}
       language={language}
     />
   );
@@ -693,15 +694,19 @@ export default function ReportView({
 
 function ReportCockpit({
   report,
+  sessionPath,
   canGenerate,
   loading,
   onGenerate,
+  onOpenArtifact,
   language,
 }: {
   report: ReportResponse;
+  sessionPath: SessionPath;
   canGenerate: boolean;
   loading?: boolean;
   onGenerate: () => void;
+  onOpenArtifact?: (artifact: ArtifactId) => void;
   language: UiLanguage;
 }) {
   const [narrativeOpen, setNarrativeOpen] = useState(false);
@@ -724,9 +729,24 @@ function ReportCockpit({
   const riskToneValue = riskToneForCompletion(report.risk_level, completionRate);
   const fallbackConfidence = scoreConfidenceLabel(completionRate).replace("Confidence ", "");
   const confidenceValue = report.overall_confidence || fallbackConfidence;
+  const recoveryProof = report.recovery_proof;
+  const proofGaps = recoveryProof?.proof_gaps || report.proof_gaps || [];
+  const remediationTickets =
+    recoveryProof?.remediation_tickets || report.remediation_tickets || [];
+  const evidenceItemsCount =
+    recoveryProof?.evidence_items_count || report.evidence_checklist?.length || 0;
+  const isRecoveryReport = sessionPath === "recovery-proof";
+  const hasRecoveryProof = isRecoveryReport;
+  const recoveryProofScore = roundNumber(
+    report.recovery_proof_score ?? recoveryProof?.recovery_proof_score ?? 0,
+  );
+  const evidenceConfidence = roundNumber(
+    report.evidence_confidence ?? recoveryProof?.evidence_confidence ?? 0,
+  );
   const sources = normalizeReportSources(report);
-  const summaryText =
-    language === "et" && report.summary
+  const summaryText = isRecoveryReport
+    ? recoveryProof?.client_summary || ""
+    : language === "et" && report.summary
       ? report.summary
       : localizedSummary(language, report.overall_score, report.risk_level, completionRate);
   const narrativeText =
@@ -795,35 +815,86 @@ function ReportCockpit({
           tone: index === 0 ? riskTone(report.risk_level) : "neutral",
         }));
 
+  const recoveryProofFindings: FindingLike[] = proofGaps.slice(0, 4).map((gap, index) => ({
+    id: gap.id || gap.control_id || `proof-gap-${index}`,
+    title: gap.control_title || gap.description || "Missing recovery proof",
+    severity: gap.severity,
+    domain: gap.control_id,
+    summary: gap.client_friendly_risk || gap.technical_risk || gap.description,
+    action: gap.recommended_action,
+  }));
+
+  const recoveryProofSteps: PriorityStep[] = remediationTickets.slice(0, 4).map((ticket, index) => ({
+    id: ticket.id || ticket.title || `msp-ticket-${index}`,
+    title: ticket.title || "Create remediation ticket",
+    meta: [
+      ticket.suggested_owner ? `${t(language, "owner")}: ${valueLabel(language, ticket.suggested_owner)}` : null,
+      ticket.evidence_needed?.length ? `${ticket.evidence_needed.length} evidence items needed` : null,
+    ]
+      .filter(Boolean)
+      .join(" - "),
+    tone: riskTone(ticket.priority),
+  }));
+
+  const visibleFindings = isRecoveryReport ? recoveryProofFindings : criticalFindings;
+  const visiblePrioritySteps = isRecoveryReport ? recoveryProofSteps : prioritySteps;
   const officialScore = roundNumber(report.overall_score ?? 0);
+  const primaryScore = isRecoveryReport ? recoveryProofScore : officialScore;
+  const reportTitle = isRecoveryReport ? "Recovery Proof report" : r(language, "title");
+  const reportSubtitle = isRecoveryReport
+    ? "Proof-based recovery view built from imported evidence, missing assurance, and MSP remediation work."
+    : r(language, "subtitle");
+  const primaryScoreLabel = isRecoveryReport ? "Recovery proof score" : r(language, "officialScore");
   const officialRisk = earlyPreview
     ? `${valueLabel(language, "preliminary")} (${riskLabel(language, report.risk_level)})`
     : riskLabel(language, report.risk_level);
-  const topFinding = criticalFindings[0];
-  const topPriorityStep = prioritySteps[0];
-  const metricItems: MetricItem[] = [
-    {
-      label: r(language, "score"),
-      value: `${officialScore}/100`,
-      detail: r(language, "backendOwned"),
-    },
-    {
-      label: r(language, "risk"),
-      value: officialRisk,
-      detail: r(language, "backendRisk"),
-    },
-    {
-      label: r(language, "completion"),
-      value: `${completionRate}%`,
-      detail: `${r(language, "answered")} ${report.answered_questions ?? 0}/${report.total_questions ?? 0}`,
-    },
-    {
-      label: r(language, "confidence"),
-      value: valueLabel(language, confidenceValue),
-      detail: r(language, "separateSignal"),
-    },
-  ];
-  const pdfBlockedReason = isCompleteReport(report) ? undefined : r(language, "pdfBlockedReason");
+  const topFinding = visibleFindings[0];
+  const topPriorityStep = visiblePrioritySteps[0];
+  const metricItems: MetricItem[] = isRecoveryReport
+    ? [
+        {
+          label: "Recovery Proof Score",
+          value: `${recoveryProofScore}/100`,
+          detail: "Proven recovery capability",
+        },
+        {
+          label: "Evidence Confidence",
+          value: `${evidenceConfidence}/100`,
+          detail: `${evidenceItemsCount} imported evidence items`,
+        },
+        {
+          label: "Proof Gaps",
+          value: String(proofGaps.length),
+          detail: "Missing defensible evidence",
+        },
+        {
+          label: "MSP Tickets",
+          value: String(remediationTickets.length),
+          detail: "Actionable remediation work",
+        },
+      ]
+    : [
+        {
+          label: r(language, "score"),
+          value: `${officialScore}/100`,
+          detail: r(language, "backendOwned"),
+        },
+        {
+          label: r(language, "risk"),
+          value: officialRisk,
+          detail: r(language, "backendRisk"),
+        },
+        {
+          label: r(language, "completion"),
+          value: `${completionRate}%`,
+          detail: `${r(language, "answered")} ${report.answered_questions ?? 0}/${report.total_questions ?? 0}`,
+        },
+        {
+          label: r(language, "confidence"),
+          value: valueLabel(language, confidenceValue),
+          detail: r(language, "separateSignal"),
+        },
+      ];
 
   return (
     <div className="report-scene relative overflow-hidden rounded-[38px] border border-white/[0.08] p-4 text-zinc-100 shadow-[0_28px_90px_rgba(0,0,0,0.22)] sm:p-6">
@@ -833,7 +904,6 @@ function ReportCockpit({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ReportActionButton
             disabled={loading}
-            disabledReason={pdfBlockedReason}
             align="left"
             tooltipPlacement="bottom"
             onClick={() => void generateReadinessReportPdf(report, language)}
@@ -858,32 +928,34 @@ function ReportCockpit({
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
-                  {r(language, "title")}
+                  {reportTitle}
                 </h2>
                 <ArtifactTitleInfo kind="report" language={language} />
               </div>
+              {!hasRecoveryProof ? (
               <div className="mt-3">
                 <IncompleteReportBadge report={report} language={language} />
               </div>
+              ) : null}
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">
-                {summaryText || r(language, "subtitle")}
+                {summaryText || reportSubtitle}
               </p>
             </div>
 
             <div className="rounded-[30px] border border-white/[0.08] bg-black/[0.18] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                {r(language, "officialScore")}
+                {primaryScoreLabel}
               </div>
               <div className="mt-5 flex items-end gap-2">
                 <span className="text-6xl font-semibold leading-none tracking-[-0.07em] text-white">
-                  {officialScore}
+                  {primaryScore}
                 </span>
                 <span className="pb-2 text-base font-medium text-slate-500">/100</span>
               </div>
               <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/[0.08]">
                 <div
                   className={cn("report-bar-fill h-full rounded-full bg-gradient-to-r", toneAccent(riskToneValue))}
-                  style={{ width: `${clamp(officialScore)}%` }}
+                  style={{ width: `${clamp(primaryScore)}%` }}
                 />
               </div>
             </div>
@@ -924,15 +996,19 @@ function ReportCockpit({
 
         <section className="report-panel rounded-[32px] px-5 py-6 sm:px-7">
           <SectionHeader
-            title={r(language, "prioritySteps")}
-            description={r(language, "priorityStepsDescription")}
+            title={hasRecoveryProof ? "MSP next steps" : r(language, "prioritySteps")}
+            description={
+              hasRecoveryProof
+                ? "Remediation work generated from missing recovery proof."
+                : r(language, "priorityStepsDescription")
+            }
             infoKey="prioritySteps"
             language={language}
           />
 
           <div className="mt-6 divide-y divide-white/[0.06] rounded-[26px] border border-white/[0.07] bg-white/[0.022]">
-            {prioritySteps.length ? (
-              prioritySteps.map((step, index) => (
+            {visiblePrioritySteps.length ? (
+              visiblePrioritySteps.map((step, index) => (
                 <article key={step.id} className="flex gap-4 px-4 py-4 sm:px-5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-sm font-semibold text-white">
                     {index + 1}
@@ -954,7 +1030,7 @@ function ReportCockpit({
               ))
             ) : (
               <div className="px-5 py-5 text-sm leading-6 text-slate-500">
-                {r(language, "noSteps")}
+                {hasRecoveryProof ? "No MSP tickets have been generated yet." : r(language, "noSteps")}
               </div>
             )}
           </div>
@@ -962,20 +1038,24 @@ function ReportCockpit({
 
         <section className="report-panel rounded-[32px] px-5 py-6 sm:px-7">
           <SectionHeader
-            title={r(language, "criticalFindings")}
-            description={r(language, "criticalFindingsDescription")}
+            title={hasRecoveryProof ? "Proof gaps" : r(language, "criticalFindings")}
+            description={
+              hasRecoveryProof
+                ? "Missing evidence that prevents a stronger recovery verdict."
+                : r(language, "criticalFindingsDescription")
+            }
             infoKey="criticalFindings"
             language={language}
             meta={
-              <Badge variant={criticalFindings.length ? badgeVariantForTone(riskToneValue) : "neutral"}>
-                {criticalFindings.length || 0} {r(language, "items")}
+              <Badge variant={visibleFindings.length ? badgeVariantForTone(riskToneValue) : "neutral"}>
+                {visibleFindings.length || 0} {r(language, "items")}
               </Badge>
             }
           />
 
           <div className="mt-6 divide-y divide-white/[0.06] rounded-[26px] border border-white/[0.07] bg-white/[0.022]">
-            {criticalFindings.length ? (
-              criticalFindings.map((finding) => (
+            {visibleFindings.length ? (
+              visibleFindings.map((finding) => (
                 <article key={finding.id} className="px-4 py-4 sm:px-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={badgeVariantForTone(riskTone(finding.severity))}>
@@ -1001,7 +1081,7 @@ function ReportCockpit({
               ))
             ) : (
               <div className="px-5 py-5 text-sm leading-6 text-slate-500">
-                {r(language, "noFindings")}
+                {hasRecoveryProof ? "No proof gaps found in the current evidence." : r(language, "noFindings")}
               </div>
             )}
           </div>
@@ -1009,8 +1089,12 @@ function ReportCockpit({
 
         <section className="report-panel rounded-[32px] px-5 py-6 sm:px-7">
           <SectionHeader
-            title={r(language, "domainRiskMap")}
-            description={r(language, "domainRiskDescription")}
+            title={hasRecoveryProof ? "Legacy readiness domains" : r(language, "domainRiskMap")}
+            description={
+              hasRecoveryProof
+                ? "Questionnaire domain scores kept only as supporting traceability."
+                : r(language, "domainRiskDescription")
+            }
             infoKey="domainRiskMap"
             language={language}
             meta={
@@ -1062,8 +1146,14 @@ function ReportCockpit({
 
         <div className="space-y-3">
           <ReportDisclosure
-            title={r(language, "howScoringWorks")}
-            description={scoringOpen ? r(language, "expanded") : r(language, "howScoringWorksDescription")}
+            title={hasRecoveryProof ? "Legacy scoring details" : r(language, "howScoringWorks")}
+            description={
+              scoringOpen
+                ? r(language, "expanded")
+                : hasRecoveryProof
+                  ? "Questionnaire scoring is kept for traceability and does not drive the evidence report."
+                  : r(language, "howScoringWorksDescription")
+            }
             open={scoringOpen}
             onOpenChange={setScoringOpen}
             surface="plain"
@@ -1225,8 +1315,106 @@ function ReportCockpit({
               </div>
             </ReportDisclosure>
           ) : null}
+
+          {onOpenArtifact ? (
+            <SupportingViews language={language} onOpenArtifact={onOpenArtifact} />
+          ) : null}
         </div>
       </div>
     </div>
   );
+}
+
+function SupportingViews({
+  language,
+  onOpenArtifact,
+}: {
+  language: UiLanguage;
+  onOpenArtifact: (artifact: ArtifactId) => void;
+}) {
+  const copy = supportingViewsCopy(language);
+  const views: Array<{
+    artifact: ArtifactId;
+    title: string;
+    description: string;
+    icon: ReactNode;
+  }> = [
+    {
+      artifact: "evidence-binder",
+      title: t(language, "evidenceBinder"),
+      description: copy.evidence,
+      icon: <FileSearch className="h-4 w-4" />,
+    },
+    {
+      artifact: "skills",
+      title: t(language, "skills"),
+      description: copy.skills,
+      icon: <BookOpenCheck className="h-4 w-4" />,
+    },
+    {
+      artifact: "technical-json",
+      title: t(language, "technical"),
+      description: copy.technical,
+      icon: <Settings2 className="h-4 w-4" />,
+    },
+  ];
+
+  return (
+    <section className="border-t border-white/[0.08] pt-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold tracking-[-0.02em] text-white">
+            {copy.title}
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+            {copy.description}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {views.map((view) => (
+          <button
+            key={view.artifact}
+            type="button"
+            onClick={() => onOpenArtifact(view.artifact)}
+            className="group rounded-[24px] border border-white/[0.07] bg-white/[0.025] px-4 py-4 text-left transition-colors hover:border-cyan-300/25 hover:bg-white/[0.045]"
+          >
+            <div className="flex items-center gap-2 text-cyan-200">
+              {view.icon}
+              <span className="text-sm font-semibold text-white">{view.title}</span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{view.description}</p>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function supportingViewsCopy(language: UiLanguage) {
+  if (language === "en") {
+    return {
+      title: "Supporting views",
+      description: "Less important report tools are kept here so the main workflow stays focused.",
+      evidence: "Checklist and source trace for audit-ready evidence.",
+      skills: "Defensive playbooks and matched guidance behind the action plan.",
+      technical: "Raw session state, backend trace, and integration debug data.",
+    };
+  }
+  if (language === "ru") {
+    return {
+      title: "Дополнительные виды",
+      description: "Вспомогательные разделы спрятаны здесь, чтобы основной поток не был перегружен.",
+      evidence: "Checklist и trace доказательств для аудита.",
+      skills: "Защитные playbooks и guidance за action plan.",
+      technical: "Сырой session state, backend trace и debug для интеграций.",
+    };
+  }
+  return {
+    title: "Lisavaated",
+    description: "Vähem olulised raportitööriistad on siin, et põhitöövoog jääks selgeks.",
+    evidence: "Auditivalmiduse tõendite checklist ja allikajälg.",
+    skills: "Kaitsejuhendid ja tegevusplaani taustal olev guidance.",
+    technical: "Toores sessiooni olek, backend trace ja integratsiooni debug.",
+  };
 }

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "demo_backup_coverage_2026_q2",
+    "source": "manual",
+    "type": "backup_config",
+    "title": "Backup coverage for critical systems",
+    "summary": "Backup jobs cover accounting, email export, domain controller system state, and the shared file server. Daily schedule and retention are documented.",
+    "confidence": "high",
+    "related_control_ids": ["backup_exists_for_critical_systems"]
+  },
+  {
+    "id": "demo_backup_immutability_2026_q2",
+    "source": "manual",
+    "type": "backup_config",
+    "title": "Immutable backup policy enabled",
+    "summary": "Repository immutability is enabled for 30 days and backup console access uses a separate protected administrator account.",
+    "confidence": "high",
+    "related_control_ids": ["backup_isolation_or_immutability_proven", "backup_admin_separation_proven"]
+  },
+  {
+    "id": "demo_restore_test_2026_q2",
+    "source": "manual",
+    "type": "restore_test_report",
+    "title": "Restore test report for shared file server",
+    "summary": "A controlled restore test was completed on 2026-05-15. A sample shared folder was restored, validated by the business owner, and RTO/RPO notes were recorded.",
+    "confidence": "high",
+    "related_control_ids": ["restore_test_proven"]
+  }
+]

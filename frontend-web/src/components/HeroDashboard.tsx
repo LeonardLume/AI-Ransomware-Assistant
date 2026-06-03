@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from "react";
-import { CircleHelp } from "lucide-react";
+import { CircleHelp, Sparkles } from "lucide-react";
 import type { UiLanguage } from "../utils/i18n";
-import type { ScoreResponse, SessionStateResponse } from "../types/api";
+import type { ScoreResponse, SessionPath, SessionStateResponse } from "../types/api";
 import AboutOverlay from "./AboutOverlay";
 import PromptCard from "./PromptCard";
 
@@ -11,6 +11,8 @@ export default function HeroDashboard({
   sending,
   onPrompt,
   onStartAssessment,
+  onStartPath,
+  onOpenLanding,
   language = "en",
 }: {
   session?: SessionStateResponse | null;
@@ -18,12 +20,14 @@ export default function HeroDashboard({
   sending?: boolean;
   canGenerateReport: boolean;
   reportLoading?: boolean;
-  onPrompt: (message: string) => void;
+  onPrompt: (message: string, path?: SessionPath) => void;
   onStartAssessment: () => void;
+  onStartPath: (path: SessionPath) => void;
   onLoadDemo: (profileId: "weak_sme" | "better_sme") => void;
   onGenerateReport: () => void;
   onOpenTechnical: () => void;
   onOpenInterview: () => void;
+  onOpenLanding?: () => void;
   language?: UiLanguage;
 }) {
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -44,14 +48,24 @@ export default function HeroDashboard({
         </Suspense>
       </div>
       <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_50%_12%,rgba(255,255,255,0.09)_0%,rgba(255,255,255,0.035)_18%,rgba(0,0,0,0)_34%),radial-gradient(circle_at_50%_52%,rgba(0,0,0,0)_0%,rgba(0,0,0,0.08)_48%,rgba(0,0,0,0.30)_100%),linear-gradient(180deg,rgba(0,0,0,0.04)_0%,rgba(0,0,0,0.10)_48%,rgba(0,0,0,0.24)_100%)]" />
-      <button
-        type="button"
-        onClick={() => setAboutOpen(true)}
-        aria-label="About this project"
-        className="absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/78 shadow-[0_16px_46px_rgba(2,6,23,0.24)] backdrop-blur-xl transition hover:border-cyan-300/26 hover:bg-white/[0.1] hover:text-white hover:shadow-[0_18px_54px_rgba(56,189,248,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 sm:right-6 sm:top-6"
-      >
-        <CircleHelp className="h-4 w-4" />
-      </button>
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-2 sm:right-6 sm:top-6">
+        <button
+          type="button"
+          onClick={onOpenLanding}
+          aria-label="Open landing page"
+          className="inline-flex h-10 w-10 items-center justify-center border-0 bg-transparent text-white/70 shadow-none transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+        >
+          <Sparkles className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setAboutOpen(true)}
+          aria-label="About this project"
+          className="inline-flex h-10 w-10 items-center justify-center border-0 bg-transparent text-white/70 shadow-none transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+        >
+          <CircleHelp className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="relative z-10 w-full">
         <h1 className="mx-auto max-w-4xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
@@ -62,7 +76,7 @@ export default function HeroDashboard({
         </p>
 
         <div className="mt-10">
-          <PromptCard sending={sending} onSubmit={onPrompt} />
+          <PromptCard sending={sending} onSubmit={onPrompt} onStartPath={onStartPath} />
         </div>
       </div>
 

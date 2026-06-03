@@ -9,10 +9,11 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import type { ChatResponse, ProviderStatusResponse, SessionSummary } from "../types/api";
+import { useMemo, useState } from "react";
+import type { ChatResponse, ProviderStatusResponse, SessionPath, SessionSummary } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
 import type { AppView } from "./Layout";
-import { Badge, Button } from "./ui";
+import { Button } from "./ui";
 import { cn } from "./ui-helpers";
 
 export default function Sidebar({
@@ -52,6 +53,21 @@ export default function Sidebar({
   const fallbackUsed = providerStatus
     ? providerStatus.provider === "fallback"
     : (lastResponse?.used_fallback ?? provider === "fallback");
+  const [pathFilter, setPathFilter] = useState<"all" | SessionPath>("all");
+  const visibleSessions = useMemo(
+    () =>
+      pathFilter === "all"
+        ? sessions
+        : sessions.filter((session) => session.path === pathFilter),
+    [pathFilter, sessions],
+  );
+  const emptySessionsText = sessions.length
+    ? "No sessions match this filter."
+    : language === "ru"
+      ? "No local sessions yet."
+      : language === "en"
+        ? "No local sessions yet."
+        : "Kohalikke sessioone veel ei ole.";
 
   return (
     <>
@@ -113,9 +129,32 @@ export default function Sidebar({
           <div className="mb-2 px-1 text-xs font-semibold uppercase text-slate-500">
             {t(language, "recentSessions")}
           </div>
+          {sessions.length ? (
+            <div className="mb-2 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.025] p-1">
+              {[
+                { id: "all", label: "All" },
+                { id: "recovery-proof", label: "Proof" },
+                { id: "questionnaire", label: "Questions" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setPathFilter(item.id as "all" | SessionPath)}
+                  className={cn(
+                    "rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors",
+                    pathFilter === item.id
+                      ? "bg-white/[0.14] text-white"
+                      : "text-slate-500 hover:bg-white/[0.07] hover:text-slate-200",
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="scrollbar-slim min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-            {sessions.length ? (
-              sessions.map((session) => {
+            {visibleSessions.length ? (
+              visibleSessions.map((session) => {
                 const active = session.id === activeSessionId;
                 return (
                   <div
@@ -139,11 +178,12 @@ export default function Sidebar({
                         <span className="block truncate text-xs font-medium text-slate-100">
                           {session.title}
                         </span>
-                        <span className="mt-1 block text-[11px] text-slate-500">
-                          {new Date(session.updatedAt).toLocaleDateString()}
-                          {session.completionRate !== undefined
-                            ? ` - ${session.completionRate}%`
-                            : ""}
+                        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                          <span>{new Date(session.updatedAt).toLocaleDateString()}</span>
+                          {session.completionRate !== undefined ? (
+                            <span>{session.completionRate}%</span>
+                          ) : null}
+                          <SessionPathBadge path={session.path} />
                         </span>
                       </button>
                       <button
@@ -160,11 +200,14 @@ export default function Sidebar({
               })
             ) : (
               <div className="rounded-xl border border-dashed border-white/10 p-3 text-xs leading-5 text-slate-500">
+                {emptySessionsText}
+                <span className="hidden">
                 {language === "ru"
                   ? "Локальных сессий пока нет."
                   : language === "en"
                     ? "No local sessions yet."
                     : "Kohalikke sessioone veel ei ole."}
+                </span>
               </div>
             )}
           </div>
@@ -177,11 +220,11 @@ export default function Sidebar({
           <div className={cn("grid grid-cols-2 gap-2", collapsed && "lg:grid-cols-1")}>
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               onClick={() => onLoadDemo("weak_sme")}
               className={cn(
-                "h-9 justify-center rounded-xl border-white/10 bg-white/[0.02] text-xs text-slate-200 shadow-none hover:border-white/16 hover:bg-white/[0.05]",
-                collapsed && "lg:h-10 lg:w-10 lg:px-0",
+                "h-9 justify-start rounded-none border-0 bg-transparent px-1 text-xs text-slate-300 shadow-none hover:bg-transparent hover:text-white",
+                collapsed && "lg:h-10 lg:w-10 lg:justify-center lg:px-0",
               )}
               title="Weak SME"
             >
@@ -190,11 +233,11 @@ export default function Sidebar({
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               onClick={() => onLoadDemo("better_sme")}
               className={cn(
-                "h-9 justify-center rounded-xl border-white/10 bg-white/[0.02] text-xs text-slate-200 shadow-none hover:border-white/16 hover:bg-white/[0.05]",
-                collapsed && "lg:h-10 lg:w-10 lg:px-0",
+                "h-9 justify-start rounded-none border-0 bg-transparent px-1 text-xs text-slate-300 shadow-none hover:bg-transparent hover:text-white",
+                collapsed && "lg:h-10 lg:w-10 lg:justify-center lg:px-0",
               )}
               title="Better SME"
             >
@@ -248,8 +291,37 @@ function StatusCard({
           <Icon className="h-4 w-4 shrink-0 text-slate-400" />
           <span className="truncate text-xs text-slate-500">{label}</span>
         </div>
-        <Badge tone={tone} className="px-2 py-0.5 text-[11px]">{value}</Badge>
+        <span
+          className={cn(
+            "shrink-0 text-[11px] font-semibold",
+            tone === "success" && "text-emerald-300",
+            tone === "danger" && "text-red-300",
+            tone === "info" && "text-sky-300",
+            tone === "warning" && "text-amber-300",
+          )}
+        >
+          {value}
+        </span>
       </div>
     </div>
+  );
+}
+
+function SessionPathBadge({ path }: { path?: SessionPath }) {
+  if (!path) {
+    return null;
+  }
+  const proof = path === "recovery-proof";
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+        proof
+          ? "border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-100"
+          : "border-violet-300/20 bg-violet-300/[0.08] text-violet-100",
+      )}
+    >
+      {proof ? "Proof" : "Questions"}
+    </span>
   );
 }

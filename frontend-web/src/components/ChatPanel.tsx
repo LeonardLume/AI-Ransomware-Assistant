@@ -1,35 +1,37 @@
-import { ChevronDown, ChevronUp, Play, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, ListChecks, RefreshCw, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ArtifactId, ChatRequestOptions, Question, UiMessage } from "../types/api";
+import type { ArtifactId, ChatRequestOptions, SessionPath, UiMessage } from "../types/api";
 import { t, type UiLanguage } from "../utils/i18n";
 import Composer from "./Composer";
 import MessageBubble from "./MessageBubble";
-import { Alert, Button, EmptyState, LoadingSteps } from "./ui";
+import { Alert, Button, LoadingSteps } from "./ui";
 
 export default function ChatPanel({
   messages,
   animateMessageId,
+  activeSessionId,
+  sessionPath = "recovery-proof",
   language = "et",
-  currentQuestion,
-  pendingAnswer,
   sending,
   error,
-  onStart,
   onSend,
+  onStartPath,
   onRetry,
   onOpenArtifact,
+  onOpenReport,
 }: {
   messages: UiMessage[];
   animateMessageId?: string | null;
+  activeSessionId?: string | null;
+  sessionPath?: SessionPath;
   language?: UiLanguage;
-  currentQuestion?: Question | null;
-  pendingAnswer?: Record<string, unknown> | null;
   sending: boolean;
   error?: string | null;
-  onStart: () => void;
   onSend: (message: string, options?: ChatRequestOptions) => void;
+  onStartPath: (path: SessionPath) => void;
   onRetry: () => void;
   onOpenArtifact: (artifact: ArtifactId) => void;
+  onOpenReport: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -112,23 +114,78 @@ export default function ChatPanel({
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-10">
         {!messages.length ? (
-            <div className="flex min-h-[360px] items-center justify-center py-6">
-            <EmptyState
-              title={t(language, "chatEmptyTitle")}
-              description={t(language, "chatEmptyDescription")}
-              action={
+          <div className="flex min-h-[420px] items-center justify-center py-6">
+            <div className="w-full rounded-[32px] border border-white/[0.08] bg-white/[0.025] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-8">
+              <div className="max-w-3xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">
+                  Session path
+                </div>
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.055em] text-white sm:text-4xl">
+                  Choose proof or questionnaire.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base sm:leading-7">
+                  You can split work into separate sessions: Recovery Proof for evidence-first review, or Questionnaire
+                  for the legacy questions-to-report plan. Use the plus menu to start the path that fits the client.
+                </p>
+              </div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                {[
+                  {
+                    icon: ShieldCheck,
+                    title: "Recovery Proof",
+                    text: "Import backup, M365, Wazuh, Prowler, DefectDojo, or manual evidence.",
+                  },
+                  {
+                    icon: ListChecks,
+                    title: "Questionnaire",
+                    text: "Open a new legacy questionnaire session and answer readiness questions.",
+                  },
+                  {
+                    icon: FileText,
+                    title: "Report",
+                    text: "Reports stay tied to the selected session path and its collected inputs.",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className="rounded-[22px] border border-white/[0.07] bg-black/[0.14] px-4 py-3 text-sm leading-6 text-slate-300"
+                  >
+                    <item.icon className="mb-3 h-4 w-4 text-cyan-100" />
+                    <div className="font-semibold text-slate-100">{item.title}</div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-7 flex flex-wrap gap-3">
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={onStart}
+                  onClick={() => onStartPath("recovery-proof")}
+                  disabled={sending}
+                  className="h-12 rounded-full border-cyan-300/20 bg-cyan-300/[0.09] px-6 text-cyan-50 shadow-[0_16px_40px_rgba(0,0,0,0.22)] hover:border-cyan-300/35 hover:bg-cyan-300/[0.14]"
+                >
+                  Start Recovery Proof
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onStartPath("questionnaire")}
                   disabled={sending}
                   className="h-12 rounded-full border-white/10 bg-white/[0.08] px-6 text-white shadow-[0_16px_40px_rgba(0,0,0,0.22)] hover:border-white/20 hover:bg-white/[0.12]"
                 >
-                  <Play className="h-4 w-4" />
-                  {t(language, "startNewAssessment")}
+                  Start Questionnaire
                 </Button>
-              }
-            />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onOpenReport}
+                  disabled={sending || !activeSessionId}
+                  className="h-12 rounded-full border-white/10 bg-white/[0.045] px-6 text-slate-100 shadow-none hover:border-white/20 hover:bg-white/[0.08]"
+                >
+                  Open report
+                </Button>
+              </div>
+            </div>
           </div>
         ) : (
           messages.map((message) => {
@@ -170,10 +227,13 @@ export default function ChatPanel({
         <div className="mx-auto w-full max-w-5xl">
           <Composer
             disabled={sending}
+            activeSessionId={activeSessionId}
+            sessionPath={sessionPath}
             language={language}
-            currentQuestion={currentQuestion}
-            pendingAnswer={pendingAnswer}
+            onImportEvidence={() => onOpenArtifact("recovery-proof")}
+            onOpenReport={onOpenReport}
             onSend={onSend}
+            onStartPath={onStartPath}
           />
         </div>
       </div>

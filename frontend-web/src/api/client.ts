@@ -6,8 +6,15 @@ import type {
   HealthResponse,
   ProviderStatusResponse,
   Question,
+  RecoveryControl,
+  RecoveryEvidenceItem,
+  RecoveryEvidenceResponse,
+  RecoveryImportAdaptersResponse,
+  RecoveryProofReport,
+  RecoveryTicketExportResponse,
   ReportResponse,
   ScoreResponse,
+  SessionPath,
   SessionCreateResponse,
   SessionStateResponse,
   TechnicalFlowResponse,
@@ -139,10 +146,11 @@ export function healthCheck(): Promise<HealthResponse> {
 
 export function createSession(
   orgInfo: Record<string, unknown> = {},
+  sessionPath: SessionPath = "questionnaire",
 ): Promise<SessionCreateResponse> {
   return request<SessionCreateResponse>("/session", {
     method: "POST",
-    body: JSON.stringify(orgInfo),
+    body: JSON.stringify({ ...orgInfo, session_path: sessionPath }),
   });
 }
 
@@ -164,6 +172,7 @@ export function chat(
         message,
         intent_mode: options.intent_mode,
         selected_answer: options.selected_answer,
+        session_path: options.session_path,
       }),
     },
     60_000,
@@ -184,6 +193,87 @@ export function getReport(sessionId: string): Promise<ReportResponse> {
     {},
     60_000,
   );
+}
+
+export function getRecoveryControls(): Promise<RecoveryControl[]> {
+  return request<RecoveryControl[]>("/recovery-proof/controls");
+}
+
+export function getRecoveryImportAdapters(): Promise<RecoveryImportAdaptersResponse> {
+  return request<RecoveryImportAdaptersResponse>("/recovery-proof/import-adapters");
+}
+
+export function importRecoveryEvidence(
+  sessionId: string,
+  items: RecoveryEvidenceItem[],
+): Promise<RecoveryEvidenceResponse> {
+  return request<RecoveryEvidenceResponse>("/recovery-proof/evidence", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      items,
+    }),
+  });
+}
+
+export function importRecoveryEvidenceText(
+  sessionId: string,
+  text: string,
+  options: { source?: string; format?: string } = {},
+): Promise<RecoveryEvidenceResponse> {
+  return request<RecoveryEvidenceResponse>("/recovery-proof/import-text", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      text,
+      source: options.source || "generic",
+      format: options.format,
+    }),
+  });
+}
+
+export function importRecoveryToolOutput(
+  sessionId: string,
+  text: string,
+  options: { source?: string; format?: string } = {},
+): Promise<RecoveryEvidenceResponse> {
+  return request<RecoveryEvidenceResponse>("/recovery-proof/import-tool-output", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      text,
+      source: options.source || "generic",
+      format: options.format === "auto" ? undefined : options.format,
+    }),
+  });
+}
+
+export function getRecoveryEvidence(sessionId: string): Promise<RecoveryEvidenceResponse> {
+  return request<RecoveryEvidenceResponse>(
+    `/recovery-proof/evidence/${encodeURIComponent(sessionId)}`,
+  );
+}
+
+export function exportRecoveryTickets(
+  sessionId: string,
+  format: "markdown" | "jira_json",
+): Promise<RecoveryTicketExportResponse> {
+  return request<RecoveryTicketExportResponse>(
+    `/recovery-proof/tickets/${encodeURIComponent(sessionId)}/export?format=${encodeURIComponent(format)}`,
+  );
+}
+
+export function runRecoveryProof(
+  sessionId: string,
+  items?: RecoveryEvidenceItem[],
+): Promise<RecoveryProofReport> {
+  return request<RecoveryProofReport>("/recovery-proof/run", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      items,
+    }),
+  });
 }
 
 export function submitAnswer(

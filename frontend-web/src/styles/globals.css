@@ -185,9 +185,34 @@ textarea {
   filter: none;
 }
 
+.main-workspace[data-view="landing"]::before,
+.main-workspace[data-view="landing"]::after {
+  opacity: 0;
+  background: none;
+  transform: none;
+  filter: none;
+}
+
 .main-workspace > * {
   position: relative;
   z-index: 1;
+}
+
+.triage-landing {
+  --triage-background: 240 6% 6%;
+  --triage-foreground: 0 0% 90%;
+  --triage-card: 240 5% 9%;
+  --triage-muted-foreground: 0 0% 50%;
+  --triage-accent: 240 4% 14%;
+  --triage-border: 240 4% 26%;
+  --triage-primary: 234 55% 60%;
+  --triage-success: 145 100% 50%;
+  --triage-warning: 38 100% 55%;
+  --triage-destructive: 345 90% 60%;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
+    ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
 }
 
 .interview-scene::before {

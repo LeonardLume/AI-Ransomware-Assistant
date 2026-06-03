@@ -1,0 +1,252 @@
+[
+  {
+    "id": "critical_assets_identified",
+    "title": "Critical assets are identified",
+    "category": "recovery_scope",
+    "description": "The organization can name the systems, data sets, identities, and business services that must be recovered first after ransomware.",
+    "required_evidence_types": ["asset_inventory"],
+    "weak_if_missing": ["critical asset inventory", "business owner list", "system recovery dependency list"],
+    "mapped_existing_question_ids": ["org_critical_systems_known"],
+    "client_friendly_risk": "If critical systems are not identified, recovery work may start in the wrong order and business downtime may last longer.",
+    "technical_risk": "Missing asset and owner evidence makes it difficult to prioritize restore order, containment, dependencies, and validation after ransomware impact.",
+    "remediation_template": {
+      "title": "Create a critical asset and owner inventory for recovery",
+      "priority": "High",
+      "description": "Document the systems, data sets, owners, dependencies, and recovery order that matter most to business operations.",
+      "evidence_needed": ["Critical asset inventory", "Business owner list", "Recovery dependency notes"],
+      "suggested_owner": "MSP / IT lead",
+      "client_friendly_explanation": "This gives the recovery team a clear starting point when systems are unavailable.",
+      "technical_notes": "Include identity providers, backup platforms, line-of-business applications, file stores, email, networking, and key SaaS systems."
+    },
+    "framework_mappings": {
+      "nist_csf": ["ID.AM", "ID.BE", "RC.RP"],
+      "cis_controls": ["CIS_CONTROL_1", "CIS_CONTROL_2"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "backup_exists_for_critical_systems",
+    "title": "Backups exist for critical systems",
+    "category": "backup_recoverability",
+    "description": "Critical systems and data have documented backup coverage and a defined backup schedule.",
+    "required_evidence_types": ["backup_config"],
+    "weak_if_missing": ["backup job list", "backup scope summary", "backup schedule"],
+    "mapped_existing_question_ids": ["backups_exist", "backup_frequency_defined"],
+    "client_friendly_risk": "If backups cannot be shown for critical systems, the organization may not be able to recover important data.",
+    "technical_risk": "Unproven backup coverage leaves uncertainty around protected assets, job success, retention, RPO, and post-ransomware restore paths.",
+    "remediation_template": {
+      "title": "Prove backup coverage for critical systems",
+      "priority": "Critical",
+      "description": "Collect current backup job configuration and show that critical systems are included on a defined schedule.",
+      "evidence_needed": ["Backup job list", "Protected system list", "Backup schedule or policy"],
+      "suggested_owner": "Backup administrator / MSP",
+      "client_friendly_explanation": "This proves the organization has recovery copies for the systems it depends on.",
+      "technical_notes": "Map backup jobs to the critical asset list and note retention, frequency, last successful run, and failed-job handling."
+    },
+    "framework_mappings": {
+      "nist_csf": ["RC.RP", "RC.IM"],
+      "cis_controls": ["CIS_CONTROL_11"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "backup_isolation_or_immutability_proven",
+    "title": "Backup isolation or immutability is proven",
+    "category": "backup_resilience",
+    "description": "At least one backup copy is protected from ordinary production or domain compromise through immutability, offline storage, or separated permissions.",
+    "required_evidence_types": ["backup_config"],
+    "weak_if_missing": ["immutability setting", "offline backup procedure", "separate backup credential evidence"],
+    "mapped_existing_question_ids": ["backup_isolated"],
+    "client_friendly_risk": "Reachable backups can be deleted or encrypted during ransomware, removing the main recovery option.",
+    "technical_risk": "Without isolation proof, backup repositories may share the same credential and attack path exposure as production systems.",
+    "remediation_template": {
+      "title": "Prove immutable or isolated backup protection",
+      "priority": "Critical",
+      "description": "Provide evidence that at least one backup copy is immutable, offline, or protected by separate administrative permissions.",
+      "evidence_needed": ["Immutability policy screenshot", "Offline media procedure", "Backup repository access control record"],
+      "suggested_owner": "Backup administrator / MSP",
+      "client_friendly_explanation": "This reduces the chance that ransomware can destroy every recovery copy.",
+      "technical_notes": "Check immutability duration, delete permissions, backup console MFA, domain dependency, and break-glass access."
+    },
+    "framework_mappings": {
+      "nist_csf": ["PR.DS", "RC.RP", "RC.IM"],
+      "cis_controls": ["CIS_CONTROL_11"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "restore_test_proven",
+    "title": "Restore test is proven",
+    "category": "recovery_validation",
+    "description": "A recent restore test was completed and documented for at least one critical system or data set.",
+    "required_evidence_types": ["restore_test_report"],
+    "weak_if_missing": ["restore test report", "restored system name", "restore date", "test result", "RTO/RPO result"],
+    "mapped_existing_question_ids": ["restore_tested", "rto_rpo_known"],
+    "client_friendly_risk": "Backups only matter if the organization can actually restore from them when ransomware disrupts operations.",
+    "technical_risk": "No restore-test evidence leaves RTO, RPO, dependency, integrity, credential, and procedure assumptions unvalidated.",
+    "remediation_template": {
+      "title": "Run and document a controlled restore test",
+      "priority": "Critical",
+      "description": "Restore a representative critical system or data set, record the result, and track any recovery blockers found.",
+      "evidence_needed": ["Restore test report", "Restored asset name", "Date and result", "RTO/RPO notes"],
+      "suggested_owner": "MSP / Backup administrator",
+      "client_friendly_explanation": "This proves recovery works in practice, not only on paper.",
+      "technical_notes": "Record restore source, target, credentials used, validation steps, elapsed time, data freshness, issues, and retest date."
+    },
+    "framework_mappings": {
+      "nist_csf": ["RC.RP", "RC.IM"],
+      "cis_controls": ["CIS_CONTROL_11"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "admin_mfa_proven",
+    "title": "Admin MFA is proven",
+    "category": "identity_recovery_protection",
+    "description": "Privileged and administrator accounts are protected by MFA, including MSP or remote administration paths where applicable.",
+    "required_evidence_types": ["mfa_config"],
+    "weak_if_missing": ["privileged MFA policy", "admin account MFA coverage report", "conditional access rule"],
+    "mapped_existing_question_ids": ["mfa_admin", "mfa_remote_access"],
+    "client_friendly_risk": "A stolen administrator password can let an attacker disable defenses, affect backups, or delay recovery.",
+    "technical_risk": "Missing admin MFA proof increases credential compromise risk across identity, backup, remote access, and recovery tooling.",
+    "remediation_template": {
+      "title": "Collect proof of MFA for all privileged accounts",
+      "priority": "High",
+      "description": "Show MFA enforcement for administrator, privileged, remote access, MSP, and emergency accounts.",
+      "evidence_needed": ["Admin MFA coverage report", "Conditional access policy", "Privileged account list with MFA status"],
+      "suggested_owner": "Identity administrator / MSP",
+      "client_friendly_explanation": "This helps protect the accounts that could otherwise block or compromise recovery.",
+      "technical_notes": "Review exclusions, legacy authentication, break-glass controls, service accounts, MSP accounts, and remote access paths."
+    },
+    "framework_mappings": {
+      "nist_csf": ["PR.AA"],
+      "cis_controls": ["CIS_CONTROL_6"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "backup_admin_separation_proven",
+    "title": "Backup admin separation is proven",
+    "category": "privilege_separation",
+    "description": "Backup administration is separated from ordinary production administration where practical, with least-privilege controls and review evidence.",
+    "required_evidence_types": ["other"],
+    "weak_if_missing": ["backup admin role list", "separate admin account evidence", "privileged access review"],
+    "mapped_existing_question_ids": ["least_privilege", "separate_admin_accounts"],
+    "client_friendly_risk": "If the same compromised admin access controls production and backups, ransomware can disrupt recovery copies.",
+    "technical_risk": "Shared administrative paths can allow lateral movement from production compromise into backup consoles and repositories.",
+    "remediation_template": {
+      "title": "Prove backup administration is separated from production administration",
+      "priority": "High",
+      "description": "Document who can administer backups, how those accounts are separated, and when access was last reviewed.",
+      "evidence_needed": ["Backup admin role list", "Separate admin account evidence", "Privileged access review record"],
+      "suggested_owner": "Identity administrator / Backup administrator",
+      "client_friendly_explanation": "This reduces the chance that one compromised account can damage both live systems and backups.",
+      "technical_notes": "Review domain admin dependency, backup-console roles, MFA, just-in-time access, emergency access, and logging."
+    },
+    "framework_mappings": {
+      "nist_csf": ["PR.AA", "PR.AC"],
+      "cis_controls": ["CIS_CONTROL_5", "CIS_CONTROL_6"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "endpoint_detection_or_logging_present",
+    "title": "Endpoint detection or logging is present",
+    "category": "detection_readiness",
+    "description": "The organization has evidence that endpoint alerts, centralized logs, suspicious sign-in monitoring, or mass file-change signals can be reviewed.",
+    "required_evidence_types": ["logging_config"],
+    "weak_if_missing": ["log source list", "EDR alert queue", "failed-login monitoring rule", "mass file-change alert evidence"],
+    "mapped_existing_question_ids": ["logs_centralized", "endpoint_alerts_monitored", "failed_logins_monitored", "file_integrity_or_mass_change_alerts"],
+    "client_friendly_risk": "If suspicious activity is not logged or monitored, ransomware may spread before anyone can act.",
+    "technical_risk": "Weak logging and detection evidence limits incident scoping, containment decisions, root-cause analysis, and recovery validation.",
+    "remediation_template": {
+      "title": "Collect proof of endpoint detection and key logging coverage",
+      "priority": "High",
+      "description": "Show which critical logs and endpoint alerts are collected, monitored, and assigned to an owner.",
+      "evidence_needed": ["Log source list", "EDR or AV alert summary", "Sign-in monitoring rule", "File-change alert evidence"],
+      "suggested_owner": "Security operations / MSP",
+      "client_friendly_explanation": "This gives the recovery team visibility into what happened and what may still be affected.",
+      "technical_notes": "Prioritize identity, endpoint, server, backup, firewall, VPN, email, and file-storage telemetry."
+    },
+    "framework_mappings": {
+      "nist_csf": ["DE.CM", "DE.AE"],
+      "cis_controls": ["CIS_CONTROL_8", "CIS_CONTROL_13"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "incident_response_playbook_exists",
+    "title": "Incident response contacts and playbook exist",
+    "category": "response_coordination",
+    "description": "A ransomware response playbook, contact list, roles, and escalation paths are documented and accessible during an outage.",
+    "required_evidence_types": ["ir_plan"],
+    "weak_if_missing": ["ransomware playbook", "incident contact list", "escalation tree", "offline contact copy"],
+    "mapped_existing_question_ids": ["ir_plan_exists", "ir_roles_contacts", "external_reporting_known"],
+    "client_friendly_risk": "Without a simple playbook and contacts, the first hours of a ransomware incident can be confused and slow.",
+    "technical_risk": "Unclear response ownership can delay containment, legal escalation, insurance coordination, recovery sequencing, and communications.",
+    "remediation_template": {
+      "title": "Create or collect a ransomware response playbook and contact list",
+      "priority": "High",
+      "description": "Document roles, decision makers, technical owners, external contacts, escalation paths, and outage-safe contact methods.",
+      "evidence_needed": ["Ransomware playbook", "Incident contact list", "Escalation tree", "Offline contact copy"],
+      "suggested_owner": "IT lead / Management / MSP",
+      "client_friendly_explanation": "This helps people know who acts, who decides, and who must be contacted during an incident.",
+      "technical_notes": "Include containment, evidence preservation, backup protection, communication, legal, insurer, CERT/law enforcement, and restore approval steps."
+    },
+    "framework_mappings": {
+      "nist_csf": ["RS.RP", "RS.CO"],
+      "cis_controls": ["CIS_CONTROL_17"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "recovery_priority_list_exists",
+    "title": "Recovery priority list exists",
+    "category": "recovery_planning",
+    "description": "Critical systems have an agreed restore order, practical RTO/RPO expectations, and known business owners.",
+    "required_evidence_types": ["asset_inventory", "other"],
+    "weak_if_missing": ["recovery priority list", "RTO/RPO note", "business owner approval", "dependency map"],
+    "mapped_existing_question_ids": ["org_critical_systems_known", "rto_rpo_known"],
+    "client_friendly_risk": "If the restore order is unclear, teams may recover low-priority systems before the services the business needs first.",
+    "technical_risk": "Missing recovery priority evidence causes uncertainty around dependency order, acceptable data loss, validation, and business approval.",
+    "remediation_template": {
+      "title": "Document recovery priorities and business owners",
+      "priority": "Medium",
+      "description": "Create a short list that states what must be restored first, who owns it, and the expected recovery targets.",
+      "evidence_needed": ["Recovery priority list", "RTO/RPO note", "Business owner list", "Dependency notes"],
+      "suggested_owner": "Business owner / IT lead",
+      "client_friendly_explanation": "This aligns recovery with the services that matter most to operations.",
+      "technical_notes": "Tie the priority list to backup jobs, restore tests, identity dependencies, network dependencies, and validation steps."
+    },
+    "framework_mappings": {
+      "nist_csf": ["ID.BE", "RC.RP", "RC.CO"],
+      "cis_controls": ["CIS_CONTROL_11", "CIS_CONTROL_17"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  },
+  {
+    "id": "external_exposure_reviewed",
+    "title": "External exposure review is documented",
+    "category": "exposure_readiness",
+    "description": "Internet-facing services and remote access paths have been reviewed through approved, non-invasive methods.",
+    "required_evidence_types": ["external_exposure"],
+    "weak_if_missing": ["internet-facing asset list", "remote access exposure review", "cloud exposure review", "email security record review"],
+    "mapped_existing_question_ids": ["internet_facing_known", "mfa_remote_access"],
+    "client_friendly_risk": "Unknown public services or weak remote access can create avoidable ransomware entry points.",
+    "technical_risk": "Unreviewed internet-facing services can hide vulnerable remote access, exposed management paths, and unmanaged cloud resources.",
+    "remediation_template": {
+      "title": "Document an authorized external exposure review",
+      "priority": "Medium",
+      "description": "Collect a non-invasive, approved review of known public services, remote access paths, cloud exposure, and email security settings.",
+      "evidence_needed": ["Internet-facing asset list", "Remote access review note", "Cloud exposure review record", "Email security configuration evidence"],
+      "suggested_owner": "MSP / Network administrator",
+      "client_friendly_explanation": "This helps prove that public access paths have been looked at without running unauthorized scanning.",
+      "technical_notes": "Use imported reports, manual records, or approved inventory only. Do not probe live targets from this product version."
+    },
+    "framework_mappings": {
+      "nist_csf": ["ID.AM", "ID.RA", "PR.AA"],
+      "cis_controls": ["CIS_CONTROL_12", "CIS_CONTROL_16"],
+      "cisa": ["CISA_STOPRANSOMWARE"]
+    }
+  }
+]

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type {
-  ChatResponse,
   AnswerRecord,
+  ChatResponse,
   Question,
   ScoreResponse,
   SessionStateResponse,
@@ -32,15 +32,15 @@ export default function AssessmentStatusFooter({
   questions: Question[];
   language?: UiLanguage;
 }) {
-  const [activeProgressOverlay, setActiveProgressOverlay] = useState<ProgressOverlayMode | null>(null);
+  const [activeProgressOverlay, setActiveProgressOverlay] =
+    useState<ProgressOverlayMode | null>(null);
   const completionRate =
     session?.progress?.completion_rate ?? lastResponse?.completion_rate ?? score?.completion_rate ?? 0;
   const currentQuestion =
     lastResponse?.current_question ||
     questions.find((question) => question.id === session?.current_question_id) ||
     null;
-  const currentDomain =
-    session?.current_domain || lastResponse?.current_domain || currentQuestion?.domain;
+  const currentDomain = session?.current_domain || lastResponse?.current_domain || currentQuestion?.domain;
   const requiredQuestions = questions.filter((question) => question.required !== false);
   const requiredQuestionIds = new Set(requiredQuestions.map((question) => question.id));
   const answeredRequiredQuestionIds = new Set(
@@ -53,7 +53,11 @@ export default function AssessmentStatusFooter({
     totalRequiredQuestions,
   );
   const domainProgress = getDomainProgress(requiredQuestions, answeredRequiredQuestionIds, score);
-  const progressItems = buildQuestionProgressItems(requiredQuestions, session?.answers || {}, currentQuestion?.id);
+  const progressItems = buildQuestionProgressItems(
+    requiredQuestions,
+    session?.answers || {},
+    currentQuestion?.id,
+  );
   const scoreStatus =
     completionRate <= 0
       ? "not ready"
@@ -62,13 +66,19 @@ export default function AssessmentStatusFooter({
   return (
     <footer className="sticky bottom-0 z-20 mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#07080b]/95 shadow-[0_-18px_54px_rgba(0,0,0,0.38)] backdrop-blur-xl">
       <div className="grid gap-3 px-4 py-3 lg:grid-cols-[210px_minmax(0,1fr)] lg:items-center">
-        <div className="min-w-0">
+        <button
+          type="button"
+          className="min-w-0 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-left transition-colors hover:border-cyan-300/35 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/55"
+          onClick={() => setActiveProgressOverlay("questions")}
+          aria-label={progressOpenLabel(language, "questions")}
+          aria-haspopup="dialog"
+        >
           <div className="mb-2 flex items-center justify-between gap-3 text-xs text-slate-400">
             <span>{t(language, "completion")}</span>
             <span className="font-semibold text-white">{completionRate}%</span>
           </div>
           <Progress value={completionRate} tone={completionRate === 100 ? "success" : "info"} />
-        </div>
+        </button>
 
         <div className="grid min-w-0 gap-2 text-xs text-slate-400 md:grid-cols-2 xl:grid-cols-[minmax(160px,0.9fr)_minmax(0,2.55fr)_minmax(112px,0.72fr)_minmax(112px,0.72fr)]">
           <StatusItem
@@ -88,6 +98,8 @@ export default function AssessmentStatusFooter({
           <StatusItem
             label={footerLabel(language, "answers")}
             value={`${answeredRequiredQuestions}/${totalRequiredQuestions}`}
+            ariaLabel={progressOpenLabel(language, "questions")}
+            onClick={() => setActiveProgressOverlay("questions")}
           />
         </div>
       </div>
@@ -114,11 +126,14 @@ export default function AssessmentStatusFooter({
   );
 }
 
-function footerLabel(language: UiLanguage, key: "domain" | "question" | "score" | "answers"): string {
+function footerLabel(
+  language: UiLanguage,
+  key: "domain" | "question" | "score" | "answers",
+): string {
   const labels = {
     et: {
       domain: "Domeen",
-      question: "Küsimus",
+      question: "Kusimus",
       score: "Tulemus",
       answers: "Vastused",
     },
@@ -214,7 +229,10 @@ function groupItemsByDomain(items: QuestionProgressItem[]): Array<{
   total: number;
   items: QuestionProgressItem[];
 }> {
-  const sections = new Map<string, { domain: string; answered: number; total: number; items: QuestionProgressItem[] }>();
+  const sections = new Map<
+    string,
+    { domain: string; answered: number; total: number; items: QuestionProgressItem[] }
+  >();
 
   for (const item of items) {
     const section = sections.get(item.domain) || {
@@ -237,8 +255,8 @@ function groupItemsByDomain(items: QuestionProgressItem[]): Array<{
 function progressOpenLabel(language: UiLanguage, mode: ProgressOverlayMode): string {
   const labels = {
     et: {
-      domains: "Ava domeenide edenemise ülevaade",
-      questions: "Ava küsimuste edenemise ülevaade",
+      domains: "Open domain progress overview",
+      questions: "Open question progress overview",
     },
     en: {
       domains: "Open domain progress overview",
@@ -255,15 +273,15 @@ function progressOpenLabel(language: UiLanguage, mode: ProgressOverlayMode): str
 function overlayCopy(language: UiLanguage, mode: ProgressOverlayMode) {
   const copy = {
     et: {
-      title: mode === "domains" ? "Domeenide edenemine" : "Küsimuste edenemine",
+      title: mode === "domains" ? "Domain progress" : "Question progress",
       description:
         mode === "domains"
-          ? "Küsimused on rühmitatud domeenide kaupa. Värv näitab salvestatud vastust."
-          : "Kõik kohustuslikud küsimused ja nende vastamise staatus.",
-      answered: "vastatud",
-      domains: "domeeni valmis",
-      questions: "küsimust vastatud",
-      empty: "Küsimusi pole veel laaditud.",
+          ? "Questions are grouped by domain. Color shows the saved answer."
+          : "All required questions and their answer status.",
+      answered: "answered",
+      domains: "domains complete",
+      questions: "questions answered",
+      empty: "Questions are not loaded yet.",
     },
     en: {
       title: mode === "domains" ? "Domain progress" : "Question progress",
@@ -295,11 +313,11 @@ function answerStatus(answer: string | undefined, language: UiLanguage) {
   const normalized = String(answer || "").toLowerCase();
   const labels = {
     et: {
-      yes: "Jah",
-      partial: "Osaliselt",
-      no: "Ei",
-      unsure: "Pole kindel",
-      unanswered: "Vastamata",
+      yes: "Yes",
+      partial: "Partial",
+      no: "No",
+      unsure: "Unsure",
+      unanswered: "Not answered",
     },
     en: {
       yes: "Yes",
@@ -322,7 +340,6 @@ function answerStatus(answer: string | undefined, language: UiLanguage) {
       label: labels[language].yes,
       dotClass: "bg-emerald-300 shadow-[0_0_16px_rgba(52,211,153,0.6)]",
       badgeClass: "border-emerald-300/35 bg-emerald-400/12 text-emerald-100",
-      rowClass: "border-emerald-300/20 bg-emerald-400/[0.055]",
     };
   }
   if (normalized === "partial") {
@@ -330,7 +347,6 @@ function answerStatus(answer: string | undefined, language: UiLanguage) {
       label: labels[language].partial,
       dotClass: "bg-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.55)]",
       badgeClass: "border-amber-300/35 bg-amber-400/12 text-amber-100",
-      rowClass: "border-amber-300/20 bg-amber-400/[0.055]",
     };
   }
   if (normalized === "no") {
@@ -338,7 +354,6 @@ function answerStatus(answer: string | undefined, language: UiLanguage) {
       label: labels[language].no,
       dotClass: "bg-red-300 shadow-[0_0_16px_rgba(252,165,165,0.58)]",
       badgeClass: "border-red-300/35 bg-red-400/12 text-red-100",
-      rowClass: "border-red-300/20 bg-red-400/[0.06]",
     };
   }
   if (normalized === "unsure") {
@@ -346,14 +361,12 @@ function answerStatus(answer: string | undefined, language: UiLanguage) {
       label: labels[language].unsure,
       dotClass: "bg-sky-300 shadow-[0_0_16px_rgba(125,211,252,0.48)]",
       badgeClass: "border-sky-300/35 bg-sky-400/12 text-sky-100",
-      rowClass: "border-sky-300/20 bg-sky-400/[0.05]",
     };
   }
   return {
     label: labels[language].unanswered,
     dotClass: "bg-slate-500",
     badgeClass: "border-white/10 bg-white/[0.045] text-slate-400",
-    rowClass: "border-white/[0.075] bg-white/[0.028]",
   };
 }
 
@@ -385,7 +398,10 @@ function AssessmentProgressOverlay({
         <DialogTitle className="text-2xl font-semibold tracking-[-0.045em] text-white">
           {copy.title}
         </DialogTitle>
-        <DialogDescription id="assessment-progress-overlay-description" className="mt-2 text-sm leading-6 text-slate-400">
+        <DialogDescription
+          id="assessment-progress-overlay-description"
+          className="mt-2 text-sm leading-6 text-slate-400"
+        >
           {copy.description}
         </DialogDescription>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-200">
@@ -412,7 +428,13 @@ function AssessmentProgressOverlay({
         ) : (
           <div className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-white/[0.02] divide-y divide-white/[0.06]">
             {items.map((item, index) => (
-              <QuestionProgressRow key={item.id} item={item} index={index + 1} language={language} showDomain />
+              <QuestionProgressRow
+                key={item.id}
+                item={item}
+                index={index + 1}
+                language={language}
+                showDomain
+              />
             ))}
           </div>
         )}
@@ -536,7 +558,9 @@ function StatusItem({
   ].join(" ");
   const content = (
     <>
-      <div className="truncate text-[11px] font-semibold uppercase text-slate-500">{label}</div>
+      <div className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </div>
       <div
         className={
           emphasized
@@ -557,9 +581,5 @@ function StatusItem({
     );
   }
 
-  return (
-    <div className={className}>
-      {content}
-    </div>
-  );
+  return <div className={className}>{content}</div>;
 }

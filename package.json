@@ -1,0 +1,25 @@
+{
+  "name": "ai-ransomware-assistant",
+  "version": "1.0.0",
+  "description": "**An AI security-assessment workspace for ransomware readiness: agent-guided controls, backend-owned scoring, evidence guidance, and an IT-ready action plan.**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeonardLume/AI-Ransomware-Assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/LeonardLume/AI-Ransomware-Assistant/issues"
+  },
+  "homepage": "https://github.com/LeonardLume/AI-Ransomware-Assistant#readme"
+}

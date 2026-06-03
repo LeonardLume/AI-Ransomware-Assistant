@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo_m365_conditional_access_admins",
+    "source": "scubagear",
+    "type": "mfa_config",
+    "title": "M365 conditional access for admin roles",
+    "summary": "Conditional access requires MFA for most privileged roles. Two emergency accounts are excluded and need compensating control evidence.",
+    "confidence": "medium",
+    "related_control_ids": ["admin_mfa_proven"]
+  },
+  {
+    "id": "demo_m365_signin_logs",
+    "source": "scubagear",
+    "type": "logging_config",
+    "title": "M365 sign-in logging enabled",
+    "summary": "Sign-in logs are retained and failed administrator sign-ins can be reviewed by the tenant administrator.",
+    "confidence": "medium",
+    "related_control_ids": ["endpoint_detection_or_logging_present"]
+  }
+]

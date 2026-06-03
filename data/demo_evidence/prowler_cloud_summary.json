@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo_prowler_cloud_exposure",
+    "source": "prowler",
+    "type": "external_exposure",
+    "title": "Prowler-like cloud exposure summary",
+    "summary": "Imported cloud posture summary shows no public storage buckets and flags one admin policy exception for review.",
+    "confidence": "medium",
+    "related_control_ids": ["external_exposure_reviewed", "admin_mfa_proven"]
+  },
+  {
+    "id": "demo_prowler_logging",
+    "source": "prowler",
+    "type": "logging_config",
+    "title": "Cloud audit logging summary",
+    "summary": "Audit logs are enabled for the cloud account and retained in a central logging bucket.",
+    "confidence": "medium",
+    "related_control_ids": ["endpoint_detection_or_logging_present"]
+  }
+]

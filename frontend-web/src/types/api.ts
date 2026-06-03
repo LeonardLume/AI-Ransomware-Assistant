@@ -3,10 +3,12 @@ export type RiskLevel = "Low" | "Medium" | "High" | "Critical" | string;
 export type ScoreStatus = "preliminary" | "final" | "not ready" | string;
 export type ChatIntentMode = "direct_answer" | "clarification" | "advisory" | "context_note";
 export type AssessmentAnswer = "yes" | "partial" | "no" | "unsure";
+export type SessionPath = "recovery-proof" | "questionnaire";
 export type ArtifactId =
   | "readiness-report"
   | "action-plan"
   | "evidence-binder"
+  | "recovery-proof"
   | "skills"
   | "ransomware-playbook"
   | "technical-json";
@@ -89,6 +91,7 @@ export interface AssistantTransparency {
 
 export interface SessionStateResponse {
   session_id: string;
+  session_path?: SessionPath;
   org_info?: Record<string, unknown>;
   answers?: Record<string, AnswerRecord>;
   followups?: Array<Record<string, unknown>>;
@@ -97,11 +100,126 @@ export interface SessionStateResponse {
   context_notes?: Array<Record<string, unknown>>;
   pending_answer?: Record<string, unknown> | null;
   unclear_question_ids?: string[];
+  recovery_evidence?: RecoveryEvidenceItem[];
+  recovery_proof?: RecoveryProofReport | null;
   current_question_id?: string | null;
   current_domain?: string | null;
   interview_complete?: boolean;
   completion_mode?: string | null;
   progress?: SessionProgress;
+}
+
+export interface RecoveryControl {
+  id?: string;
+  title?: string;
+  category?: string;
+  description?: string;
+  required_evidence_types?: string[];
+  weak_if_missing?: string[];
+  mapped_existing_question_ids?: string[];
+  client_friendly_risk?: string;
+  technical_risk?: string;
+  remediation_template?: Record<string, unknown>;
+  framework_mappings?: Record<string, string[]>;
+}
+
+export interface RecoveryEvidenceItem {
+  id?: string;
+  source?: string;
+  type?: string;
+  title?: string;
+  summary?: string;
+  raw?: unknown;
+  confidence?: "high" | "medium" | "low" | string;
+  related_control_ids?: string[];
+}
+
+export interface RecoveryControlResult extends RecoveryControl {
+  control_id?: string;
+  status?: "proven" | "partially_proven" | "not_proven" | "unknown" | string;
+  status_score?: number;
+  reason?: string;
+  evidence_confidence?: number;
+  supporting_evidence?: RecoveryEvidenceItem[];
+  matched_evidence_types?: string[];
+  missing_evidence_types?: string[];
+  answer_support?: {
+    signal?: string;
+    mapped_question_ids?: string[];
+    answers?: Record<string, string>;
+    missing_question_ids?: string[];
+  };
+}
+
+export interface ProofGap {
+  id?: string;
+  control_id?: string;
+  control_title?: string;
+  severity?: RiskLevel;
+  status?: string;
+  missing_evidence_types?: string[];
+  description?: string;
+  client_friendly_risk?: string;
+  technical_risk?: string;
+  recommended_action?: string;
+}
+
+export interface RemediationTicket {
+  id?: string;
+  title?: string;
+  priority?: RiskLevel;
+  description?: string;
+  evidence_needed?: string[];
+  affected_controls?: string[];
+  affected_business_processes?: string[];
+  suggested_owner?: string;
+  client_friendly_explanation?: string;
+  technical_notes?: string;
+}
+
+export interface RecoveryProofReport {
+  safe_defensive_only?: boolean;
+  engine_version?: string;
+  recovery_proof_score?: number;
+  evidence_confidence?: number;
+  controls_count?: number;
+  evidence_items_count?: number;
+  proven_controls?: RecoveryControlResult[];
+  partially_proven_controls?: RecoveryControlResult[];
+  unproven_controls?: RecoveryControlResult[];
+  control_results?: RecoveryControlResult[];
+  proof_gaps?: ProofGap[];
+  remediation_tickets?: RemediationTicket[];
+  client_summary?: string;
+  technical_summary?: string;
+  error?: string;
+}
+
+export interface RecoveryEvidenceResponse {
+  session_id: string;
+  count?: number;
+  stored_count?: number;
+  items?: RecoveryEvidenceItem[];
+}
+
+export interface RecoveryImportAdaptersResponse {
+  safe_defensive_only?: boolean;
+  execution_enabled?: boolean;
+  network_calls_enabled?: boolean;
+  adapters?: Array<{
+    id?: string;
+    name?: string;
+    formats?: string[];
+    execution_enabled?: boolean;
+  }>;
+}
+
+export interface RecoveryTicketExportResponse {
+  session_id?: string;
+  safe_defensive_only?: boolean;
+  format?: string;
+  content_type?: string;
+  content?: string;
 }
 
 export interface DomainScore {
@@ -300,10 +418,16 @@ export interface ReportResponse extends ScoreResponse {
     does_not_affect_score_yet?: boolean;
     planned_inputs?: string[];
   };
+  recovery_proof?: RecoveryProofReport;
+  recovery_proof_score?: number;
+  evidence_confidence?: number;
+  proof_gaps?: ProofGap[];
+  remediation_tickets?: RemediationTicket[];
 }
 
 export interface ChatResponse {
   session_id: string;
+  session_path?: SessionPath;
   assistant_message?: string;
   intent?: string;
   extracted_answers?: Record<string, string>;
@@ -334,10 +458,13 @@ export interface ChatResponse {
 export interface ChatRequestOptions {
   intent_mode?: ChatIntentMode;
   selected_answer?: AssessmentAnswer;
+  display_message?: string;
+  session_path?: SessionPath;
 }
 
 export interface SessionCreateResponse {
   session_id: string;
+  session_path?: SessionPath;
   org_info?: Record<string, unknown>;
 }
 
@@ -350,6 +477,7 @@ export interface AnswerSubmitResponse {
 
 export interface DemoProfileResponse {
   session_id: string;
+  session_path?: SessionPath;
   profile_name?: string;
   org_info?: Record<string, unknown>;
 }
@@ -366,6 +494,7 @@ export interface SessionSummary {
   title: string;
   createdAt: string;
   updatedAt: string;
+  path?: SessionPath;
   profileName?: string;
   completionRate?: number;
   riskLevel?: RiskLevel;

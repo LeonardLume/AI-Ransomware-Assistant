@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BookOpenCheck,
-  ClipboardList,
-  FileText,
-  ListChecks,
-  MessageSquare,
-  Settings2,
-} from "lucide-react";
-import {
   ApiError,
   chat,
   createSession,
@@ -23,8 +15,11 @@ import {
 import AssessmentStatusFooter from "./components/AssessmentStatusFooter";
 import ChatPanel from "./components/ChatPanel";
 import HeroDashboard from "./components/HeroDashboard";
+import LandingPage from "./components/LandingPage";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import Layout, { type AppView } from "./components/Layout";
+import ProfileSetupPage, { type ProfileSetupValues } from "./components/ProfileSetupPage";
+import RecoveryWorkspaceFooter from "./components/RecoveryWorkspaceFooter";
 import SessionArtifactOverlay from "./components/SessionArtifactOverlay";
 import { cn } from "./components/ui-helpers";
 import {
@@ -34,6 +29,12 @@ import {
   sanitizeAssistantMessage,
 } from "./utils/assessmentUi";
 import { t, type UiLanguage } from "./utils/i18n";
+import {
+  buildRecoveryAssistantPrompt,
+  isRecoveryAssistantContent,
+  sanitizeRecoveryAssistantMessage,
+  visibleRecoveryAssistantContent,
+} from "./utils/recoveryAssistant";
 import {
   getStoredReport,
   getSessions,
@@ -51,6 +52,7 @@ import type {
   Question,
   ReportResponse,
   ScoreResponse,
+  SessionPath,
   SessionStateResponse,
   SessionSummary,
   TechnicalFlowResponse,
@@ -67,7 +69,9 @@ function stableMessageId(
   content: string,
 ): string {
   const normalizedRole = normalizeRole(role);
-  const normalizedContent = String(content || "").replace(/\s+/g, " ").trim();
+  const normalizedContent = visibleRecoveryAssistantContent(String(content || ""))
+    .replace(/\s+/g, " ")
+    .trim();
   return `${normalizedRole}-${index}-${normalizedContent}`;
 }
 
@@ -87,10 +91,20 @@ function toUiMessages(
         content:
           normalizeRole(message.role) === "assistant"
             ? sanitizeAssistantMessage(String(message.content || ""))
-            : String(message.content || ""),
+            : visibleRecoveryAssistantContent(String(message.content || "")),
         timestamp,
       };
     });
+}
+
+function toVisibleBackendHistory(
+  history: BackendChatMessage[] | undefined,
+): BackendChatMessage[] {
+  return (history || []).map((message) =>
+    normalizeRole(message.role) === "user"
+      ? { ...message, content: visibleRecoveryAssistantContent(String(message.content || "")) }
+      : message,
+  );
 }
 
 function makeLocalMessage(
@@ -196,11 +210,14 @@ function buildSessionSnapshot(
 
   return {
     session_id: response.session_id,
+    session_path: response.session_path || (sameSession ? previous?.session_path : undefined),
     org_info: sameSession ? previous?.org_info : {},
     answers: nextAnswers,
     followups: sameSession ? previous?.followups || [] : [],
     events: sameSession ? previous?.events || [] : [],
-    chat_history: response.chat_history || previous?.chat_history || [],
+    chat_history: response.chat_history
+      ? toVisibleBackendHistory(response.chat_history)
+      : previous?.chat_history || [],
     context_notes: response.context_notes || (sameSession ? previous?.context_notes || [] : []),
     pending_answer: response.pending_answer ?? (sameSession ? previous?.pending_answer ?? null : null),
     unclear_question_ids: response.unclear_questions || [],
@@ -216,11 +233,42 @@ function buildSessionSnapshot(
   };
 }
 
+function createEmptyRecoverySessionState(
+  sessionId: string,
+  orgInfo: Record<string, unknown> = {},
+): SessionStateResponse {
+  return {
+    session_id: sessionId,
+    session_path: "recovery-proof",
+    org_info: orgInfo,
+    answers: {},
+    followups: [],
+    events: [],
+    chat_history: [],
+    context_notes: [],
+    pending_answer: null,
+    unclear_question_ids: [],
+    recovery_evidence: [],
+    recovery_proof: null,
+    current_question_id: null,
+    current_domain: null,
+    interview_complete: false,
+    completion_mode: "recovery_proof_workspace",
+    progress: {
+      completion_rate: 0,
+      is_complete: false,
+    },
+  };
+}
+
 function mergeChatResponseMessages(
   previousMessages: UiMessage[],
   response: ChatResponse,
   questions: Question[],
 ): UiMessage[] {
+  const recoveryAssistantMode = (response.chat_history || []).some((message) =>
+    isRecoveryAssistantContent(String(message.content || "")),
+  );
   const nextMessages = response.chat_history?.length
     ? toUiMessages(response.chat_history)
     : response.assistant_message
@@ -234,10 +282,24 @@ function mergeChatResponseMessages(
         ]
       : previousMessages;
 
-  return attachLatestAssistantMetadata(
+  const merged = attachLatestAssistantMetadata(
     preserveAssistantMetadata(previousMessages, nextMessages),
     response,
     questions,
+  );
+
+  if (!recoveryAssistantMode) {
+    return merged;
+  }
+
+  return merged.map((message) =>
+    message.role === "assistant"
+      ? {
+          ...message,
+          content: sanitizeRecoveryAssistantMessage(message.content),
+          assistantTransparency: undefined,
+        }
+      : message,
   );
 }
 
@@ -261,10 +323,12 @@ function messageFromError(error: unknown): string {
 }
 
 const UI_STATE_KEY = "ransomware-readiness.ui-state";
+const PROFILE_STATE_KEY = "ransomware-readiness.profile";
 const artifactIds = new Set<ArtifactId>([
   "readiness-report",
   "action-plan",
   "evidence-binder",
+  "recovery-proof",
   "skills",
   "ransomware-playbook",
   "technical-json",
@@ -276,6 +340,37 @@ type PersistedUiState = {
   activeArtifact: ArtifactId;
   artifactOverlayOpen: boolean;
 };
+
+function viewFromLocation(): AppView | null {
+  if (window.location.pathname === "/landing") return "landing";
+  if (window.location.pathname === "/profile/create") return "profile-create";
+  return null;
+}
+
+function readStoredProfile(): ProfileSetupValues | null {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_STATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    const profile = parsed as Partial<ProfileSetupValues>;
+    if (
+      typeof profile.organizationName !== "string" ||
+      typeof profile.industry !== "string" ||
+      typeof profile.organizationSize !== "string" ||
+      typeof profile.assessmentOwner !== "string"
+    ) {
+      return null;
+    }
+    return {
+      organizationName: profile.organizationName,
+      industry: profile.industry,
+      organizationSize: profile.organizationSize,
+      assessmentOwner: profile.assessmentOwner,
+    };
+  } catch {
+    return null;
+  }
+}
 
 function readPersistedUiState(): Partial<PersistedUiState> {
   try {
@@ -303,6 +398,56 @@ function artifactNeedsReport(artifact: ArtifactId): boolean {
     artifact === "ransomware-playbook";
 }
 
+function artifactForSessionPath(artifact: ArtifactId, path: SessionPath): ArtifactId {
+  const normalized = artifact === "ransomware-playbook" ? "skills" : artifact;
+  if (path === "questionnaire") {
+    return normalized === "recovery-proof" ? "readiness-report" : normalized;
+  }
+  if (
+    normalized === "action-plan" ||
+    normalized === "evidence-binder" ||
+    normalized === "skills"
+  ) {
+    return "recovery-proof";
+  }
+  return normalized;
+}
+
+function isSessionPath(value: unknown): value is SessionPath {
+  return value === "recovery-proof" || value === "questionnaire";
+}
+
+function inferSessionPath(
+  summary?: SessionSummary | null,
+  session?: SessionStateResponse | null,
+): SessionPath {
+  if (isSessionPath(session?.session_path)) {
+    return session.session_path;
+  }
+  if (isSessionPath(summary?.path)) {
+    return summary.path;
+  }
+  if (session?.completion_mode === "recovery_proof_workspace") {
+    return "recovery-proof";
+  }
+  if (
+    (session?.chat_history || []).some((message) =>
+      isRecoveryAssistantContent(String(message.content || "")),
+    )
+  ) {
+    return "recovery-proof";
+  }
+  if (
+    session?.current_question_id ||
+    Object.keys(session?.answers || {}).length ||
+    session?.completion_mode === "full" ||
+    session?.completion_mode === "preliminary"
+  ) {
+    return "questionnaire";
+  }
+  return "recovery-proof";
+}
+
 export default function App() {
   const didInitialLoadRef = useRef(false);
   const initialUiStateRef = useRef(readPersistedUiState());
@@ -328,7 +473,10 @@ export default function App() {
     Boolean(initialUiStateRef.current.artifactOverlayOpen),
   );
   const [activeView, setActiveView] = useState<AppView>(
-    initialUiStateRef.current.activeView ?? "home",
+    viewFromLocation() ?? initialUiStateRef.current.activeView ?? "home",
+  );
+  const [workspaceProfile, setWorkspaceProfile] = useState<ProfileSetupValues | null>(() =>
+    readStoredProfile(),
   );
   const [language, setLanguage] = useState<UiLanguage>(() => {
     const saved = window.localStorage.getItem("ransomware-readiness.language");
@@ -342,6 +490,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const [lastUserOptions, setLastUserOptions] = useState<ChatRequestOptions>({});
+  const activeSessionSummary = sessions.find((session) => session.id === activeSessionId) || null;
+  const activeSessionPath = inferSessionPath(activeSessionSummary, sessionState);
 
   function resetWorkspaceState() {
     setActiveSessionId(null);
@@ -433,6 +583,7 @@ export default function App() {
       refreshSessionMetadata(sessionId, {
         score: nextScore,
         session: nextSession,
+        path: isSessionPath(nextSession?.session_path) ? nextSession.session_path : undefined,
         touch: options.touchSession,
         completionRate:
           nextScore?.completion_rate ??
@@ -448,7 +599,11 @@ export default function App() {
   const applyChatResponse = useCallback(
     async (
       response: ChatResponse,
-      options: { animateLatestAssistant?: boolean } = {},
+      options: {
+        animateLatestAssistant?: boolean;
+        sessionPath?: SessionPath;
+        explicitTitle?: string;
+      } = {},
     ) => {
       setActiveSessionId(response.session_id);
       setLastResponse(response);
@@ -481,6 +636,8 @@ export default function App() {
         score: response.report || response.score,
         completionRate: response.score?.completion_rate ?? response.completion_rate,
         riskLevel: response.score?.risk_level ?? response.report?.risk_level,
+        path: response.session_path || options.sessionPath,
+        explicitTitle: options.explicitTitle,
       });
     },
     [questions, refreshSessionMetadata],
@@ -567,6 +724,7 @@ export default function App() {
     setSessions(localSessions);
     void bootstrap();
     const restored = initialUiStateRef.current;
+    const locationView = viewFromLocation();
     const restoredSessionExists = localSessions.some((session) => session.id === restored.activeSessionId);
     const sessionId = restoredSessionExists ? restored.activeSessionId : null;
 
@@ -574,7 +732,7 @@ export default function App() {
       const cachedReport = getStoredReport(sessionId);
       setActiveSessionId(sessionId);
       setReport(cachedReport);
-      setActiveView(restored.activeView ?? "home");
+      setActiveView(locationView ?? restored.activeView ?? "home");
       setActiveArtifact(restored.activeArtifact ?? "readiness-report");
       setArtifactOverlayOpen(Boolean(restored.artifactOverlayOpen));
       void refreshBackendState(sessionId, {
@@ -606,7 +764,9 @@ export default function App() {
       setMessages([]);
       setAnimateMessageId(null);
       setArtifactOverlayOpen(false);
-      if (restored.activeView === "interview") {
+      if (locationView) {
+        setActiveView(locationView);
+      } else if (restored.activeView === "interview") {
         setActiveView("home");
       }
     }
@@ -623,6 +783,26 @@ export default function App() {
       } satisfies PersistedUiState),
     );
   }, [activeArtifact, activeSessionId, activeView, artifactOverlayOpen]);
+
+  useEffect(() => {
+    const nextPath =
+      activeView === "landing"
+        ? "/landing"
+        : activeView === "profile-create"
+          ? "/profile/create"
+          : "/";
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({ activeView }, "", nextPath);
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveView(viewFromLocation() ?? "home");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const artifactOverlayVisible = activeView === "interview" && artifactOverlayOpen;
 
@@ -651,17 +831,42 @@ export default function App() {
     return () => document.body.classList.remove("interview-page-open");
   }, [activeView]);
 
-  async function startAssessment() {
+  useEffect(() => {
+    const allowedArtifact = artifactForSessionPath(activeArtifact, activeSessionPath);
+    if (allowedArtifact !== activeArtifact) {
+      setActiveArtifact(allowedArtifact);
+    }
+  }, [activeArtifact, activeSessionPath]);
+
+  async function startRecoveryProofSession() {
     setSending(true);
     setError(null);
     setReport(null);
+    setScore(null);
     setAnimateMessageId(null);
+    setLastResponse(null);
+    setLastUserMessage(null);
+    setLastUserOptions({ session_path: "recovery-proof" });
     setArtifactOverlayOpen(false);
     setActiveView("interview");
     setSidebarOpen(false);
     try {
-      const response = await chat(null, "");
-      await applyChatResponse(response);
+      const session = await createSession({}, "recovery-proof");
+      setActiveSessionId(session.session_id);
+      setSessionState(createEmptyRecoverySessionState(session.session_id, session.org_info || {}));
+      setLastResponse(null);
+      setMessages([
+        makeLocalMessage(
+          "assistant",
+          "Start with recovery proof. Import backup, M365, Wazuh, Prowler, DefectDojo, or manual evidence, then I can help interpret proof gaps and draft MSP tickets.",
+        ),
+      ]);
+      refreshSessionMetadata(session.session_id, {
+        explicitTitle: "Recovery proof workspace",
+        completionRate: 0,
+        path: "recovery-proof",
+      });
+      setBackendOnline(true);
     } catch (startError) {
       setBackendOnline(false);
       setError(messageFromError(startError));
@@ -670,9 +875,54 @@ export default function App() {
     }
   }
 
+  async function startQuestionnaireSession() {
+    setSending(true);
+    setError(null);
+    setReport(null);
+    setScore(null);
+    setSessionState(null);
+    setLastResponse(null);
+    setMessages([]);
+    setAnimateMessageId(null);
+    setLastUserMessage(null);
+    setLastUserOptions({ session_path: "questionnaire" });
+    setArtifactOverlayOpen(false);
+    setActiveArtifact("readiness-report");
+    setActiveView("interview");
+    setSidebarOpen(false);
+
+    try {
+      const response = await chat(null, "", { session_path: "questionnaire" });
+      await applyChatResponse(response, {
+        animateLatestAssistant: true,
+        sessionPath: "questionnaire",
+        explicitTitle: "Questionnaire assessment",
+      });
+      setBackendOnline(true);
+    } catch (startError) {
+      setBackendOnline(false);
+      setError(messageFromError(startError));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function startSessionPath(path: SessionPath) {
+    if (path === "questionnaire") {
+      await startQuestionnaireSession();
+      return;
+    }
+    await startRecoveryProofSession();
+  }
+
+  async function startAssessment() {
+    await startRecoveryProofSession();
+  }
+
   async function sendMessage(message: string, options: ChatRequestOptions = {}) {
+    const sessionPath = options.session_path || activeSessionPath;
     if (!message.trim()) {
-      await startAssessment();
+      await startSessionPath(sessionPath);
       return;
     }
 
@@ -687,25 +937,50 @@ export default function App() {
     try {
       let sessionId = activeSessionId;
       if (!sessionId) {
-        const startResponse = await chat(null, "");
-        sessionId = startResponse.session_id;
-        await applyChatResponse(startResponse);
+        if (sessionPath === "questionnaire") {
+          const visibleMessage = options.display_message || message;
+          setMessages((current) => [...current, makeLocalMessage("user", visibleMessage)]);
+          const response = await chat(null, message, options);
+          await applyChatResponse(response, {
+            animateLatestAssistant: true,
+            sessionPath,
+            explicitTitle: "Questionnaire assessment",
+          });
+          return;
+        }
+        const session = await createSession({}, "recovery-proof");
+        sessionId = session.session_id;
+        setActiveSessionId(sessionId);
+        setSessionState(createEmptyRecoverySessionState(sessionId, session.org_info || {}));
       }
 
-      setMessages((current) => [...current, makeLocalMessage("user", message)]);
+      const visibleMessage = options.display_message || visibleRecoveryAssistantContent(message);
+      setMessages((current) => [...current, makeLocalMessage("user", visibleMessage)]);
       const response = await chat(sessionId, message, options);
-      await applyChatResponse(response, { animateLatestAssistant: true });
+      await applyChatResponse(response, { animateLatestAssistant: true, sessionPath });
     } catch (sendError) {
       if (sendError instanceof ApiError && sendError.status === 404 && activeSessionId) {
         const staleSessionId = activeSessionId;
         setSessions(removeSession(staleSessionId));
         resetWorkspaceState();
         try {
-          const startResponse = await chat(null, "");
-          await applyChatResponse(startResponse);
-          setMessages((current) => [...current, makeLocalMessage("user", message)]);
-          const response = await chat(startResponse.session_id, message, options);
-          await applyChatResponse(response, { animateLatestAssistant: true });
+          if (sessionPath === "questionnaire") {
+            const response = await chat(null, message, options);
+            await applyChatResponse(response, {
+              animateLatestAssistant: true,
+              sessionPath,
+              explicitTitle: "Questionnaire assessment",
+            });
+            return;
+          }
+          const session = await createSession({}, "recovery-proof");
+          setActiveSessionId(session.session_id);
+          setMessages((current) => [
+            ...current,
+            makeLocalMessage("user", options.display_message || visibleRecoveryAssistantContent(message)),
+          ]);
+          const response = await chat(session.session_id, message, options);
+          await applyChatResponse(response, { animateLatestAssistant: true, sessionPath });
           return;
         } catch (retryError) {
           setBackendOnline(false);
@@ -720,10 +995,10 @@ export default function App() {
     }
   }
 
-  async function sendNewSessionMessage(message: string) {
+  async function sendNewSessionMessage(message: string, path: SessionPath = "questionnaire") {
     const trimmedMessage = message.trim();
     if (!trimmedMessage) {
-      await startAssessment();
+      await startSessionPath(path);
       return;
     }
 
@@ -738,13 +1013,38 @@ export default function App() {
     setArtifactOverlayOpen(false);
     setActiveView("interview");
     setSidebarOpen(false);
+    setLastUserOptions({ session_path: path });
     setMessages([makeLocalMessage("user", trimmedMessage)]);
 
     try {
-      const session = await createSession();
+      if (path === "recovery-proof") {
+        const session = await createSession({}, "recovery-proof");
+        setActiveSessionId(session.session_id);
+        setSessionState(createEmptyRecoverySessionState(session.session_id, session.org_info || {}));
+        const response = await chat(
+          session.session_id,
+          buildRecoveryAssistantPrompt(trimmedMessage),
+          {
+            intent_mode: "advisory",
+            display_message: trimmedMessage,
+            session_path: "recovery-proof",
+          },
+        );
+        await applyChatResponse(response, {
+          animateLatestAssistant: true,
+          sessionPath: "recovery-proof",
+          explicitTitle: "Recovery proof workspace",
+        });
+        return;
+      }
+      const session = await createSession({}, "questionnaire");
       setActiveSessionId(session.session_id);
-      const response = await chat(session.session_id, trimmedMessage);
-      await applyChatResponse(response, { animateLatestAssistant: true });
+      const response = await chat(session.session_id, trimmedMessage, { session_path: "questionnaire" });
+      await applyChatResponse(response, {
+        animateLatestAssistant: true,
+        sessionPath: "questionnaire",
+        explicitTitle: "Questionnaire assessment",
+      });
     } catch (sendError) {
       setBackendOnline(false);
       setError(messageFromError(sendError));
@@ -757,7 +1057,7 @@ export default function App() {
     if (lastUserMessage) {
       await sendMessage(lastUserMessage, lastUserOptions);
     } else {
-      await startAssessment();
+      await startSessionPath(lastUserOptions.session_path || activeSessionPath);
     }
   }
 
@@ -819,6 +1119,7 @@ export default function App() {
       ]);
       refreshSessionMetadata(sessionId, {
         explicitTitle: profileId === "weak_sme" ? "Weak SME demo" : "Better SME demo",
+        path: "questionnaire",
         profileName: demo.profile_name || profileId,
         score:
           reportResult.status === "fulfilled"
@@ -867,6 +1168,7 @@ export default function App() {
         score: nextReport,
         completionRate: nextReport.completion_rate,
         riskLevel: nextReport.risk_level,
+        path: activeSessionPath,
       });
       setBackendOnline(true);
     } catch (reportError) {
@@ -886,10 +1188,33 @@ export default function App() {
     }
   }
 
-  const currentQuestion =
-    lastResponse?.current_question ||
-    questions.find((question) => question.id === sessionState?.current_question_id) ||
-    null;
+  function saveWorkspaceProfile(profile: ProfileSetupValues) {
+    window.localStorage.setItem(PROFILE_STATE_KEY, JSON.stringify(profile));
+    setWorkspaceProfile(profile);
+    setActiveView("landing");
+  }
+
+  if (activeView === "landing") {
+    return (
+      <LandingPage
+        onBack={() => setActiveView("home")}
+        onCreateProfile={() => setActiveView("profile-create")}
+        onStartAssessment={startAssessment}
+        profileCreated={Boolean(workspaceProfile)}
+        profile={workspaceProfile}
+      />
+    );
+  }
+
+  if (activeView === "profile-create") {
+    return (
+      <ProfileSetupPage
+        initialProfile={workspaceProfile}
+        onBack={() => setActiveView("landing")}
+        onSave={saveWorkspaceProfile}
+      />
+    );
+  }
 
   return (
     <Layout
@@ -922,6 +1247,7 @@ export default function App() {
             reportLoading={artifactLoading}
             onPrompt={sendNewSessionMessage}
             onStartAssessment={startAssessment}
+            onStartPath={startSessionPath}
             onLoadDemo={handleLoadDemo}
             onGenerateReport={generateReport}
             onOpenTechnical={() => {
@@ -929,6 +1255,7 @@ export default function App() {
               setActiveView("interview");
             }}
             onOpenInterview={() => setActiveView("interview")}
+            onOpenLanding={() => setActiveView("landing")}
           />
         ),
         interview: (
@@ -941,11 +1268,12 @@ export default function App() {
             <ArtifactTopTabs
               activeArtifact={activeArtifact}
               artifactOverlayOpen={artifactOverlayOpen}
+              sessionPath={activeSessionPath}
               language={language}
               onLanguageChange={changeLanguage}
               onChat={() => setArtifactOverlayOpen(false)}
               onChange={(artifact) => {
-                setActiveArtifact(artifact);
+                setActiveArtifact(artifactForSessionPath(artifact, activeSessionPath));
                 setArtifactOverlayOpen(true);
               }}
             />
@@ -954,16 +1282,21 @@ export default function App() {
                 <ChatPanel
                   messages={messages}
                   animateMessageId={animateMessageId}
+                  activeSessionId={activeSessionId}
+                  sessionPath={activeSessionPath}
                   language={language}
-                  currentQuestion={currentQuestion}
-                  pendingAnswer={sessionState?.pending_answer || lastResponse?.pending_answer || null}
                   sending={sending}
                   error={error}
-                  onStart={startAssessment}
                   onSend={sendMessage}
+                  onStartPath={startSessionPath}
                   onRetry={retryLastMessage}
                   onOpenArtifact={(artifact) => {
-                    setActiveArtifact(artifact === "ransomware-playbook" ? "skills" : artifact);
+                    setActiveArtifact(artifactForSessionPath(artifact, activeSessionPath));
+                    setArtifactOverlayOpen(true);
+                    setActiveView("interview");
+                  }}
+                  onOpenReport={() => {
+                    setActiveArtifact("readiness-report");
                     setArtifactOverlayOpen(true);
                     setActiveView("interview");
                   }}
@@ -971,9 +1304,10 @@ export default function App() {
               ) : null}
               <SessionArtifactOverlay
                 open={artifactOverlayOpen}
-                activeArtifact={activeArtifact}
+                activeArtifact={artifactForSessionPath(activeArtifact, activeSessionPath)}
                 activeSessionId={activeSessionId}
                 report={report}
+                sessionPath={activeSessionPath}
                 session={sessionState}
                 score={score}
                 lastResponse={lastResponse}
@@ -985,18 +1319,30 @@ export default function App() {
                 loading={artifactLoading || sending}
                 language={language}
                 onGenerateReport={generateReport}
+                onOpenArtifact={(artifact) => {
+                  setActiveArtifact(artifactForSessionPath(artifact, activeSessionPath));
+                  setArtifactOverlayOpen(true);
+                  setActiveView("interview");
+                }}
                 onOpenReport={() => setActiveArtifact("readiness-report")}
                 onClose={() => setArtifactOverlayOpen(false)}
               />
             </div>
             {!artifactOverlayOpen ? (
-              <AssessmentStatusFooter
-                session={sessionState}
-                score={score}
-                lastResponse={lastResponse}
-                questions={questions}
-                language={language}
-              />
+              activeSessionPath === "questionnaire" ? (
+                <AssessmentStatusFooter
+                  session={sessionState}
+                  score={score}
+                  lastResponse={lastResponse}
+                  questions={questions}
+                  language={language}
+                />
+              ) : (
+                <RecoveryWorkspaceFooter
+                  session={sessionState}
+                  report={report}
+                />
+              )
             ) : null}
           </section>
         ),
@@ -1007,20 +1353,18 @@ export default function App() {
 
 const artifactTabs: Array<{
   id: ArtifactId;
-  labelKey?: "report" | "actionPlan" | "evidenceBinder" | "skills" | "technical";
+  labelKey?: "report" | "actionPlan" | "recoveryProof";
   label?: string;
-  icon: JSX.Element;
 }> = [
-  { id: "readiness-report", labelKey: "report", icon: <FileText className="h-4 w-4" /> },
-  { id: "action-plan", labelKey: "actionPlan", icon: <ClipboardList className="h-4 w-4" /> },
-  { id: "evidence-binder", labelKey: "evidenceBinder", icon: <ListChecks className="h-4 w-4" /> },
-  { id: "skills", labelKey: "skills", icon: <BookOpenCheck className="h-4 w-4" /> },
-  { id: "technical-json", labelKey: "technical", icon: <Settings2 className="h-4 w-4" /> },
+  { id: "readiness-report", labelKey: "report" },
+  { id: "action-plan", labelKey: "actionPlan" },
+  { id: "recovery-proof", labelKey: "recoveryProof" },
 ];
 
 function ArtifactTopTabs({
   activeArtifact,
   artifactOverlayOpen,
+  sessionPath,
   language,
   onLanguageChange,
   onChat,
@@ -1028,12 +1372,27 @@ function ArtifactTopTabs({
 }: {
   activeArtifact: ArtifactId;
   artifactOverlayOpen: boolean;
+  sessionPath: SessionPath;
   language: UiLanguage;
   onLanguageChange: (language: UiLanguage) => void;
   onChat: () => void;
   onChange: (artifact: ArtifactId) => void;
 }) {
   const selectedArtifact = activeArtifact === "ransomware-playbook" ? "skills" : activeArtifact;
+  const visibleTabs = artifactTabs.filter((tab) => {
+    if (sessionPath === "questionnaire") {
+      return tab.id !== "recovery-proof";
+    }
+    return tab.id !== "action-plan";
+  });
+  const reportNestedArtifacts = new Set<ArtifactId>([
+    "evidence-binder",
+    "skills",
+    "technical-json",
+  ]);
+  const visibleSelectedArtifact = reportNestedArtifacts.has(selectedArtifact)
+    ? "readiness-report"
+    : selectedArtifact;
 
   return (
     <div className="mb-4 rounded-2xl border border-white/10 bg-black/30 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.2)]">
@@ -1049,11 +1408,10 @@ function ArtifactTopTabs({
                 : "text-slate-400 hover:bg-white/10 hover:text-white",
             )}
           >
-            <MessageSquare className="h-4 w-4" />
             {t(language, "chat")}
           </button>
-          {artifactTabs.map((tab) => {
-            const active = artifactOverlayOpen && selectedArtifact === tab.id;
+          {visibleTabs.map((tab) => {
+            const active = artifactOverlayOpen && visibleSelectedArtifact === tab.id;
             const label = tab.labelKey ? t(language, tab.labelKey) : tab.label || tab.id;
             return (
               <button
@@ -1067,7 +1425,6 @@ function ArtifactTopTabs({
                     : "text-slate-400 hover:bg-white/10 hover:text-white",
                 )}
               >
-                {tab.icon}
                 {label}
               </button>
             );

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request
+import yaml
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -64,7 +66,14 @@ from backend.questions import (
     load_source_notes,
     question_map,
 )
+from backend.recovery_adapters import SUPPORTED_EVIDENCE_ADAPTERS, import_tool_output
+from backend.recovery_exports import export_remediation_tickets
 from backend.report import generate_report
+from backend.recovery_proof import (
+    load_recovery_controls,
+    normalize_evidence_items,
+    run_recovery_proof,
+)
 from backend.scoring import calculate_scores
 from backend.security import (
     RATE_LIMITER,
@@ -146,6 +155,7 @@ class SessionCreateIn(BaseModel):
     organization_size: str | None = None
     it_model: str | None = None
     critical_systems: str | None = None
+    session_path: str | None = None
 
 
 class AnswerIn(BaseModel):
@@ -170,6 +180,28 @@ class ChatIn(BaseModel):
     message: str = ""
     intent_mode: str | None = None
     selected_answer: str | None = None
+    session_path: str | None = None
+
+
+class RecoveryEvidenceIn(BaseModel):
+    session_id: str
+    items: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RecoveryEvidenceTextIn(BaseModel):
+    session_id: str
+    text: str
+    source: str = "generic"
+    format: str | None = None
+
+
+class RecoveryProofRunIn(BaseModel):
+    session_id: str
+    items: list[dict[str, Any]] | None = None
+
+
+def _normalize_session_path(value: str | None) -> str:
+    return "recovery-proof" if value == "recovery-proof" else "questionnaire"
 
 
 @app.get("/")
@@ -196,10 +228,11 @@ def get_provider_status():
 @app.post("/session")
 def create_session(payload: SessionCreateIn | None = None):
     sid = str(uuid4())
-    org_info = payload.model_dump(exclude_none=True) if payload else {}
-    state = SessionState(session_id=sid, org_info=org_info)
+    session_path = _normalize_session_path(payload.session_path if payload else None)
+    org_info = payload.model_dump(exclude_none=True, exclude={"session_path"}) if payload else {}
+    state = SessionState(session_id=sid, session_path=session_path, org_info=org_info)
     save_session(state)
-    return {"session_id": sid, "org_info": org_info}
+    return {"session_id": sid, "session_path": session_path, "org_info": org_info}
 
 
 @app.get("/questions")
@@ -225,17 +258,22 @@ def load_demo_profile(payload: DemoProfileIn):
         raise HTTPException(status_code=404, detail="Demo profile not found")
     profile = profiles[payload.profile_id]
     sid = str(uuid4())
-    state = SessionState(session_id=sid, org_info=profile["org_info"])
+    state = SessionState(session_id=sid, session_path="questionnaire", org_info=profile["org_info"])
     state.answers = profile["answers"]
     state.report = None
     state.events.append({"type": "demo_profile_loaded", "profile_id": payload.profile_id})
     save_session(state)
-    return {"session_id": sid, "profile_name": profile["name"], "org_info": state.org_info}
+    return {
+        "session_id": sid,
+        "session_path": state.session_path,
+        "profile_name": profile["name"],
+        "org_info": state.org_info,
+    }
 
 
 @app.post("/chat")
 def chat(payload: ChatIn, request: Request):
-    state, is_new = _get_or_create_chat_state(payload.session_id)
+    state, is_new = _get_or_create_chat_state(payload.session_id, payload.session_path)
     message = payload.message.strip()
     user_message_recorded = False
     request_id = getattr(request.state, "request_id", "")
@@ -1309,7 +1347,7 @@ def submit_answer(payload: AnswerIn):
     sid = payload.session_id
     if sid is None:
         sid = str(uuid4())
-        state = SessionState(session_id=sid)
+        state = SessionState(session_id=sid, session_path="questionnaire")
         save_session(state)
     else:
         state = _get_state(sid)
@@ -1386,6 +1424,142 @@ def get_report(session_id: str):
     return _get_or_build_session_report(state)
 
 
+@app.get("/recovery-proof/controls")
+def get_recovery_proof_controls():
+    return load_recovery_controls()
+
+
+@app.get("/recovery-proof/import-adapters")
+def get_recovery_proof_import_adapters():
+    return {
+        "safe_defensive_only": True,
+        "execution_enabled": False,
+        "network_calls_enabled": False,
+        "adapters": SUPPORTED_EVIDENCE_ADAPTERS,
+    }
+
+
+@app.post("/recovery-proof/evidence")
+def import_recovery_proof_evidence(payload: RecoveryEvidenceIn):
+    state = _get_state(payload.session_id)
+    state.session_path = "recovery-proof"
+    normalized = normalize_evidence_items(payload.items)
+    state.recovery_evidence = _merge_evidence_items(state.recovery_evidence, normalized)
+    state.recovery_proof = None
+    state.report = None
+    state.events.append(
+        {
+            "type": "recovery_evidence_imported",
+            "items_imported": len(normalized),
+            "items_stored": len(state.recovery_evidence),
+        }
+    )
+    save_session(state)
+    return {
+        "session_id": state.session_id,
+        "count": len(normalized),
+        "stored_count": len(state.recovery_evidence),
+        "items": normalized,
+    }
+
+
+@app.post("/recovery-proof/import-text")
+def import_recovery_proof_evidence_text(payload: RecoveryEvidenceTextIn):
+    state = _get_state(payload.session_id)
+    state.session_path = "recovery-proof"
+    try:
+        raw_items = import_tool_output(
+            payload.text,
+            source=payload.source,
+            evidence_format=payload.format,
+        )
+    except (ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
+        raise HTTPException(status_code=400, detail=f"Could not parse evidence text: {exc}") from exc
+
+    normalized = normalize_evidence_items(raw_items)
+    state.recovery_evidence = _merge_evidence_items(state.recovery_evidence, normalized)
+    state.recovery_proof = None
+    state.report = None
+    state.events.append(
+        {
+            "type": "recovery_evidence_text_imported",
+            "source": payload.source,
+            "format": payload.format or "auto",
+            "items_imported": len(normalized),
+            "items_stored": len(state.recovery_evidence),
+        }
+    )
+    save_session(state)
+    return {
+        "session_id": state.session_id,
+        "count": len(normalized),
+        "stored_count": len(state.recovery_evidence),
+        "items": normalized,
+    }
+
+
+@app.post("/recovery-proof/import-tool-output")
+def import_recovery_proof_tool_output(payload: RecoveryEvidenceTextIn):
+    return import_recovery_proof_evidence_text(payload)
+
+
+@app.get("/recovery-proof/evidence/{session_id}")
+def get_recovery_proof_evidence(session_id: str):
+    state = _get_state(session_id)
+    return {
+        "session_id": state.session_id,
+        "count": len(state.recovery_evidence),
+        "items": state.recovery_evidence,
+    }
+
+
+@app.post("/recovery-proof/run")
+def run_recovery_proof_for_session(payload: RecoveryProofRunIn):
+    state = _get_state(payload.session_id)
+    state.session_path = "recovery-proof"
+    provided = normalize_evidence_items(payload.items or [])
+    evidence_items = _merge_evidence_items(state.recovery_evidence, provided)
+    proof = run_recovery_proof(_base_answers_only(state.answers), evidence_items)
+    state.recovery_proof = proof
+    state.events.append(
+        {
+            "type": "recovery_proof_run",
+            "stored_evidence_count": len(state.recovery_evidence),
+            "provided_evidence_count": len(provided),
+            "recovery_proof_score": proof.get("recovery_proof_score"),
+            "evidence_confidence": proof.get("evidence_confidence"),
+        }
+    )
+    save_session(state)
+    return proof
+
+
+@app.get("/recovery-proof/tickets/{session_id}/export")
+def export_recovery_proof_tickets(
+    session_id: str,
+    format: str = Query(default="markdown", pattern="^(markdown|md|jira|jira_json|json)$"),
+):
+    state = _get_state(session_id)
+    proof = state.recovery_proof
+    if proof is None:
+        state.session_path = "recovery-proof"
+        proof = run_recovery_proof(_base_answers_only(state.answers), state.recovery_evidence)
+        state.recovery_proof = proof
+        save_session(state)
+    try:
+        exported = export_remediation_tickets(
+            list(proof.get("remediation_tickets") or []),
+            export_format=format,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "session_id": state.session_id,
+        "safe_defensive_only": True,
+        **exported,
+    }
+
+
 @app.get("/external-exposure/checklist")
 def get_external_exposure_checklist():
     return build_external_exposure_self_check()
@@ -1416,6 +1590,7 @@ def get_session(session_id: str):
     state = _get_state(session_id)
     return {
         "session_id": state.session_id,
+        "session_path": state.session_path,
         "org_info": state.org_info,
         "answers": state.answers,
         "report": state.report,
@@ -1425,6 +1600,8 @@ def get_session(session_id: str):
         "context_notes": state.context_notes,
         "pending_answer": state.pending_answer,
         "unclear_question_ids": state.unclear_question_ids,
+        "recovery_evidence": state.recovery_evidence,
+        "recovery_proof": state.recovery_proof,
         "current_question_id": state.current_question_id,
         "current_domain": state.current_domain,
         "interview_complete": state.interview_complete,
@@ -1478,11 +1655,14 @@ def technical_flow():
     }
 
 
-def _get_or_create_chat_state(session_id: str | None) -> tuple[SessionState, bool]:
+def _get_or_create_chat_state(session_id: str | None, session_path: str | None = None) -> tuple[SessionState, bool]:
     if session_id:
-        return _get_state(session_id), False
+        state = _get_state(session_id)
+        if not getattr(state, "session_path", None):
+            state.session_path = _normalize_session_path(session_path)
+        return state, False
     sid = str(uuid4())
-    state = SessionState(session_id=sid)
+    state = SessionState(session_id=sid, session_path=_normalize_session_path(session_path))
     save_session(state)
     return state, True
 
@@ -1786,6 +1966,7 @@ def _chat_response(
     current_question = _clean_question_payload(question_map().get(state.current_question_id or ""))
     return {
         "session_id": state.session_id,
+        "session_path": state.session_path,
         "assistant_message": assistant_message,
         "intent": intent,
         "action": action,
@@ -1864,13 +2045,35 @@ def _get_state(session_id: str) -> SessionState:
     return state
 
 
+def _merge_evidence_items(
+    existing: list[dict[str, Any]],
+    incoming: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for item in [*(existing or []), *(incoming or [])]:
+        if not isinstance(item, dict):
+            continue
+        evidence_id = str(item.get("id") or "").strip()
+        if not evidence_id:
+            continue
+        if evidence_id not in merged:
+            order.append(evidence_id)
+        merged[evidence_id] = item
+    return [merged[evidence_id] for evidence_id in order]
+
+
 def _invalidate_cached_report(state: SessionState) -> None:
     state.report = None
 
 
 def _get_or_build_session_report(state: SessionState) -> dict[str, Any]:
     if state.report is None:
-        state.report = generate_report(_base_answers_only(state.answers), state.org_info)
+        state.report = generate_report(
+            _base_answers_only(state.answers),
+            state.org_info,
+            recovery_evidence_items=state.recovery_evidence,
+        )
         save_session(state)
     return state.report
 

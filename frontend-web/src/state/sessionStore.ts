@@ -1,4 +1,4 @@
-import type { ReportResponse, SessionSummary } from "../types/api";
+import type { ReportResponse, SessionPath, SessionSummary } from "../types/api";
 
 const STORAGE_KEY = "ransomware-readiness.sessions";
 const REPORTS_STORAGE_KEY = "ransomware-readiness.reports";
@@ -9,6 +9,10 @@ function isSessionSummary(value: unknown): value is SessionSummary {
   }
   const candidate = value as Partial<SessionSummary>;
   return Boolean(candidate.id && candidate.title && candidate.createdAt && candidate.updatedAt);
+}
+
+function isSessionPath(value: unknown): value is SessionPath {
+  return value === "recovery-proof" || value === "questionnaire";
 }
 
 export function getSessions(): SessionSummary[] {
@@ -111,6 +115,7 @@ export function makeSessionSummary(
     title: patch.title || `Assessment ${id.slice(0, 8)}`,
     createdAt: patch.createdAt || now,
     updatedAt: patch.updatedAt || now,
+    path: isSessionPath(patch.path) ? patch.path : undefined,
     profileName: patch.profileName,
     completionRate: patch.completionRate,
     riskLevel: patch.riskLevel,

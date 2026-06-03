@@ -33,6 +33,7 @@ class SessionConflictError(RuntimeError):
 @dataclass
 class SessionState:
     session_id: str
+    session_path: str = "questionnaire"
     org_info: dict[str, Any] = field(default_factory=dict)
     answers: dict[str, dict[str, Any]] = field(default_factory=dict)
     report: dict[str, Any] | None = None
@@ -42,6 +43,8 @@ class SessionState:
     context_notes: list[dict[str, Any]] = field(default_factory=list)
     pending_answer: dict[str, Any] | None = None
     unclear_question_ids: list[str] = field(default_factory=list)
+    recovery_evidence: list[dict[str, Any]] = field(default_factory=list)
+    recovery_proof: dict[str, Any] | None = None
     current_question_id: str | None = None
     current_domain: str | None = None
     interview_complete: bool = False

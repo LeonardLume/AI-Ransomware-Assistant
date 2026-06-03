@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo_wazuh_endpoint_summary",
+    "source": "wazuh",
+    "type": "logging_config",
+    "title": "Endpoint detection and alert summary",
+    "summary": "Endpoint agents report to a central console. Malware, suspicious process, and file integrity alerts are assigned to the MSP queue.",
+    "confidence": "medium",
+    "related_control_ids": ["endpoint_detection_or_logging_present"]
+  },
+  {
+    "id": "demo_wazuh_vulnerability_summary",
+    "source": "wazuh",
+    "type": "vulnerability_finding",
+    "title": "Vulnerability summary for managed endpoints",
+    "summary": "The imported summary lists unsupported software and high severity vulnerabilities for remediation tracking.",
+    "confidence": "medium",
+    "related_control_ids": ["external_exposure_reviewed"]
+  }
+]
