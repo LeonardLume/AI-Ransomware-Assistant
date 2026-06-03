@@ -4,8 +4,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   RadioTower,
-  ShieldAlert,
-  ShieldCheck,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -29,7 +27,6 @@ export default function Sidebar({
   onClose,
   onToggleCollapsed,
   onViewChange,
-  onLoadDemo,
   onSelectSession,
   onDeleteSession,
 }: {
@@ -45,7 +42,6 @@ export default function Sidebar({
   onClose: () => void;
   onToggleCollapsed: () => void;
   onViewChange: (view: AppView) => void;
-  onLoadDemo: (profileId: "weak_sme" | "better_sme") => void;
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
 }) {
@@ -212,40 +208,6 @@ export default function Sidebar({
             )}
           </div>
         </section>
-
-        <div className={cn("mt-4 p-1", collapsed && "lg:mt-auto lg:p-0")}>
-          <div className={cn("mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500", collapsed && "lg:hidden")}>
-            Demo profiles
-          </div>
-          <div className={cn("grid grid-cols-2 gap-2", collapsed && "lg:grid-cols-1")}>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onLoadDemo("weak_sme")}
-              className={cn(
-                "h-9 justify-start rounded-none border-0 bg-transparent px-1 text-xs text-slate-300 shadow-none hover:bg-transparent hover:text-white",
-                collapsed && "lg:h-10 lg:w-10 lg:justify-center lg:px-0",
-              )}
-              title="Weak SME"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              <span className={cn(collapsed && "lg:hidden")}>Weak SME</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onLoadDemo("better_sme")}
-              className={cn(
-                "h-9 justify-start rounded-none border-0 bg-transparent px-1 text-xs text-slate-300 shadow-none hover:bg-transparent hover:text-white",
-                collapsed && "lg:h-10 lg:w-10 lg:justify-center lg:px-0",
-              )}
-              title="Better SME"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span className={cn(collapsed && "lg:hidden")}>Better SME</span>
-            </Button>
-          </div>
-        </div>
 
         <div className={cn("mt-3 space-y-1", collapsed && "lg:hidden")}>
           <StatusCard

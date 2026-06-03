@@ -21,6 +21,7 @@ import Layout, { type AppView } from "./components/Layout";
 import ProfileSetupPage, { type ProfileSetupValues } from "./components/ProfileSetupPage";
 import RecoveryWorkspaceFooter from "./components/RecoveryWorkspaceFooter";
 import SessionArtifactOverlay from "./components/SessionArtifactOverlay";
+import SolutionLandingPage, { type SolutionPageId } from "./components/SolutionLandingPage";
 import { cn } from "./components/ui-helpers";
 import {
   artifactsForResponse,
@@ -344,6 +345,16 @@ type PersistedUiState = {
 function viewFromLocation(): AppView | null {
   if (window.location.pathname === "/landing") return "landing";
   if (window.location.pathname === "/profile/create") return "profile-create";
+  if (window.location.pathname === "/solutions/msp-readiness-reviews") return "solution-msp-readiness";
+  if (window.location.pathname === "/solutions/client-recovery-proof") return "solution-client-recovery-proof";
+  if (window.location.pathname === "/solutions/executive-reporting") return "solution-executive-reporting";
+  return null;
+}
+
+function solutionIdFromView(view: AppView): SolutionPageId | null {
+  if (view === "solution-msp-readiness") return "msp-readiness-reviews";
+  if (view === "solution-client-recovery-proof") return "client-recovery-proof";
+  if (view === "solution-executive-reporting") return "executive-reporting";
   return null;
 }
 
@@ -790,6 +801,12 @@ export default function App() {
         ? "/landing"
         : activeView === "profile-create"
           ? "/profile/create"
+          : activeView === "solution-msp-readiness"
+            ? "/solutions/msp-readiness-reviews"
+            : activeView === "solution-client-recovery-proof"
+              ? "/solutions/client-recovery-proof"
+              : activeView === "solution-executive-reporting"
+                ? "/solutions/executive-reporting"
           : "/";
     if (window.location.pathname !== nextPath) {
       window.history.pushState({ activeView }, "", nextPath);
@@ -1216,13 +1233,26 @@ export default function App() {
     );
   }
 
+  const activeSolutionId = solutionIdFromView(activeView);
+  if (activeSolutionId) {
+    return (
+      <SolutionLandingPage
+        solutionId={activeSolutionId}
+        onBack={() => setActiveView("landing")}
+        onStartAssessment={startAssessment}
+      />
+    );
+  }
+
+  const shellView = activeView === "interview" ? "interview" : "home";
+
   return (
     <Layout
       backendOnline={backendOnline}
       providerStatus={providerStatus}
       lastResponse={lastResponse}
-      activeView={activeView}
-      contentKey={`${activeView}-${activeSessionId || "no-session"}`}
+      activeView={shellView}
+      contentKey={`${shellView}-${activeSessionId || "no-session"}`}
       workspaceOverflowVisible={artifactOverlayVisible}
       language={language}
       sidebarOpen={sidebarOpen}
@@ -1233,7 +1263,6 @@ export default function App() {
       onToggleSidebar={() => setSidebarOpen((open) => !open)}
       onToggleSidebarCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
       onCloseSidebar={() => setSidebarOpen(false)}
-      onLoadDemo={handleLoadDemo}
       onSelectSession={selectSession}
       onDeleteSession={deleteLocalSession}
       pages={{
@@ -1319,6 +1348,7 @@ export default function App() {
                 loading={artifactLoading || sending}
                 language={language}
                 onGenerateReport={generateReport}
+                onLoadDemo={handleLoadDemo}
                 onOpenArtifact={(artifact) => {
                   setActiveArtifact(artifactForSessionPath(artifact, activeSessionPath));
                   setArtifactOverlayOpen(true);

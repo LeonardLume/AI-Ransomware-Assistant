@@ -10,8 +10,18 @@ import Sidebar from "./Sidebar";
 import { Button } from "./ui";
 import { cn } from "./ui-helpers";
 
-export type AppView = "home" | "interview" | "landing" | "profile-create";
-type ShellView = Exclude<AppView, "landing" | "profile-create">;
+export type AppView =
+  | "home"
+  | "interview"
+  | "landing"
+  | "profile-create"
+  | "solution-msp-readiness"
+  | "solution-client-recovery-proof"
+  | "solution-executive-reporting";
+type ShellView = Exclude<
+  AppView,
+  "landing" | "profile-create" | "solution-msp-readiness" | "solution-client-recovery-proof" | "solution-executive-reporting"
+>;
 
 export default function Layout({
   backendOnline,
@@ -30,7 +40,6 @@ export default function Layout({
   onToggleSidebar,
   onToggleSidebarCollapsed,
   onCloseSidebar,
-  onLoadDemo,
   onSelectSession,
   onDeleteSession,
 }: {
@@ -50,7 +59,6 @@ export default function Layout({
   onToggleSidebar: () => void;
   onToggleSidebarCollapsed: () => void;
   onCloseSidebar: () => void;
-  onLoadDemo: (profileId: "weak_sme" | "better_sme") => void;
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
 }) {
@@ -75,7 +83,6 @@ export default function Layout({
           onClose={onCloseSidebar}
           onToggleCollapsed={onToggleSidebarCollapsed}
           onViewChange={onViewChange}
-          onLoadDemo={onLoadDemo}
           onSelectSession={onSelectSession}
           onDeleteSession={onDeleteSession}
         />

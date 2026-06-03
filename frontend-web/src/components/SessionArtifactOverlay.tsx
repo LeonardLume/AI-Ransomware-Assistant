@@ -40,6 +40,7 @@ export default function SessionArtifactOverlay({
   loading,
   language = "et",
   onGenerateReport,
+  onLoadDemo,
   onOpenArtifact,
   onOpenReport,
 }: {
@@ -59,6 +60,7 @@ export default function SessionArtifactOverlay({
   loading?: boolean;
   language?: UiLanguage;
   onGenerateReport: () => void;
+  onLoadDemo?: (profileId: "weak_sme" | "better_sme") => void;
   onOpenArtifact: (artifact: ArtifactId) => void;
   onOpenReport: () => void;
   onClose: () => void;
@@ -91,6 +93,7 @@ export default function SessionArtifactOverlay({
               canGenerate={canGenerateReport}
               loading={loading}
               onGenerate={onGenerateReport}
+              onLoadDemo={onLoadDemo}
               onOpenArtifact={onOpenArtifact}
               language={language}
             />

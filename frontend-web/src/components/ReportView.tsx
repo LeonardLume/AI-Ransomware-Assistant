@@ -8,6 +8,8 @@ import {
   Info,
   RefreshCw,
   Settings2,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import type { ArtifactId, DomainScore, ReportResponse, RiskLevel, SessionPath } from "../types/api";
@@ -73,6 +75,8 @@ type MetricItem = {
   detail?: string;
 };
 
+type DemoProfileId = "weak_sme" | "better_sme";
+type DemoProfileLoader = (profileId: DemoProfileId) => void;
 type SectionInfoKey = "prioritySteps" | "criticalFindings" | "domainRiskMap";
 
 const severityRank: Record<string, number> = {
@@ -331,6 +335,44 @@ function ReportActionButton({
         </span>
       ) : null}
     </span>
+  );
+}
+
+function ReportDemoProfiles({
+  onLoadDemo,
+  align = "left",
+}: {
+  onLoadDemo?: DemoProfileLoader;
+  align?: "left" | "center";
+}) {
+  if (!onLoadDemo) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2", align === "center" && "justify-center")}>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        Demo profiles
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => onLoadDemo("weak_sme")}
+        className="h-9 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs text-slate-200 shadow-none hover:bg-white/[0.08] hover:text-white"
+      >
+        <ShieldAlert className="h-4 w-4" />
+        Weak SME
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => onLoadDemo("better_sme")}
+        className="h-9 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs text-slate-200 shadow-none hover:bg-white/[0.08] hover:text-white"
+      >
+        <ShieldCheck className="h-4 w-4" />
+        Better SME
+      </Button>
+    </div>
   );
 }
 
@@ -636,6 +678,7 @@ export default function ReportView({
   canGenerate,
   loading,
   onGenerate,
+  onLoadDemo,
   onOpenArtifact,
   language = "et",
 }: {
@@ -644,6 +687,7 @@ export default function ReportView({
   canGenerate: boolean;
   loading?: boolean;
   onGenerate: () => void;
+  onLoadDemo?: DemoProfileLoader;
   onOpenArtifact?: (artifact: ArtifactId) => void;
   language?: UiLanguage;
 }) {
@@ -674,6 +718,9 @@ export default function ReportView({
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             {t(language, "generateReport")}
           </ReportActionButton>
+          <div className="mt-5">
+            <ReportDemoProfiles onLoadDemo={onLoadDemo} align="center" />
+          </div>
         </section>
       </div>
     );
@@ -686,6 +733,7 @@ export default function ReportView({
       canGenerate={canGenerate}
       loading={loading}
       onGenerate={onGenerate}
+      onLoadDemo={onLoadDemo}
       onOpenArtifact={onOpenArtifact}
       language={language}
     />
@@ -698,6 +746,7 @@ function ReportCockpit({
   canGenerate,
   loading,
   onGenerate,
+  onLoadDemo,
   onOpenArtifact,
   language,
 }: {
@@ -706,6 +755,7 @@ function ReportCockpit({
   canGenerate: boolean;
   loading?: boolean;
   onGenerate: () => void;
+  onLoadDemo?: DemoProfileLoader;
   onOpenArtifact?: (artifact: ArtifactId) => void;
   language: UiLanguage;
 }) {
@@ -902,16 +952,19 @@ function ReportCockpit({
 
       <div className="relative space-y-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <ReportActionButton
-            disabled={loading}
-            align="left"
-            tooltipPlacement="bottom"
-            onClick={() => void generateReadinessReportPdf(report, language)}
-            className="rounded-full border-white/10 bg-white/[0.06] px-5 text-slate-100 shadow-none hover:bg-white/[0.1]"
-          >
-            <Download className="h-4 w-4" />
-            {r(language, "downloadPdf")}
-          </ReportActionButton>
+          <div className="flex flex-wrap items-center gap-3">
+            <ReportActionButton
+              disabled={loading}
+              align="left"
+              tooltipPlacement="bottom"
+              onClick={() => void generateReadinessReportPdf(report, language)}
+              className="rounded-full border-white/10 bg-white/[0.06] px-5 text-slate-100 shadow-none hover:bg-white/[0.1]"
+            >
+              <Download className="h-4 w-4" />
+              {r(language, "downloadPdf")}
+            </ReportActionButton>
+            <ReportDemoProfiles onLoadDemo={onLoadDemo} />
+          </div>
           <ReportActionButton
             disabled={!canGenerate || loading}
             onClick={onGenerate}

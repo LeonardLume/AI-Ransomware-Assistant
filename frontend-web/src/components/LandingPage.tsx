@@ -79,6 +79,7 @@ const productExamples: Array<{
   prompt: string;
   liveText: string;
   metric: string;
+  cards: Array<{ title: string; value: string; text: string }>;
 }> = [
   {
     id: "chat",
@@ -89,6 +90,18 @@ const productExamples: Array<{
     liveText:
       "Your backup evidence is partial: coverage is documented, but the latest restore test and immutable repository proof are still missing.",
     metric: "Live reasoning",
+    cards: [
+      {
+        title: "Recovery Proof",
+        value: "70/100",
+        text: "Backup evidence imported. Proof gaps converted into MSP tickets.",
+      },
+      {
+        title: "Questionnaire",
+        value: "33%",
+        text: "Backup domain active. Current question and answer trail stay visible.",
+      },
+    ],
   },
   {
     id: "proof",
@@ -99,6 +112,18 @@ const productExamples: Array<{
     liveText:
       "Recovery is partially defensible. Score 70/100. Critical gaps: restore test evidence and backup admin separation.",
     metric: "70/100 proof score",
+    cards: [
+      {
+        title: "Proof gaps",
+        value: "6",
+        text: "Missing restore test, isolation, admin separation, and evidence freshness.",
+      },
+      {
+        title: "MSP tickets",
+        value: "6",
+        text: "Prioritized remediation with owner, evidence needed, and client-safe wording.",
+      },
+    ],
   },
   {
     id: "questionnaire",
@@ -109,13 +134,40 @@ const productExamples: Array<{
     liveText:
       "Backup domain, question 4 of 12: Have restore tests been completed in the last 6 months? Suggested answer: Partial.",
     metric: "33% complete",
+    cards: [
+      {
+        title: "Current domain",
+        value: "Backup",
+        text: "The interview keeps domain progress and answered controls visible.",
+      },
+      {
+        title: "Current question",
+        value: "4/12",
+        text: "Answers stay traceable, including Yes, Partial, No, and Unsure.",
+      },
+    ],
   },
 ];
 
-const simpleNavOverlays: Record<Exclude<LandingTopNavId, "products" | "pricing" | "news">, string[]> = {
-  solutions: ["For MSP readiness reviews", "For client recovery proof", "For executive reporting"],
-  developer: ["API imports", "Evidence adapters", "Ticket export schema"],
-  company: ["Methodology", "Security posture", "Contact"],
+const simpleNavOverlays: Record<
+  Exclude<LandingTopNavId, "products" | "pricing" | "news">,
+  Array<{ label: string; href?: string }>
+> = {
+  solutions: [
+    { label: "For MSP readiness reviews", href: "/solutions/msp-readiness-reviews" },
+    { label: "For client recovery proof", href: "/solutions/client-recovery-proof" },
+    { label: "For executive reporting", href: "/solutions/executive-reporting" },
+  ],
+  developer: [
+    { label: "API imports" },
+    { label: "Evidence adapters" },
+    { label: "Ticket export schema" },
+  ],
+  company: [
+    { label: "Methodology" },
+    { label: "Security posture" },
+    { label: "Contact" },
+  ],
 };
 
 type LandingMenuId =
@@ -483,9 +535,6 @@ function ProductsOverlay({
           </div>
 
           <div className="space-y-3">
-            <div className="ml-auto max-w-[52%] rounded-2xl rounded-br-md border border-[hsl(var(--triage-border))] bg-[hsl(var(--triage-card))] px-4 py-3 text-[12px] font-semibold text-[hsl(var(--triage-foreground))]/88">
-              {activeExample.prompt}
-            </div>
             <div className="max-w-[72%] rounded-2xl rounded-bl-md border border-[hsl(var(--triage-border))] bg-[hsl(var(--triage-card))]/88 px-4 py-3 text-[12px] leading-5 text-[hsl(var(--triage-foreground))]/78">
               {typedText}
               <span className="ml-0.5 inline-block h-3 w-1 translate-y-0.5 animate-pulse bg-[hsl(var(--triage-foreground))]" />
@@ -493,16 +542,14 @@ function ProductsOverlay({
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <MiniProductExample
-              title="Recovery Proof"
-              value="70/100"
-              text="Backup evidence imported. Proof gaps converted into MSP tickets."
-            />
-            <MiniProductExample
-              title="Questionnaire"
-              value="33%"
-              text="Backup domain active. Current question and answer trail stay visible."
-            />
+            {activeExample.cards.map((card) => (
+              <MiniProductExample
+                key={`${activeExample.id}-${card.title}`}
+                title={card.title}
+                value={card.value}
+                text={card.text}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -526,16 +573,27 @@ function SimpleNavOverlay({ navId }: { navId: Exclude<LandingTopNavId, "products
   return (
     <div className="absolute left-1/2 top-full z-[70] w-[320px] -translate-x-1/2 pt-3">
       <div className="rounded-lg border border-[hsl(var(--triage-border))] bg-[hsl(var(--triage-card))] p-3 shadow-2xl">
-        {simpleNavOverlays[navId].map((item) => (
-          <button
-            key={item}
-            type="button"
-            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-[hsl(var(--triage-muted-foreground))] transition-colors hover:bg-[hsl(var(--triage-accent))] hover:text-[hsl(var(--triage-foreground))]"
-          >
-            {item}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        ))}
+        {simpleNavOverlays[navId].map((item) =>
+          item.href ? (
+            <a
+              key={item.label}
+              href={item.href}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-[hsl(var(--triage-muted-foreground))] transition-colors hover:bg-[hsl(var(--triage-accent))] hover:text-[hsl(var(--triage-foreground))]"
+            >
+              {item.label}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          ) : (
+            <button
+              key={item.label}
+              type="button"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-[hsl(var(--triage-muted-foreground))] transition-colors hover:bg-[hsl(var(--triage-accent))] hover:text-[hsl(var(--triage-foreground))]"
+            >
+              {item.label}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          ),
+        )}
       </div>
     </div>
   );
